@@ -3789,7 +3789,9 @@ describe('medium', () => {
         [key({ q: -1, r: 0 })]: [single('bread')],
         [key({ q: 0, r: 0 })]: [single('bread')],
       },
-      players: [{ ...base.players[0], hand: [card('line-bread')], coins: 0 }, base.players[1]],
+      // the hand keeps HAND_SIZE cards: shrinking it without adjusting the deck
+      // breaks determinize's card conservation, a state no real game can reach
+      players: [{ ...base.players[0], hand: [card('line-bread'), card('tri-plant')], coins: 0 }, base.players[1]],
       current: 0,
       phase: 'score',
       pending: [],
