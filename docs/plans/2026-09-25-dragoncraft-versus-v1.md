@@ -2948,7 +2948,9 @@ const card = (id: string): ShopCard => {
 
 /** A board where `line-bread` already matches, and a player holding that card. */
 function readyToScore(overrides: Partial<GameState> = {}): GameState {
-  const base = createInitialState(3)
+  // seed 1: seed 3 deals a deck whose top card collides by id with a card this
+  // fixture places in hand by hand, which no real game can produce.
+  const base = createInitialState(1)
   return {
     ...base,
     board: {
@@ -2994,7 +2996,8 @@ describe('scoring a card', () => {
         [key({ q: -2, r: 0 })]: [single('bread')],
         [key({ q: -1, r: 0 })]: [single('bread')],
         [key({ q: 0, r: 0 })]: [single('bread')],
-        [key({ q: 0, r: 1 })]: [single('bread')],
+        // (-1,1) closes a triangle with (-1,0) and (0,0); (0,1) would not
+        [key({ q: -1, r: 1 })]: [single('bread')],
       },
     })
     const withTwo: GameState = {
