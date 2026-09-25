@@ -41,3 +41,19 @@ body {
 .hex-cell[data-highlight='selected'] .hex-shape { fill: #2a3540; stroke: var(--selected); stroke-width: 1.6; }
 
 .stack-depth { fill: var(--ink); font-weight: 700; }
+
+.top-bar { color: var(--muted); font-size: 14px; }
+
+.prompt { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+.prompt-text { margin: 0 0 8px; font-weight: 600; }
+.prompt-actions { display: flex; flex-wrap: wrap; gap: 8px; max-height: 30dvh; overflow-y: auto; }
+
+.prompt-actions button {
+  background: #2a3540;
+  color: var(--ink);
+  border: 1px solid #3a4652;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font: inherit;
+  min-height: 44px;
+}
