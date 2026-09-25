@@ -74,4 +74,17 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
+
+  it('closes the stack detail when the commit comes from the decision bar, not the board', () => {
+    render(<App />)
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    expect(screen.getByText('Fire up this dragon?')).toBeDefined()
+
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
+
+    fireEvent.click(screen.getByText('Do not fire up'))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
 })
