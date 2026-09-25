@@ -1,10 +1,12 @@
-import { abilityActions, abilityPending, reduceAbility } from './abilities.js'
+import { abilityActions, fireUpAbility, reduceAbility } from './abilities.js'
+import { drawToken } from './bag.js'
 import { canReceive, pushToken, topOf } from './board.js'
 import { BOARD } from './hex.js'
-import { pick } from './rng.js'
 import { HAND_SIZE, createInitialState } from './setup.js'
 import { abilitiesOf } from './tokens.js'
-import type { Action, GameState, Pending, PlayerState, RngState, Seat, Token } from './types.js'
+import type { Action, GameState, Pending, PlayerState, RngState, Seat } from './types.js'
+
+export { drawToken } from './bag.js'
 
 /** Stable serialization: compares actions regardless of key order. */
 function stable(value: unknown): string {
@@ -38,40 +40,6 @@ export function replacePlayer(
   next: PlayerState,
 ): [PlayerState, PlayerState] {
   return seat === 0 ? [next, players[1]] : [players[0], next]
-}
-
-/**
- * Draws a token from the bag. If the bag is empty, injects the 6 extras —
- * once only. Emptying the bag triggers the end of the game, even when the
- * extras go in right after and the bag holds tokens again.
- * Returns `null` when there is nothing left to draw anywhere.
- */
-export function drawToken(state: GameState): { state: GameState; token: Token | null } {
-  let bag = state.bag
-  let extras = state.extras
-  let extrasAdded = state.extrasAdded
-
-  if (bag.length === 0) {
-    if (extrasAdded || extras.length === 0) return { state, token: null }
-    bag = [...extras]
-    extras = []
-    extrasAdded = true
-  }
-
-  const drawn = pick(bag, state.rng)
-  const rest = bag.filter((_, i) => i !== drawn.index)
-
-  return {
-    state: {
-      ...state,
-      rng: drawn.rng,
-      bag: rest,
-      extras,
-      extrasAdded,
-      endTriggered: state.endTriggered || rest.length === 0,
-    },
-    token: drawn.item,
-  }
 }
 
 /** Opens the current player's turn by drawing the token they will place. */
@@ -180,10 +148,12 @@ function reduce(state: GameState, action: Action): GameState {
     case 'fireUp': {
       const pending = topPending(state)
       if (!pending || pending.kind !== 'mayFireUp') throw new Error('fireUp outside a mayFireUp pending')
-      const rest = state.pending.slice(0, -1)
-      const opened = abilityPending(action.ability, pending.at)
-      const logged = [...state.log, { seat: state.current, action }]
-      return { ...state, pending: opened ? [...rest, opened] : rest, log: logged }
+      const popped: GameState = {
+        ...state,
+        pending: state.pending.slice(0, -1),
+        log: [...state.log, { seat: state.current, action }],
+      }
+      return fireUpAbility(popped, action.ability, pending.at)
     }
     case 'endTurn':
       return endTurn(state)
