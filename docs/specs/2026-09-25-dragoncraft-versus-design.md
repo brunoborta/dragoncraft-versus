@@ -118,8 +118,19 @@ Resumo normativo do que o motor precisa implementar.
 4. Retirar outros 6 artesãos, um de cada tipo, e reservá-los fora do saco
    (tokens extras, usados só no fim de jogo).
 5. O saco fica com 24 artesãos + 6 duais = 30 tokens.
-6. Primeiro jogador: determinado pela Fire Up Chart. Na v1, sorteio simples
-   com a seed.
+6. Primeiro jogador: cada jogador puxa um token do saco. Começa quem tirar o
+   dragão mais alto na Fire Up Chart. Um token dual conta como o **mais alto**
+   dos seus 2 tipos e **vence empates** contra um token de tipo único igual.
+   Empate real: ambos devolvem os tokens ao saco e puxam de novo. Ao final, os
+   tokens voltam para o saco.
+
+   **Fire Up Chart**, do mais alto para o mais baixo:
+   `bread > crystal > meat > iron > potion > plant`.
+
+   Atenção: essa ordem **não** é a mesma do anel que gera os tokens duais
+   (`bread -> crystal -> iron -> potion -> plant -> meat`). São duas constantes
+   independentes; `meat` e `iron` aparecem em posições trocadas entre elas.
+   Reaproveitar uma no lugar da outra é um bug silencioso.
 
 ### Turno
 Três fases em ordem: PLAY, SCORE, REFRESH. A qualquer momento antes do
@@ -368,10 +379,6 @@ contra o médio, num celular, do primeiro token até a contagem final.
 
 ## 13. Riscos e questões em aberto
 
-- **Primeiro jogador.** O rulebook usa a Fire Up Chart (ordem de precedência
-  dos tipos) para desempatar o sorteio. A ordem exata da chart não foi lida do
-  PDF. Na v1 o primeiro jogador é sorteado pela seed, o que é justo e
-  suficiente; a chart fica pendente caso vire relevante.
 - **Balanceamento não verificado.** A derivação do deck (42 cards, 96 de
   reputação) bate com a contagem de componentes e foi confirmada pelo dono do
   jogo físico, mas nenhuma partida foi jogada contra a caixa para conferir.
