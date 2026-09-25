@@ -1,0 +1,43 @@
+:root {
+  --bg: #12161b;
+  --surface: #1b2129;
+  --ink: #e8eef5;
+  --muted: #8a97a6;
+  --legal: #4a9a5c;
+  --completes: #e8b53a;
+  --selected: #3f8fd0;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.4 system-ui, -apple-system, sans-serif;
+  overscroll-behavior: none;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+  gap: 8px;
+  padding: 8px;
+}
+
+.board { width: 100%; height: 100%; touch-action: manipulation; }
+
+.hex-shape {
+  fill: var(--surface);
+  stroke: #2b333d;
+  stroke-width: 0.6;
+}
+
+.hex-cell { cursor: pointer; }
+.hex-cell[data-highlight='legal'] .hex-shape { stroke: var(--legal); stroke-width: 1.2; }
+.hex-cell[data-highlight='completes'] .hex-shape { stroke: var(--completes); stroke-width: 1.6; }
+.hex-cell[data-highlight='selected'] .hex-shape { fill: #2a3540; stroke: var(--selected); stroke-width: 1.6; }
+
+.stack-depth { fill: var(--ink); font-weight: 700; }
