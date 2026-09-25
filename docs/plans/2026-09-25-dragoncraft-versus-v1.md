@@ -4058,8 +4058,31 @@ export default defineConfig({
   test: {
     include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.{ts,tsx}'],
     environmentMatchGlobs: [['apps/**', 'jsdom']],
+    // @testing-library/react registers its own afterEach(cleanup), which needs
+    // Vitest's globals. Without this the DOM leaks between it() blocks.
+    globals: true,
   },
 })
+```
+
+Duas coisas na raiz que não são opcionais e não são óbvias:
+
+**O `tsconfig.json` da raiz precisa de mais do que o glob.** Este repo não usa project
+references, então `tsc -b` compila um projeto monolítico sob as opções da raiz — o
+`apps/web/tsconfig.json` não é consultado. Além de estender `include` para `apps/*/src`, a raiz
+precisa de `"jsx": "react-jsx"` e de `"lib": ["ES2022", "DOM", "DOM.Iterable"]`, ou o app inteiro
+falha a compilar. Vale conferir que a verificação está mesmo acontecendo: introduza um erro de
+tipo de propósito, veja `tsc -b` pegá-lo, e remova.
+
+**Fixar a versão do React.** `@testing-library/react` puxa React 19 para a raiz enquanto
+`apps/web` declara 18.3.1, e as duas cópias quebram todo teste de componente. Acrescentar ao
+`package.json` da raiz:
+
+```json
+  "overrides": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
 ```
 
 - [ ] **Step 2: Escrever o teste do tema**
