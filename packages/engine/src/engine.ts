@@ -2,6 +2,7 @@ import { abilityActions, fireUpAbility, reduceAbility } from './abilities.js'
 import { drawToken } from './bag.js'
 import { canReceive, pushToken, topOf } from './board.js'
 import { BOARD } from './hex.js'
+import { scoreableCards } from './scoring.js'
 import { HAND_SIZE, createInitialState } from './setup.js'
 import { abilitiesOf } from './tokens.js'
 import type { Action, GameState, Pending, PlayerState, RngState, Seat } from './types.js'
@@ -69,17 +70,38 @@ function pendingActions(state: GameState, pending: Pending): Action[] {
     for (const ability of abilitiesOf(token)) actions.push({ type: 'fireUp', ability })
     return actions
   }
+  if (pending.kind === 'coinDiscard') {
+    const hand = state.players[state.current].hand
+    const actions: Action[] = []
+    for (let i = 0; i < hand.length; i++) {
+      for (let j = i + 1; j < hand.length; j++) {
+        actions.push({ type: 'coinDiscard', cardIds: [hand[i].id, hand[j].id] })
+      }
+    }
+    return actions
+  }
   const fromAbility = abilityActions(state, pending)
   if (fromAbility) return fromAbility
   throw new Error(`pending with no actions defined: ${pending.kind}`)
 }
 
+const SCORING_PHASES = new Set(['score', 'final-score'])
+
 export function legalActions(state: GameState): Action[] {
   if (state.phase === 'ended') return []
+
   const pending = topPending(state)
   if (pending) return pendingActions(state, pending)
-  if (state.phase === 'score' || state.phase === 'final-score') return [{ type: 'endTurn' }]
-  return []
+  if (!SCORING_PHASES.has(state.phase)) return []
+
+  const player = state.players[state.current]
+  const actions: Action[] = scoreableCards(state, state.current).map((card) => ({
+    type: 'scoreCard',
+    cardId: card.id,
+  }))
+  if (player.coins > 0 && !player.coinSpentThisTurn) actions.push({ type: 'spendCoin' })
+  actions.push({ type: 'endTurn' })
+  return actions
 }
 
 /** Draws up to a full hand. Emptying the deck also triggers the end of the game. */
@@ -154,6 +176,55 @@ function reduce(state: GameState, action: Action): GameState {
         log: [...state.log, { seat: state.current, action }],
       }
       return fireUpAbility(popped, action.ability, pending.at)
+    }
+    case 'scoreCard': {
+      const player = state.players[state.current]
+      const card = player.hand.find((c) => c.id === action.cardId)
+      if (!card) throw new Error(`card ${action.cardId} is not in hand`)
+      return {
+        ...state,
+        players: replacePlayer(state.players, state.current, {
+          ...player,
+          hand: player.hand.filter((c) => c.id !== action.cardId),
+          scored: [...player.scored, card],
+        }),
+        log: [...state.log, { seat: state.current, action }],
+      }
+    }
+    case 'spendCoin': {
+      const player = state.players[state.current]
+      const drawn = state.deck.slice(0, 2)
+      const deck = state.deck.slice(drawn.length)
+      return {
+        ...state,
+        deck,
+        endTriggered: state.endTriggered || deck.length === 0,
+        players: replacePlayer(state.players, state.current, {
+          ...player,
+          coins: player.coins - 1,
+          coinSpentThisTurn: true,
+          hand: [...player.hand, ...drawn],
+        }),
+        pending: [...state.pending, { kind: 'coinDiscard' }],
+        // the discarded cards stay out of the log: they are private information
+        log: [...state.log, { seat: state.current, action }],
+      }
+    }
+    case 'coinDiscard': {
+      const player = state.players[state.current]
+      const returned = action.cardIds
+        .map((id) => player.hand.find((c) => c.id === id))
+        .filter((card): card is NonNullable<typeof card> => card !== undefined)
+      if (returned.length !== 2) throw new Error('coinDiscard needs two cards from hand')
+      return {
+        ...state,
+        deck: [...state.deck, ...returned],
+        players: replacePlayer(state.players, state.current, {
+          ...player,
+          hand: player.hand.filter((c) => !action.cardIds.includes(c.id)),
+        }),
+        pending: state.pending.slice(0, -1),
+      }
     }
     case 'endTurn':
       return endTurn(state)

@@ -76,11 +76,11 @@ describe('end of turn', () => {
     expect(next.bag).toHaveLength(28)
   })
 
-  it('offers only ending the turn in the SCORE phase, for now', () => {
+  it('offers spending a coin and ending the turn in the SCORE phase', () => {
     const game = createGame(12)
     const placed = applyAction(game, placeAt(game, 0, 0))
     const skipped = applyAction(placed, { type: 'skipFireUp' })
-    expect(legalActions(skipped)).toEqual([{ type: 'endTurn' }])
+    expect(legalActions(skipped)).toEqual([{ type: 'spendCoin' }, { type: 'endTurn' }])
   })
 
   it('fills the hand back to 2 cards on REFRESH', () => {
