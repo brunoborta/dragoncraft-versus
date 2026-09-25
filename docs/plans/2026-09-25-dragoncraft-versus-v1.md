@@ -479,9 +479,16 @@ export function areAdjacent(a: Hex, b: Hex): boolean {
 /** The 6 starting spaces: the ring around the centre. */
 export const INNER_RING: readonly Hex[] = neighbors(CENTER)
 
-/** 60-degree rotation about the centre. Six applications return to the original. */
+/**
+ * 60-degree rotation about the centre. Six applications return to the original.
+ *
+ * The `+ 0` normalizes IEEE-754 negative zero: `-h.r` is `-0` when `h.r` is 0,
+ * and deep equality (vitest `toEqual`, `Object.is`) treats `-0` and `0` as
+ * different values. The matcher compares rotated coordinates, so a stray `-0`
+ * would silently fail to match. Do not "simplify" this away.
+ */
 export function rotate(h: Hex): Hex {
-  return { q: -h.r, r: h.q + h.r }
+  return { q: -h.r + 0, r: h.q + h.r + 0 }
 }
 
 export function key(h: Hex): HexKey {
