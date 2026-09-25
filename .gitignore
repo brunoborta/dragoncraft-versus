@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+
+# Rulebook original (material de terceiros, fonte de consulta apenas)
+FlamecraftDuals_Rulebook.pdf
