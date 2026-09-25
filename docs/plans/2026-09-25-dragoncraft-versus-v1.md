@@ -5143,7 +5143,7 @@ Acrescentar ao `styles.css`:
 .card .pattern { width: 100%; height: 56px; }
 .card-name { margin: 0; font-size: 12px; text-align: center; }
 .card-rep { position: absolute; top: 6px; right: 8px; font-weight: 700; color: var(--completes); }
-.card button { min-height: 40px; width: 100%; border-radius: 8px; border: 0; background: var(--completes); font: inherit; font-weight: 600; }
+.card button { min-height: 44px; width: 100%; border-radius: 8px; border: 0; background: var(--completes); font: inherit; font-weight: 600; }
 
 .pattern-hex { fill: #222a33; stroke: #39434e; stroke-width: 0.6; }
 ```
@@ -5541,9 +5541,13 @@ No `App.tsx`, guardar a casa inspecionada e limpá-la a cada toque:
 
 E renderizar `{inspecting ? <StackDetail hex={inspecting} stack={game.state.board[key(inspecting)] ?? []} /> : null}` logo acima da `<Prompt />`.
 
-Acrescentar ao `styles.css`:
+Acrescentar ao `styles.css`, e de passagem corrigir uma contradição do plano: a Task 17 define
+`.card button { min-height: 40px }`, abaixo dos 44px que as Global Constraints exigem de todo
+alvo de toque. Levar esse valor para 44px.
 
 ```css
+.card button { min-height: 44px; }
+
 .stack-detail { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
 .stack-detail-title { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
 .stack-detail ol { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none; }
