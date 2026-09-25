@@ -98,8 +98,15 @@ Resumo normativo do que o motor precisa implementar.
 ### Componentes
 - 36 tokens de dragão artesão: 6 tipos × 6 cópias.
   Tipos: `bread`, `crystal`, `meat`, `iron`, `potion`, `plant`.
-- 6 tokens duais, cada um com 2 tipos distintos. **Quais 6 das 15 combinações
-  possíveis existem ainda não foi determinado** — ver seção 13.
+- 6 tokens duais, cada um com 2 tipos distintos:
+  `bread+crystal`, `crystal+iron`, `iron+potion`, `potion+plant`,
+  `plant+meat`, `meat+bread`.
+
+  Os pares formam um ciclo fechado — `bread -> crystal -> iron -> potion ->
+  plant -> meat -> bread` — no qual cada dual liga dois tipos vizinhos. Como
+  consequência, cada tipo aparece em exatamente 2 duais. Os duais são gerados
+  em código a partir dessa constante de anel, e um teste afirma a contagem de
+  2 por tipo.
 - 42 shop cards.
 - 6 moedas (3 por jogador).
 
@@ -361,12 +368,6 @@ contra o médio, num celular, do primeiro token até a contagem final.
 
 ## 13. Riscos e questões em aberto
 
-- **Composição dos tokens duais (bloqueia a preparação da partida).** Existem
-  6 tokens duais entre 15 pares possíveis de tipos, e quais 6 são não está no
-  rulebook nem foi derivado. Sem isso o saco não pode ser montado. É uma
-  consulta de trinta segundos aos tokens do jogo físico. Enquanto não houver
-  resposta, o motor usa uma lista provisória isolada num único ponto do código,
-  trocável sem tocar em mais nada.
 - **Primeiro jogador.** O rulebook usa a Fire Up Chart (ordem de precedência
   dos tipos) para desempatar o sorteio. A ordem exata da chart não foi lida do
   PDF. Na v1 o primeiro jogador é sorteado pela seed, o que é justo e
