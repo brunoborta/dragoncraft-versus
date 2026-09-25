@@ -1,6 +1,29 @@
-import { key } from '@dcv/engine'
-import type { Action, PlayerView } from '@dcv/engine'
+import { areAdjacent, key } from '@dcv/engine'
+import type { Action, PatternCell, PlayerView, ShopCard } from '@dcv/engine'
 import { DRAGON_THEME } from '../theme.js'
+
+function isTriangle(pattern: readonly PatternCell[]): boolean {
+  const [a, b, c] = pattern.map((cell) => cell.offset)
+  return areAdjacent(a, b) && areAdjacent(b, c) && areAdjacent(a, c)
+}
+
+/** A readable name built from the pattern, so no card id ever reaches the screen. */
+export function cardName(card: ShopCard): string {
+  const types = card.pattern.map((cell) => cell.type)
+  const unique = [...new Set(types)]
+
+  if (unique.length === 1) {
+    const shape = isTriangle(card.pattern) ? 'triangle' : 'line'
+    return `Three ${DRAGON_THEME[unique[0]].label} in a ${shape}`
+  }
+
+  const repeated = types.find((type, i) => types.indexOf(type) !== i)
+  if (!repeated) throw new Error(`mixed card ${card.id} has no repeated type`)
+  const odd = unique.find((type) => type !== repeated)
+  if (!odd) throw new Error(`mixed card ${card.id} has no odd type`)
+
+  return `Two ${DRAGON_THEME[repeated].label} and one ${DRAGON_THEME[odd].label}`
+}
 
 export function describeAction(action: Action): string {
   switch (action.type) {
@@ -27,7 +50,7 @@ export function describeAction(action: Action): string {
     case 'coinDiscard':
       return 'Return these two cards'
     case 'scoreCard':
-      return `Score ${action.cardId}`
+      return 'Scored a card'
     case 'endTurn':
       return 'End turn'
   }

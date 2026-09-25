@@ -2,8 +2,10 @@ import { key } from '@dcv/engine'
 import type { Hex } from '@dcv/engine'
 import { useState } from 'react'
 import { Board } from './components/Board.js'
+import { Hand } from './components/Hand.js'
 import type { Highlight } from './components/HexCell.js'
 import { Prompt } from './components/Prompt.js'
+import { TopBar } from './components/TopBar.js'
 import { useGame } from './game/useGame.js'
 
 const OPENING_SEED = 1
@@ -32,16 +34,26 @@ export function App() {
 
   return (
     <main className="app">
-      <header className="top-bar">Dragoncraft Versus</header>
+      <TopBar view={game.view} />
       <Board board={game.state.board} highlights={highlights} onSelectHex={selectHex} />
-      <Prompt
-        view={game.view}
-        actions={game.actions}
-        onAct={(action) => {
-          setSelected(null)
-          game.perform(action)
-        }}
-      />
+      <footer className="bottom">
+        <Hand
+          view={game.view}
+          actions={game.actions}
+          onAct={(action) => {
+            setSelected(null)
+            game.perform(action)
+          }}
+        />
+        <Prompt
+          view={game.view}
+          actions={game.actions}
+          onAct={(action) => {
+            setSelected(null)
+            game.perform(action)
+          }}
+        />
+      </footer>
     </main>
   )
 }

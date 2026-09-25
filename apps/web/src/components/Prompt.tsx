@@ -11,7 +11,7 @@ export function Prompt({
   actions: readonly Action[]
   onAct: (action: Action) => void
 }) {
-  const buttons = actions.filter((action) => action.type !== 'place')
+  const buttons = actions.filter((action) => action.type !== 'place' && action.type !== 'scoreCard')
 
   return (
     <section className="prompt" aria-label="Current decision">
