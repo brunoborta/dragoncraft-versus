@@ -1,7 +1,9 @@
-import { canReceive, pushToken } from './board.js'
+import { abilityActions, abilityPending, reduceAbility } from './abilities.js'
+import { canReceive, pushToken, topOf } from './board.js'
 import { BOARD } from './hex.js'
 import { pick } from './rng.js'
 import { HAND_SIZE, createInitialState } from './setup.js'
+import { abilitiesOf } from './tokens.js'
 import type { Action, GameState, Pending, PlayerState, RngState, Seat, Token } from './types.js'
 
 /** Stable serialization: compares actions regardless of key order. */
@@ -89,12 +91,19 @@ export function createGame(seed: RngState): GameState {
 }
 
 function pendingActions(state: GameState, pending: Pending): Action[] {
-  switch (pending.kind) {
-    case 'place':
-      return BOARD.filter((hex) => canReceive(state.board, hex)).map((at) => ({ type: 'place', at }))
-    default:
-      throw new Error(`pending with no actions defined: ${pending.kind}`)
+  if (pending.kind === 'place') {
+    return BOARD.filter((hex) => canReceive(state.board, hex)).map((at) => ({ type: 'place', at }))
   }
+  if (pending.kind === 'mayFireUp') {
+    const token = topOf(state.board, pending.at)
+    if (!token) throw new Error('mayFireUp on an empty space')
+    const actions: Action[] = [{ type: 'skipFireUp' }]
+    for (const ability of abilitiesOf(token)) actions.push({ type: 'fireUp', ability })
+    return actions
+  }
+  const fromAbility = abilityActions(state, pending)
+  if (fromAbility) return fromAbility
+  throw new Error(`pending with no actions defined: ${pending.kind}`)
 }
 
 export function legalActions(state: GameState): Action[] {
@@ -158,24 +167,43 @@ function reduce(state: GameState, action: Action): GameState {
     case 'place': {
       const pending = topPending(state)
       if (!pending || pending.kind !== 'place') throw new Error('place without a place pending')
+      const rest = state.pending.slice(0, -1)
       return {
         ...state,
         board: pushToken(state.board, action.at, pending.token),
-        pending: state.pending.slice(0, -1),
+        pending: pending.fireUpAllowed ? [...rest, { kind: 'mayFireUp', at: action.at }] : rest,
         log: [...state.log, { seat: state.current, action }],
       }
     }
+    case 'skipFireUp':
+      return { ...state, pending: state.pending.slice(0, -1) }
+    case 'fireUp': {
+      const pending = topPending(state)
+      if (!pending || pending.kind !== 'mayFireUp') throw new Error('fireUp outside a mayFireUp pending')
+      const rest = state.pending.slice(0, -1)
+      const opened = abilityPending(action.ability, pending.at)
+      const logged = [...state.log, { seat: state.current, action }]
+      return { ...state, pending: opened ? [...rest, opened] : rest, log: logged }
+    }
     case 'endTurn':
       return endTurn(state)
-    default:
+    default: {
+      const handled = reduceAbility(state, action)
+      if (handled) return handled
       throw new Error(`action with no reducer: ${action.type}`)
+    }
   }
 }
 
 /** PLAY ends by itself once the pending stack empties. */
 function settle(state: GameState): GameState {
-  if (state.phase === 'play' && state.pending.length === 0) return { ...state, phase: 'score' }
-  return state
+  let current = state
+  // A pending with no possible action resolves itself.
+  while (current.pending.length > 0 && legalActions(current).length === 0) {
+    current = { ...current, pending: current.pending.slice(0, -1) }
+  }
+  if (current.phase === 'play' && current.pending.length === 0) return { ...current, phase: 'score' }
+  return current
 }
 
 export function applyAction(state: GameState, action: Action): GameState {

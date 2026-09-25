@@ -31,6 +31,7 @@ describe('legalActions while placing', () => {
     let state = createGame(5)
     for (let i = 0; i < 3; i++) {
       state = applyAction(state, placeAt(state, 0, 0))
+      state = applyAction(state, { type: 'skipFireUp' })
       state = applyAction(state, { type: 'endTurn' })
     }
     expect(heightAt(state.board, { q: 0, r: 0 })).toBe(3)
@@ -40,10 +41,11 @@ describe('legalActions while placing', () => {
 })
 
 describe('applyAction', () => {
-  it('places the token and ends the PLAY phase', () => {
+  it('places the token, then skipping fire-up ends the PLAY phase', () => {
     const game = createGame(7)
-    const after = applyAction(game, placeAt(game, 0, 0))
-    expect(topOf(after.board, { q: 0, r: 0 })).toBeDefined()
+    const placed = applyAction(game, placeAt(game, 0, 0))
+    expect(topOf(placed.board, { q: 0, r: 0 })).toBeDefined()
+    const after = applyAction(placed, { type: 'skipFireUp' })
     expect(after.pending).toEqual([])
     expect(after.phase).toBe('score')
   })
@@ -66,7 +68,8 @@ describe('end of turn', () => {
   it('passes the turn and draws a token for the other player', () => {
     const game = createGame(11)
     const placed = applyAction(game, placeAt(game, 0, 0))
-    const next = applyAction(placed, { type: 'endTurn' })
+    const skipped = applyAction(placed, { type: 'skipFireUp' })
+    const next = applyAction(skipped, { type: 'endTurn' })
     expect(next.current).toBe(1 - game.current)
     expect(next.phase).toBe('play')
     expect(next.pending[0].kind).toBe('place')
@@ -76,7 +79,8 @@ describe('end of turn', () => {
   it('offers only ending the turn in the SCORE phase, for now', () => {
     const game = createGame(12)
     const placed = applyAction(game, placeAt(game, 0, 0))
-    expect(legalActions(placed)).toEqual([{ type: 'endTurn' }])
+    const skipped = applyAction(placed, { type: 'skipFireUp' })
+    expect(legalActions(skipped)).toEqual([{ type: 'endTurn' }])
   })
 
   it('fills the hand back to 2 cards on REFRESH', () => {
@@ -90,7 +94,8 @@ describe('end of turn', () => {
       current: 0,
     }
     const placed = applyAction(short, placeAt(short, 0, 0))
-    const after = applyAction(placed, { type: 'endTurn' })
+    const skipped = applyAction(placed, { type: 'skipFireUp' })
+    const after = applyAction(skipped, { type: 'endTurn' })
     expect(after.players[0].hand).toHaveLength(2)
     expect(after.deck).toHaveLength(game.deck.length - 1)
   })
@@ -105,7 +110,8 @@ describe('end of turn', () => {
       ],
     }
     const placed = applyAction(spent, placeAt(spent, 0, 0))
-    const after = applyAction(placed, { type: 'endTurn' })
+    const skipped = applyAction(placed, { type: 'skipFireUp' })
+    const after = applyAction(skipped, { type: 'endTurn' })
     expect(after.players[after.current].coinSpentThisTurn).toBe(false)
   })
 })
