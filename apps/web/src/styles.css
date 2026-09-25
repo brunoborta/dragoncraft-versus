@@ -89,3 +89,14 @@ body {
 .stack-detail ol { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .stack-detail li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .stack-detail svg { width: 28px; height: 28px; }
+
+.controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 13px; }
+.controls select, .controls button { min-height: 44px; background: #2a3540; color: var(--ink); border: 1px solid #3a4652; border-radius: 8px; font: inherit; }
+.controls button:disabled { opacity: 0.4; }
+
+.game-over { background: var(--surface); border-radius: 12px; padding: 16px; text-align: center; }
+.game-over h2 { margin: 0 0 8px; }
+.game-over dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; margin: 0 0 12px; }
+.game-over dt { color: var(--muted); text-align: left; }
+.game-over dd { margin: 0; font-weight: 700; }
+.game-over button { min-height: 44px; width: 100%; border: 0; border-radius: 8px; background: var(--completes); font: inherit; font-weight: 600; }

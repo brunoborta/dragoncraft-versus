@@ -8,6 +8,7 @@ export type GameSession = {
   actions: Action[]
   perform: (action: Action) => void
   undo: () => void
+  undoUntil: (predicate: (state: GameState) => boolean) => void
   canUndo: boolean
   reset: (seed: number) => void
 }
@@ -31,9 +32,19 @@ export function useGame(seed: number): GameSession {
     setHistory((past) => (past.length > 1 ? past.slice(0, -1) : past))
   }, [])
 
+  /** Steps back at least once, then keeps stepping until `predicate` holds. */
+  const undoUntil = useCallback((predicate: (state: GameState) => boolean) => {
+    setHistory((past) => {
+      if (past.length <= 1) return past
+      let next = past.slice(0, -1)
+      while (next.length > 1 && !predicate(next[next.length - 1])) next = next.slice(0, -1)
+      return next
+    })
+  }, [])
+
   const reset = useCallback((nextSeed: number) => {
     setHistory([createGame(nextSeed)])
   }, [])
 
-  return { state, view, actions, perform, undo, canUndo: history.length > 1, reset }
+  return { state, view, actions, perform, undo, undoUntil, canUndo: history.length > 1, reset }
 }
