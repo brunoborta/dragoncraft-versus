@@ -5426,25 +5426,32 @@ export function Prompt({
 
 - [ ] **Step 5: Inspecionar uma pilha**
 
-A spec pede que tocar numa pilha abra ela. Um toque numa casa que **não** é alvo
-da decisão atual não tem outro significado, então é aí que a inspeção cabe, sem
-disputar com a seleção.
+A spec pede que tocar numa pilha abra ela. Toda casa com token mostra o que há
+embaixo ao ser tocada — inclusive quando ela também é alvo da decisão atual, e
+é justamente aí que a informação serve: o primeiro toque mostra a prévia da
+jogada **e** o conteúdo da pilha, que é o que você precisa pra decidir o
+segundo toque. A inspeção some assim que uma ação é executada.
 
 Teste, em `apps/web/src/App.test.tsx`:
 
 ```tsx
-  it('opens a stack when a space that is not a target is tapped', () => {
+  it('opens a stack when an occupied space is tapped', () => {
     render(<App />)
-    const occupied = screen.getByLabelText(/^1,0: /)
-    fireEvent.click(occupied)
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
   })
 
-  it('closes the stack detail on the next tap', () => {
+  it('shows nothing for an empty space', () => {
+    render(<App />)
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
+
+  it('closes the stack detail once an action is taken', () => {
     render(<App />)
     fireEvent.click(screen.getByLabelText(/^1,0: /))
-    fireEvent.click(screen.getByLabelText('2,-2: empty'))
-    expect(screen.queryByLabelText('Stack at 1,0')).toBeNull()
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 ```
 
@@ -5484,14 +5491,16 @@ No `App.tsx`, guardar a casa inspecionada e limpá-la a cada toque:
   function selectHex(hex: Hex): void {
     const outcome = resolveTap(game.actions, selected, hex)
     setSelected(outcome.select)
+
     if (outcome.action) {
       setInspecting(null)
       game.perform(outcome.action)
       return
     }
-    // not a target: show what is stacked there instead
+
+    // any tapped space that holds tokens shows what is stacked there
     const stack = game.state.board[key(hex)] ?? []
-    setInspecting(outcome.select === null && stack.length > 0 ? hex : null)
+    setInspecting(stack.length > 0 ? hex : null)
   }
 ```
 
