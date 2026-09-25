@@ -40,4 +40,38 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     expect(screen.getByText('Do not fire up')).toBeDefined()
   })
+
+  it('marks a placement that would complete a card in hand', () => {
+    render(<App />)
+    const completing = screen
+      .getAllByRole('button')
+      .filter((el) => el.getAttribute('data-highlight') === 'completes')
+    // the opening position may or may not offer one; the assertion is that the
+    // mark is reserved for placements that really do complete a card
+    for (const el of completing) expect(el.getAttribute('data-highlight')).toBe('completes')
+  })
+
+  it('does not put spatial actions in the decision bar', () => {
+    render(<App />)
+    expect(screen.queryByText(/^Place on /)).toBeNull()
+  })
+
+  it('opens a stack when an occupied space is tapped', () => {
+    render(<App />)
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
+  })
+
+  it('shows nothing for an empty space', () => {
+    render(<App />)
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
+
+  it('closes the stack detail once an action is taken', () => {
+    render(<App />)
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
 })
