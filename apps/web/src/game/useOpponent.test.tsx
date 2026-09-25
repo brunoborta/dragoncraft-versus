@@ -16,9 +16,10 @@ describe('useOpponent', () => {
   afterEach(() => vi.useRealTimers())
 
   it('does not act while it is the human turn', () => {
-    const { result } = harness(1)
-    const humanTurn = result.current.state.current === 0
-    if (!humanTurn) return
+    // seed 1 hands the opening move to seat 1 (the machine), which would
+    // make this test vacuously true; seed 2 opens on seat 0 (the human).
+    const { result } = harness(2)
+    expect(result.current.state.current).toBe(0)
     const before = JSON.stringify(result.current.state)
     act(() => void vi.advanceTimersByTime(2000))
     expect(JSON.stringify(result.current.state)).toBe(before)
