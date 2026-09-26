@@ -4,8 +4,10 @@ import type { Difficulty } from '@dcv/ai'
 import { useState } from 'react'
 import { Board } from './components/Board.js'
 import { Controls } from './components/Controls.js'
+import { DifficultySetup } from './components/DifficultySetup.js'
 import { GameOver } from './components/GameOver.js'
 import { Hand } from './components/Hand.js'
+import { LogDialog } from './components/LogDialog.js'
 import type { Highlight } from './components/HexCell.js'
 import { OpponentThinking, Prompt } from './components/Prompt.js'
 import { StackDetail } from './components/StackDetail.js'
@@ -21,15 +23,24 @@ const OPENING_SEED = 2
 
 export function App() {
   const [seed, setSeed] = useState(OPENING_SEED)
-  const [level, setLevel] = useState<Difficulty>('easy')
+  // null until chosen: the game does not start, and the machine does not move,
+  // before the player has picked who they are playing against
+  const [level, setLevel] = useState<Difficulty | null>(null)
   const game = useGame(seed)
   const [selected, setSelected] = useState<Hex | null>(null)
   const [inspecting, setInspecting] = useState<Hex | null>(null)
+  const [logOpen, setLogOpen] = useState(false)
 
-  useOpponent({ session: game, seat: MACHINE_SEAT, level, enabled: true })
+  // `level ?? 'easy'` is never read: the effect returns on `enabled` first
+  useOpponent({
+    session: game,
+    seat: MACHINE_SEAT,
+    level: level ?? 'easy',
+    enabled: level !== null,
+  })
 
   const ended = game.state.phase === 'ended'
-  const myTurn = game.state.current === HUMAN_SEAT && !ended
+  const myTurn = level !== null && game.state.current === HUMAN_SEAT && !ended
   // always the human's own view, so the machine's turn never flips the hand shown
   const view = toPlayerView(game.state, HUMAN_SEAT)
   const actions = myTurn ? game.actions : []
@@ -83,6 +94,9 @@ export function App() {
     const next = seed + 1
     setSeed(next)
     game.reset(next)
+    setLogOpen(false)
+    // a new game asks again: this is the only place the opponent is chosen
+    setLevel(null)
   }
 
   function decision() {
@@ -93,7 +107,7 @@ export function App() {
 
   return (
     <main className="app">
-      <TopBar view={view} />
+      <TopBar view={view} onOpenLog={() => setLogOpen(true)} />
       <Board
         board={game.state.board}
         highlights={highlights}
@@ -108,10 +122,12 @@ export function App() {
             onClose={() => setInspecting(null)}
           />
         ) : null}
-        <Controls level={level} onLevel={setLevel} canUndo={game.canUndo && myTurn} onUndo={undo} />
+        <Controls level={level} canUndo={game.canUndo && myTurn} onUndo={undo} />
         <Hand view={view} actions={actions} onAct={handleAct} />
         {decision()}
       </footer>
+      {logOpen ? <LogDialog view={view} onClose={() => setLogOpen(false)} /> : null}
+      {level === null ? <DifficultySetup onChoose={setLevel} /> : null}
     </main>
   )
 }

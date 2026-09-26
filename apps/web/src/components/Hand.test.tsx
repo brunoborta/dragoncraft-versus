@@ -20,24 +20,24 @@ describe('Hand', () => {
 
 describe('TopBar', () => {
   it('shows the opponent card count without showing the cards', () => {
-    render(<TopBar view={view} />)
+    render(<TopBar view={view} onOpenLog={() => {}} />)
     expect(screen.getByText(/2 cards/)).toBeDefined()
     expect(screen.queryByText(view.you.hand[0].id)).toBeNull()
   })
 
   // the fixture is seat 0's view, so `current` alone decides the line
   it('says whose turn it is', () => {
-    render(<TopBar view={{ ...view, current: 0 }} />)
+    render(<TopBar view={{ ...view, current: 0 }} onOpenLog={() => {}} />)
     expect(screen.getByText('Your turn')).toBeDefined()
   })
 
   it('says so when it is the opponent turn', () => {
-    render(<TopBar view={{ ...view, current: 1 }} />)
+    render(<TopBar view={{ ...view, current: 1 }} onOpenLog={() => {}} />)
     expect(screen.getByText("Opponent's turn")).toBeDefined()
   })
 
   it('shows the most recent log line', () => {
-    render(<TopBar view={view} />)
-    expect(screen.getByText(/drew/)).toBeDefined()
+    render(<TopBar view={view} onOpenLog={() => {}} />)
+    expect(screen.getByText(/Drew/)).toBeDefined()
   })
 })

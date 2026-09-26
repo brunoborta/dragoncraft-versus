@@ -1,33 +1,23 @@
 import type { Difficulty } from '@dcv/ai'
+import { LEVEL_LABEL } from './DifficultySetup.js'
 
-const LEVELS: { value: Difficulty; label: string }[] = [
-  { value: 'easy', label: 'Easy' },
-  { value: 'medium', label: 'Medium' },
-]
-
+/**
+ * The opponent is a label, not a control: it is chosen before the game starts.
+ * Letting it change mid-game would let a losing position be walked back by
+ * lowering the difficulty.
+ */
 export function Controls({
   level,
-  onLevel,
   onUndo,
   canUndo,
 }: {
-  level: Difficulty
-  onLevel: (level: Difficulty) => void
+  level: Difficulty | null
   onUndo: () => void
   canUndo: boolean
 }) {
   return (
     <div className="controls">
-      <label>
-        Opponent
-        <select value={level} onChange={(event) => onLevel(event.target.value as Difficulty)}>
-          {LEVELS.map((entry) => (
-            <option key={entry.value} value={entry.value}>
-              {entry.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <p className="level">{level ? `Opponent: ${LEVEL_LABEL[level]}` : ''}</p>
       <button type="button" onClick={onUndo} disabled={!canUndo}>
         Undo
       </button>

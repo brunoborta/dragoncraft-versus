@@ -150,3 +150,75 @@ body {
 .game-over dt { color: var(--muted); text-align: left; }
 .game-over dd { margin: 0; font-weight: 700; }
 .game-over button { min-height: 44px; width: 100%; border: 0; border-radius: 8px; background: var(--completes); font: inherit; font-weight: 600; }
+
+/* The log is two lines at a fixed height: the top bar is an `auto` grid row,
+   so letting it grow would shrink the board and move every hex centre. */
+.log-row { display: flex; align-items: flex-start; gap: 8px; }
+.log { flex: 1 1 auto; height: 2.8em; overflow: hidden; }
+.log-row button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 10px;
+  background: #2a3540;
+  color: var(--ink);
+  border: 1px solid #3a4652;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.level { margin: 0; color: var(--muted); font-size: 13px; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.6);
+}
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: 80dvh;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid #3a4652;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+}
+
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.modal-head h2 { margin: 0; font-size: 16px; }
+.modal-head button {
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  font: inherit;
+}
+.modal-note { margin: 0; color: var(--muted); font-size: 13px; }
+
+.level-choice {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 10px 14px;
+  min-height: 44px;
+  background: #2a3540;
+  color: var(--ink);
+  border: 1px solid #3a4652;
+  border-radius: 12px;
+  font: inherit;
+}
+
+.log-turns { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.log-turns > li { display: grid; gap: 2px; }
+.log-who { margin: 0; font-weight: 700; font-size: 13px; }
+.log-turns ul { margin: 0; padding-left: 14px; color: var(--muted); font-size: 13px; }

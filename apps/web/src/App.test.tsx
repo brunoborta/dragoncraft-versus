@@ -3,8 +3,18 @@ import { describe, expect, it } from 'vitest'
 import { App } from './App.js'
 
 describe('App', () => {
+  /**
+   * The game opens on a difficulty modal and does not start until it is
+   * answered, so every test has to choose an opponent before anything else.
+   */
+  function startGame(level: 'Easy' | 'Medium' = 'Easy') {
+    const rendered = render(<App />)
+    fireEvent.click(screen.getByText(level))
+    return rendered
+  }
+
   it('asks where to place the opening token, and says which token it is', () => {
-    const { container } = render(<App />)
+    const { container } = startGame()
     const text = container.querySelector('.prompt-text')
     expect(text?.textContent).toContain('Choose where to place the token')
     // the token being placed has to be on screen, not only in the log
@@ -13,7 +23,7 @@ describe('App', () => {
   })
 
   it('draws the held token translucent on the previewed space', () => {
-    const { container } = render(<App />)
+    const { container } = startGame()
     expect(container.querySelector('.token-preview')).toBeNull()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     const selectedCell = container.querySelector('.hex-cell[data-highlight="selected"]')
@@ -21,13 +31,13 @@ describe('App', () => {
   })
 
   it('marks every legal space', () => {
-    render(<App />)
+    startGame()
     const legal = screen.getAllByRole('button').filter((el) => el.getAttribute('data-highlight') === 'legal')
     expect(legal).toHaveLength(19)
   })
 
   it('previews on the first tap and commits on the second', () => {
-    render(<App />)
+    startGame()
     const target = screen.getByLabelText('2,-2: empty')
 
     fireEvent.click(target)
@@ -39,7 +49,7 @@ describe('App', () => {
   })
 
   it('moves the preview when a different space is tapped', () => {
-    render(<App />)
+    startGame()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     fireEvent.click(screen.getByLabelText('0,2: empty'))
     expect(screen.getByLabelText('2,-2: empty').getAttribute('data-highlight')).toBe('legal')
@@ -47,14 +57,14 @@ describe('App', () => {
   })
 
   it('offers the non-spatial decisions as buttons', () => {
-    render(<App />)
+    startGame()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     expect(screen.getByText('Do not fire up')).toBeDefined()
   })
 
   it('marks a placement that would complete a card in hand', () => {
-    render(<App />)
+    startGame()
     const completing = screen
       .getAllByRole('button')
       .filter((el) => el.getAttribute('data-highlight') === 'completes')
@@ -64,7 +74,7 @@ describe('App', () => {
   })
 
   it('does not put spatial actions in the decision bar', () => {
-    render(<App />)
+    startGame()
     expect(screen.queryByText(/^Place on /)).toBeNull()
   })
 
@@ -78,21 +88,56 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText(/^1,0: /))
   }
 
-  it('does not open a stack for a space holding a single token', () => {
+  it('does not start until an opponent is chosen', () => {
     render(<App />)
+    expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
+    const legal = screen
+      .getAllByRole('button')
+      .filter((el) => el.getAttribute('data-highlight') === 'legal')
+    expect(legal).toHaveLength(0)
+  })
+
+  it('shows the chosen opponent as a label, with nothing to change mid-game', () => {
+    startGame('Medium')
+    expect(screen.queryByLabelText('Choose your opponent')).toBeNull()
+    expect(screen.getByText('Opponent: Medium')).toBeDefined()
+    expect(screen.queryByRole('combobox')).toBeNull()
+  })
+
+  it('opens the full log grouped into turns, naming each side once', () => {
+    startGame()
+    stackTwoOnInnerRing()
+    fireEvent.click(screen.getByText('Do not fire up'))
+    fireEvent.click(screen.getByText('Full log'))
+
+    const dialog = screen.getByLabelText('Move log')
+    expect(dialog.querySelectorAll('.log-who')).toHaveLength(1)
+    expect(dialog.querySelector('.log-who')?.textContent).toBe('You')
+    expect(dialog.textContent).not.toMatch(/Player/)
+  })
+
+  it('closes the full log', () => {
+    startGame()
+    fireEvent.click(screen.getByText('Full log'))
+    fireEvent.click(screen.getByLabelText('Close log'))
+    expect(screen.queryByLabelText('Move log')).toBeNull()
+  })
+
+  it('does not open a stack for a space holding a single token', () => {
+    startGame()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 
   it('opens a stack once a space buries something', () => {
-    render(<App />)
+    startGame()
     stackTwoOnInnerRing()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
   })
 
   it('shows the stack bottom to top without naming a coordinate on screen', () => {
-    render(<App />)
+    startGame()
     stackTwoOnInnerRing()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     const panel = screen.getByLabelText('Stack at 1,0')
@@ -101,13 +146,13 @@ describe('App', () => {
   })
 
   it('shows nothing for an empty space', () => {
-    render(<App />)
+    startGame()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 
   it('closes the stack detail from its own button, leaving the game untouched', () => {
-    render(<App />)
+    startGame()
     stackTwoOnInnerRing()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     fireEvent.click(screen.getByLabelText('Close stack'))
@@ -116,7 +161,7 @@ describe('App', () => {
   })
 
   it('closes the stack detail when the commit comes from the decision bar', () => {
-    render(<App />)
+    startGame()
     stackTwoOnInnerRing()
     expect(screen.getByText('Fire up this dragon?')).toBeDefined()
 
@@ -128,7 +173,7 @@ describe('App', () => {
   })
 
   it('closes the stack detail when the turn is undone', () => {
-    render(<App />)
+    startGame()
     stackTwoOnInnerRing()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
