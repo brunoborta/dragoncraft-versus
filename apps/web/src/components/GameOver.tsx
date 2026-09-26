@@ -1,6 +1,6 @@
 import { finalScore, winner } from '@dcv/engine'
 import type { GameState } from '@dcv/engine'
-import { HUMAN_SEAT } from '../game/seats.js'
+import { HUMAN_SEAT, MACHINE_SEAT } from '../game/seats.js'
 
 export function GameOver({ state, onRestart }: { state: GameState; onRestart: () => void }) {
   const result = winner(state)
@@ -12,9 +12,9 @@ export function GameOver({ state, onRestart }: { state: GameState; onRestart: ()
       <h2>{headline}</h2>
       <dl>
         <dt>You</dt>
-        <dd>{finalScore(state, 0)}</dd>
+        <dd>{finalScore(state, HUMAN_SEAT)}</dd>
         <dt>Machine</dt>
-        <dd>{finalScore(state, 1)}</dd>
+        <dd>{finalScore(state, MACHINE_SEAT)}</dd>
       </dl>
       <button type="button" onClick={onRestart}>
         New game

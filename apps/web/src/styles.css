@@ -21,7 +21,13 @@ body {
 
 .app {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  /*
+   * The board row has a floor. The SVG is 88 x 97 user units, so a board row of
+   * H pixels draws hexes 17.32 * H / 97 tall; below about 250px that short axis
+   * drops under the 44px touch target, and the footer must not be allowed to
+   * push it there.
+   */
+  grid-template-rows: auto minmax(250px, 1fr) auto;
   height: 100dvh;
   gap: 8px;
   padding: 8px;
@@ -42,7 +48,14 @@ body {
 
 .stack-depth { fill: var(--ink); font-weight: 700; }
 
+.token-preview { opacity: 0.5; }
+.token-preview-ring { fill: none; stroke: var(--ink); stroke-width: 0.8; stroke-dasharray: 2 2; }
+
 .top-bar { color: var(--muted); font-size: 14px; }
+.turn { margin: 0; color: var(--ink); font-weight: 600; }
+
+.token-chip { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.token-chip svg { width: 18px; height: 18px; flex: none; }
 
 .prompt { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
 .prompt-text { margin: 0 0 8px; font-weight: 600; }
@@ -62,7 +75,12 @@ body {
 .log { margin: 4px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }
 .log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.bottom { display: grid; gap: 8px; }
+/*
+ * `position: relative` is load-bearing: the stack inspector is absolutely
+ * positioned inside it, so opening one never changes the footer's height and
+ * never rescales the board under a half-finished two-tap gesture.
+ */
+.bottom { display: grid; gap: 8px; position: relative; }
 .hand-cards { display: flex; gap: 8px; }
 
 .card {
@@ -84,7 +102,27 @@ body {
 
 .pattern-hex { fill: #222a33; stroke: #39434e; stroke-width: 0.6; }
 
-.stack-detail { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+.stack-detail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  background: var(--surface);
+  border: 1px solid #3a4652;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 50%);
+}
+.stack-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stack-detail-head button {
+  min-width: 44px;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+}
 .stack-detail-title { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
 .stack-detail ol { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .stack-detail li { display: flex; align-items: center; gap: 6px; font-size: 13px; }

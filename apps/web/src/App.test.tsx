@@ -3,9 +3,21 @@ import { describe, expect, it } from 'vitest'
 import { App } from './App.js'
 
 describe('App', () => {
-  it('asks where to place the opening token', () => {
-    render(<App />)
-    expect(screen.getByText('Choose where to place the token')).toBeDefined()
+  it('asks where to place the opening token, and says which token it is', () => {
+    const { container } = render(<App />)
+    const text = container.querySelector('.prompt-text')
+    expect(text?.textContent).toContain('Choose where to place the token')
+    // the token being placed has to be on screen, not only in the log
+    expect(text?.querySelectorAll('.token-chip svg')).toHaveLength(1)
+    expect(text?.textContent).toMatch(/Bread|Crystal|Meat|Iron|Potion|Plant/)
+  })
+
+  it('draws the held token translucent on the previewed space', () => {
+    const { container } = render(<App />)
+    expect(container.querySelector('.token-preview')).toBeNull()
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    const selectedCell = container.querySelector('.hex-cell[data-highlight="selected"]')
+    expect(selectedCell?.querySelector('.token-preview')).not.toBeNull()
   })
 
   it('marks every legal space', () => {
@@ -66,6 +78,14 @@ describe('App', () => {
     render(<App />)
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
+
+  it('closes the stack detail from its own button, leaving the game untouched', () => {
+    render(<App />)
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    fireEvent.click(screen.getByLabelText('Close stack'))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+    expect(screen.getByText('Your turn')).toBeDefined()
   })
 
   it('closes the stack detail once an action is taken', () => {

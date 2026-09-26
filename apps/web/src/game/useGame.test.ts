@@ -9,10 +9,9 @@ describe('useGame', () => {
     expect(result.current.actions.length).toBeGreaterThan(0)
   })
 
-  it('shows the current seat its own view, never the full state', () => {
+  it('exposes no view of its own: during the machine turn it would be the machine hand', () => {
     const { result } = renderHook(() => useGame(42))
-    expect(result.current.view.seat).toBe(result.current.state.current)
-    expect('rng' in result.current.view).toBe(false)
+    expect('view' in result.current).toBe(false)
   })
 
   it('advances the game when an action is performed', () => {

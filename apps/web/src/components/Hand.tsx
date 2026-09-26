@@ -1,9 +1,6 @@
-import type { Action, PlayerView, ShopCard } from '@dcv/engine'
+import { scoreOf } from '@dcv/engine'
+import type { Action, PlayerView } from '@dcv/engine'
 import { CardView } from './CardView.js'
-
-export function reputationOf(cards: readonly ShopCard[]): number {
-  return cards.reduce((sum, card) => sum + card.reputation, 0)
-}
 
 export function Hand({
   view,
@@ -19,7 +16,7 @@ export function Hand({
   return (
     <section className="hand" aria-label="Your hand">
       <p className="hand-meta">
-        You — {view.you.coins} coins, {reputationOf(view.you.scored) + view.you.coins} reputation
+        You — {view.you.coins} coins, {scoreOf(view.you)} reputation
       </p>
       <div className="hand-cards">
         {view.you.hand.map((card) => {

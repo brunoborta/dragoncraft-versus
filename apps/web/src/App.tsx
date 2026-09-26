@@ -7,7 +7,7 @@ import { Controls } from './components/Controls.js'
 import { GameOver } from './components/GameOver.js'
 import { Hand } from './components/Hand.js'
 import type { Highlight } from './components/HexCell.js'
-import { Prompt } from './components/Prompt.js'
+import { OpponentThinking, Prompt } from './components/Prompt.js'
 import { StackDetail } from './components/StackDetail.js'
 import { TopBar } from './components/TopBar.js'
 import { HUMAN_SEAT, MACHINE_SEAT } from './game/seats.js'
@@ -28,7 +28,8 @@ export function App() {
 
   useOpponent({ session: game, seat: MACHINE_SEAT, level, enabled: true })
 
-  const myTurn = game.state.current === HUMAN_SEAT && game.state.phase !== 'ended'
+  const ended = game.state.phase === 'ended'
+  const myTurn = game.state.current === HUMAN_SEAT && !ended
   // always the human's own view, so the machine's turn never flips the hand shown
   const view = toPlayerView(game.state, HUMAN_SEAT)
   const actions = myTurn ? game.actions : []
@@ -44,6 +45,10 @@ export function App() {
     highlights[key(hex)] = completes ? 'completes' : 'legal'
   }
   if (selected) highlights[key(selected)] = 'selected'
+
+  // the spec's preview: the held token, translucent, on the space it would land on
+  const preview =
+    selected && pending?.kind === 'place' ? { hex: selected, token: pending.token } : undefined
 
   // every commit, wherever it comes from, closes the preview and the stack inspector
   function handleAct(action: Action): void {
@@ -79,19 +84,32 @@ export function App() {
     game.reset(next)
   }
 
+  function decision() {
+    if (ended) return <GameOver state={game.state} onRestart={restart} />
+    if (!myTurn) return <OpponentThinking />
+    return <Prompt view={view} actions={actions} selected={selected} onAct={handleAct} />
+  }
+
   return (
     <main className="app">
       <TopBar view={view} />
-      <Board board={game.state.board} highlights={highlights} onSelectHex={myTurn ? selectHex : () => {}} />
+      <Board
+        board={game.state.board}
+        highlights={highlights}
+        preview={preview}
+        onSelectHex={myTurn ? selectHex : () => {}}
+      />
       <footer className="bottom">
+        {inspecting ? (
+          <StackDetail
+            hex={inspecting}
+            stack={game.state.board[key(inspecting)] ?? []}
+            onClose={() => setInspecting(null)}
+          />
+        ) : null}
         <Controls level={level} onLevel={setLevel} canUndo={game.canUndo && myTurn} onUndo={undo} />
         <Hand view={view} actions={actions} onAct={handleAct} />
-        {inspecting ? <StackDetail hex={inspecting} stack={game.state.board[key(inspecting)] ?? []} /> : null}
-        {game.state.phase === 'ended' ? (
-          <GameOver state={game.state} onRestart={restart} />
-        ) : (
-          <Prompt view={view} actions={actions} selected={selected} onAct={handleAct} />
-        )}
+        {decision()}
       </footer>
     </main>
   )

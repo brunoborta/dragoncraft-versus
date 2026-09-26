@@ -1,10 +1,14 @@
-import { applyAction, createGame, legalActions, toPlayerView } from '@dcv/engine'
-import type { Action, GameState, PlayerView } from '@dcv/engine'
+import { applyAction, createGame, legalActions } from '@dcv/engine'
+import type { Action, GameState } from '@dcv/engine'
 import { useCallback, useMemo, useState } from 'react'
 
+/**
+ * No `view` here on purpose. A session-level view could only be the *current*
+ * seat's, which during the machine's turn is the machine's hand; every consumer
+ * has to build the view for the seat it is drawing.
+ */
 export type GameSession = {
   state: GameState
-  view: PlayerView
   actions: Action[]
   perform: (action: Action) => void
   undo: () => void
@@ -21,7 +25,6 @@ export function useGame(seed: number): GameSession {
   const [history, setHistory] = useState<GameState[]>(() => [createGame(seed)])
 
   const state = history[history.length - 1]
-  const view = useMemo(() => toPlayerView(state, state.current), [state])
   const actions = useMemo(() => legalActions(state), [state])
 
   const perform = useCallback((action: Action) => {
@@ -46,5 +49,5 @@ export function useGame(seed: number): GameSession {
     setHistory([createGame(nextSeed)])
   }, [])
 
-  return { state, view, actions, perform, undo, undoUntil, canUndo: history.length > 1, reset }
+  return { state, actions, perform, undo, undoUntil, canUndo: history.length > 1, reset }
 }

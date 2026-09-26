@@ -9,11 +9,14 @@ export function HexCell({
   hex,
   stack,
   highlight,
+  preview,
   onSelect,
 }: {
   hex: Hex
   stack: Token[]
   highlight?: Highlight
+  /** The token about to land here, drawn translucent until the second tap confirms. */
+  preview?: Token
   onSelect: (hex: Hex) => void
 }) {
   const top = stack[stack.length - 1]
@@ -48,6 +51,12 @@ export function HexCell({
               {stack.length}
             </text>
           ) : null}
+        </g>
+      ) : null}
+      {preview ? (
+        <g className="token-preview" transform={`translate(${center.x} ${center.y})`}>
+          <TokenGlyph token={preview} radius={HEX_SIZE * 0.6} />
+          <circle r={HEX_SIZE * 0.6} className="token-preview-ring" />
         </g>
       ) : null}
     </g>

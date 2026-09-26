@@ -25,6 +25,17 @@ describe('TopBar', () => {
     expect(screen.queryByText(view.you.hand[0].id)).toBeNull()
   })
 
+  // the fixture is seat 0's view, so `current` alone decides the line
+  it('says whose turn it is', () => {
+    render(<TopBar view={{ ...view, current: 0 }} />)
+    expect(screen.getByText('Your turn')).toBeDefined()
+  })
+
+  it('says so when it is the opponent turn', () => {
+    render(<TopBar view={{ ...view, current: 1 }} />)
+    expect(screen.getByText("Opponent's turn")).toBeDefined()
+  })
+
   it('shows the most recent log line', () => {
     render(<TopBar view={view} />)
     expect(screen.getByText(/drew/)).toBeDefined()
