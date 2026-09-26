@@ -6,10 +6,18 @@ export function scoreableCards(state: GameState, seat: Seat): ShopCard[] {
   return state.players[seat].hand.filter((card) => canScore(state.board, card))
 }
 
-/** Scored reputation plus 1 per unspent coin. */
-export function finalScore(state: GameState, seat: Seat): number {
-  const player = state.players[seat]
+/**
+ * Scored reputation plus 1 per unspent coin. The single home of the rule: the
+ * live panels in the UI read it too, so the board can never disagree with the
+ * final screen. It asks for only the two fields the rule uses, because a
+ * `PlayerView`'s opponent is not a whole `PlayerState` — it has no hand.
+ */
+export function scoreOf(player: { scored: readonly ShopCard[]; coins: number }): number {
   return player.scored.reduce((sum, card) => sum + card.reputation, 0) + player.coins
+}
+
+export function finalScore(state: GameState, seat: Seat): number {
+  return scoreOf(state.players[seat])
 }
 
 /** Most reputation wins; ties break on scored cards, then it is a shared victory. */

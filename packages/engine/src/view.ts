@@ -4,8 +4,16 @@ import { oneOfEach } from './setup.js'
 import { tokenId } from './tokens.js'
 import type { GameState, PlayerState, PlayerView, RngState, Seat, Token } from './types.js'
 
+/**
+ * Code-unit order, deliberately not `localeCompare`: bag order decides which
+ * token a simulation draws, so the comparator has to be locale-independent.
+ */
+function compareIds(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
 function sortTokens(tokens: readonly Token[]): Token[] {
-  return [...tokens].sort((a, b) => tokenId(a).localeCompare(tokenId(b)))
+  return [...tokens].sort((a, b) => compareIds(tokenId(a), tokenId(b)))
 }
 
 /**

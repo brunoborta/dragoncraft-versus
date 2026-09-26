@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DECK } from './cards.js'
 import { applyAction, legalActions } from './engine.js'
 import { key } from './hex.js'
-import { finalScore, scoreableCards, winner } from './scoring.js'
+import { finalScore, scoreOf, scoreableCards, winner } from './scoring.js'
 import { createInitialState } from './setup.js'
 import { single } from './tokens.js'
 import type { GameState, ShopCard } from './types.js'
@@ -169,6 +169,20 @@ describe('final score', () => {
     expect(finalScore(state, 0)).toBe(3 + 2 + 2)
     expect(finalScore(state, 1)).toBe(3)
     expect(winner(state)).toBe(0)
+  })
+
+  it('is the same rule whether asked per seat or per player, so the UI cannot drift', () => {
+    const base = createInitialState(6)
+    const state: GameState = {
+      ...base,
+      players: [
+        { ...base.players[0], scored: [card('line-bread')], coins: 2 },
+        { ...base.players[1], scored: [card('tri-plant'), card('line-iron')], coins: 0 },
+      ],
+    }
+    expect(scoreOf(state.players[0])).toBe(finalScore(state, 0))
+    expect(scoreOf(state.players[1])).toBe(finalScore(state, 1))
+    expect(scoreOf(state.players[0])).toBe(5)
   })
 
   it('breaks a tie by number of scored cards', () => {
