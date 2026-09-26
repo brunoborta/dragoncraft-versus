@@ -60,7 +60,8 @@ export function describeAction(action: Action): string {
     case 'potionSwap':
       return `Swap ${key(action.a)} with ${key(action.b)}`
     case 'plantTarget':
-      return `Use ${DRAGON_THEME[action.ability].label} on ${key(action.at)}`
+      // the board already picked the neighbour; a coordinate here means nothing
+      return `Use ${DRAGON_THEME[action.ability].label}`
     case 'spendCoin':
       return 'Spend a coin'
     case 'coinDiscard':

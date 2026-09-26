@@ -1,7 +1,8 @@
-import { actionKey, hexEq } from '@dcv/engine'
+import { abilitiesOf, actionKey, hexEq } from '@dcv/engine'
 import type { Action, Hex, PlayerView, Token } from '@dcv/engine'
 import type { ReactNode } from 'react'
 import { describeAction, describeCoinDiscard, promptFor } from '../game/labels.js'
+import { DRAGON_THEME } from '../theme.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
 const HANDLED_BY_BOARD = new Set(['place', 'meatMove', 'ironMove', 'potionSwap', 'scoreCard'])
@@ -14,6 +15,25 @@ export function TokenChip({ token }: { token: Token }) {
         <TokenGlyph token={token} radius={8} />
       </svg>
       {tokenLabel(token)}
+    </span>
+  )
+}
+
+/**
+ * What firing this token up would do — one line, or two for a dual. Where you
+ * put a token depends on what you are about to fire up, so this belongs next to
+ * the token at the moment of deciding rather than in a rulebook.
+ */
+export function AbilityEffects({ token }: { token: Token }) {
+  const abilities = abilitiesOf(token)
+  return (
+    <span className="prompt-effects">
+      {abilities.map((ability) => (
+        <span key={ability} className="prompt-effect">
+          {abilities.length > 1 ? `${DRAGON_THEME[ability].label}: ` : null}
+          {DRAGON_THEME[ability].effect}
+        </span>
+      ))}
     </span>
   )
 }
@@ -66,6 +86,14 @@ export function Prompt({
       }
     }
     if (action.type === 'coinDiscard') return describeCoinDiscard(action, view.you.hand)
+    if (action.type === 'fireUp' || action.type === 'plantTarget') {
+      return (
+        <>
+          <span className="action-name">{describeAction(action)}</span>
+          <span className="action-effect">{DRAGON_THEME[action.ability].effect}</span>
+        </>
+      )
+    }
     return describeAction(action)
   }
 
@@ -77,6 +105,7 @@ export function Prompt({
           <>
             {': '}
             <TokenChip token={pending.token} />
+            <AbilityEffects token={pending.token} />
           </>
         ) : null}
       </p>

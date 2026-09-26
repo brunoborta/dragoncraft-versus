@@ -65,11 +65,23 @@ body {
   background: #2a3540;
   color: var(--ink);
   border: 1px solid #3a4652;
-  border-radius: 999px;
-  padding: 10px 14px;
+  /* not a pill: these buttons carry a second line saying what the ability does */
+  border-radius: 12px;
+  padding: 8px 14px;
   font: inherit;
   min-height: 44px;
+  text-align: left;
 }
+
+.action-name { display: block; }
+.action-effect,
+.prompt-effect {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.prompt-effect { margin-top: 2px; }
 
 .opponent, .hand-meta { margin: 0; color: var(--muted); font-size: 13px; }
 .log { margin: 4px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }

@@ -27,6 +27,48 @@ describe('Prompt', () => {
     expect(text?.querySelectorAll('.token-chip svg')).toHaveLength(1)
   })
 
+  it('says what the token being placed would do if fired up', () => {
+    const view = staged({ kind: 'place', token: single('crystal'), fireUpAllowed: true })
+    const { container } = render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} />)
+    expect(container.querySelector('.prompt-text')?.textContent).toContain(
+      'Draw 3, keep 1, place it without firing up',
+    )
+  })
+
+  it('says what each of a dual token two abilities would do, naming both', () => {
+    const view = staged({ kind: 'place', token: dual('meat', 'plant'), fireUpAllowed: true })
+    const { container } = render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} />)
+    const effects = [...container.querySelectorAll('.prompt-effect')].map((el) => el.textContent)
+    expect(effects).toEqual([
+      'Meat: Move one neighbour anywhere',
+      "Plant: Use a neighbour's ability",
+    ])
+  })
+
+  it('says what a fire-up button would do, under its name', () => {
+    const view = staged({ kind: 'mayFireUp', at: { q: 0, r: 0 } })
+    const actions: Action[] = [{ type: 'fireUp', ability: 'iron' }, { type: 'skipFireUp' }]
+    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
+    const first = container.querySelector('.prompt-actions button')
+    expect(first?.querySelector('.action-name')?.textContent).toBe('Fire up Iron')
+    expect(first?.querySelector('.action-effect')?.textContent).toBe(
+      'Move up to two neighbours one space each',
+    )
+  })
+
+  it('names no hex coordinate on a plant target button', () => {
+    const at = { q: 1, r: 0 }
+    const view = staged({ kind: 'plant', at: { q: 0, r: 0 } })
+    const actions: Action[] = [
+      { type: 'plantTarget', at, ability: 'potion' },
+      { type: 'plantTarget', at, ability: 'plant' },
+    ]
+    const { container } = render(<Prompt view={view} actions={actions} selected={at} onAct={() => {}} />)
+    const labels = [...container.querySelectorAll('.prompt-actions .action-name')].map((el) => el.textContent)
+    expect(labels).toEqual(['Use Potion', 'Use Plant'])
+    expect(container.textContent).not.toMatch(/\d,-?\d/)
+  })
+
   it('names each of the three tokens crystal drew instead of numbering them', () => {
     const tokens = [single('bread'), dual('iron', 'potion'), single('plant')]
     const view = staged({ kind: 'crystalPick', tokens })

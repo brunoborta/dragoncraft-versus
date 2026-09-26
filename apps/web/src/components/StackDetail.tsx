@@ -4,10 +4,13 @@ import { HEX_SIZE } from '../geometry.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
 /**
- * The whole stack, bottom to top, for a space the board is not asking about.
- * It overlays the footer rather than sitting in it: growing the footer would
- * shrink the board row and move every hex centre mid-gesture, which turns the
- * two-tap confirm into a mis-tap on a neighbour.
+ * The whole stack, bottom to top. It overlays the footer rather than sitting in
+ * it: growing the footer would shrink the board row and move every hex centre
+ * mid-gesture, which turns the two-tap confirm into a mis-tap on a neighbour.
+ *
+ * The hex coordinate is in the accessible name but not on screen. A player who
+ * can see the board knows which space they tapped and `1,0` tells them nothing;
+ * a player who cannot has no other anchor for which space this is.
  */
 export function StackDetail({
   hex,
@@ -21,7 +24,7 @@ export function StackDetail({
   return (
     <section className="stack-detail" aria-label={`Stack at ${key(hex)}`}>
       <div className="stack-detail-head">
-        <p className="stack-detail-title">{key(hex)} — bottom to top</p>
+        <p className="stack-detail-title">Bottom to top</p>
         <button type="button" onClick={onClose} aria-label="Close stack">
           ✕
         </button>

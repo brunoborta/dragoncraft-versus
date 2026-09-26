@@ -68,7 +68,8 @@ export function App() {
     setSelected(outcome.select)
     // any tapped space that holds tokens shows what is stacked there
     const stack = game.state.board[key(hex)] ?? []
-    setInspecting(stack.length > 0 ? hex : null)
+    // one token hides nothing: the panel is for seeing what is buried
+    setInspecting(stack.length > 1 ? hex : null)
   }
 
   function undo(): void {

@@ -17,6 +17,12 @@ describe('DRAGON_THEME', () => {
     expect(new Set(symbols).size).toBe(6)
   })
 
+  it('says what firing every type up does, in its own words', () => {
+    const effects = DRAGON_TYPES.map((type) => DRAGON_THEME[type].effect)
+    for (const effect of effects) expect(effect.length).toBeGreaterThan(10)
+    expect(new Set(effects).size).toBe(6)
+  })
+
   it('labels every type in English for assistive technology', () => {
     for (const type of DRAGON_TYPES) expect(DRAGON_THEME[type].label.length).toBeGreaterThan(2)
   })

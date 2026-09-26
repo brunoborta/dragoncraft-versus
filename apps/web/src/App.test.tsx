@@ -68,10 +68,36 @@ describe('App', () => {
     expect(screen.queryByText(/^Place on /)).toBeNull()
   })
 
-  it('opens a stack when an occupied space is tapped', () => {
+  /**
+   * Places the opening token onto 1,0, which already holds one, leaving a stack
+   * of two. The board starts with a single token on every occupied space, and
+   * the inspector only opens once something is actually buried.
+   */
+  function stackTwoOnInnerRing(): void {
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+  }
+
+  it('does not open a stack for a space holding a single token', () => {
     render(<App />)
     fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
+
+  it('opens a stack once a space buries something', () => {
+    render(<App />)
+    stackTwoOnInnerRing()
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
+  })
+
+  it('shows the stack bottom to top without naming a coordinate on screen', () => {
+    render(<App />)
+    stackTwoOnInnerRing()
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    const panel = screen.getByLabelText('Stack at 1,0')
+    expect(panel.textContent).toContain('Bottom to top')
+    expect(panel.textContent).not.toMatch(/\d,-?\d/)
   })
 
   it('shows nothing for an empty space', () => {
@@ -82,29 +108,32 @@ describe('App', () => {
 
   it('closes the stack detail from its own button, leaving the game untouched', () => {
     render(<App />)
+    stackTwoOnInnerRing()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     fireEvent.click(screen.getByLabelText('Close stack'))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
     expect(screen.getByText('Your turn')).toBeDefined()
   })
 
-  it('closes the stack detail once an action is taken', () => {
+  it('closes the stack detail when the commit comes from the decision bar', () => {
     render(<App />)
-    fireEvent.click(screen.getByLabelText(/^1,0: /))
-    fireEvent.click(screen.getByLabelText(/^1,0: /))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
-  })
-
-  it('closes the stack detail when the commit comes from the decision bar, not the board', () => {
-    render(<App />)
-    fireEvent.click(screen.getByLabelText('2,-2: empty'))
-    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    stackTwoOnInnerRing()
     expect(screen.getByText('Fire up this dragon?')).toBeDefined()
 
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
 
     fireEvent.click(screen.getByText('Do not fire up'))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
+
+  it('closes the stack detail when the turn is undone', () => {
+    render(<App />)
+    stackTwoOnInnerRing()
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
+
+    fireEvent.click(screen.getByText('Undo'))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 })
