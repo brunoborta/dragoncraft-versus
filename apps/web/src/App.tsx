@@ -1,4 +1,4 @@
-import { key, toPlayerView, wouldComplete } from '@dcv/engine'
+import { key, toPlayerView } from '@dcv/engine'
 import type { Action, Hex } from '@dcv/engine'
 import type { Difficulty } from '@dcv/ai'
 import { useState } from 'react'
@@ -48,13 +48,10 @@ export function App() {
   const targets = boardTargets(actions, selected)
   const pending = view.pending[view.pending.length - 1]
 
+  // the board marks what is legal, and nothing else: the printed game does not
+  // point out where a card would complete, so neither does this one
   const highlights: Record<string, Highlight> = {}
-  for (const hex of targets) {
-    const completes =
-      pending?.kind === 'place' &&
-      view.you.hand.some((card) => wouldComplete(view.board, card, hex, pending.token))
-    highlights[key(hex)] = completes ? 'completes' : 'legal'
-  }
+  for (const hex of targets) highlights[key(hex)] = 'legal'
   if (selected) highlights[key(selected)] = 'selected'
 
   // the spec's preview: the held token, translucent, on the space it would land on

@@ -3,6 +3,13 @@ import type { Board as BoardState, Hex, Token } from '@dcv/engine'
 import { BOARD_VIEWBOX, HEX_SIZE, hexCenter, hexPoints } from '../geometry.js'
 import { HexCell, type Highlight } from './HexCell.js'
 
+/**
+ * Paint order, weakest first. A ring drawn earlier loses its shared edges to
+ * whatever is drawn after it, so the selection has to come last or a neighbour
+ * that merely offers a move covers two of its sides.
+ */
+const RING_ORDER: readonly Highlight[] = ['legal', 'selected']
+
 export function Board({
   board,
   highlights,
@@ -33,14 +40,16 @@ export function Board({
         `pointer-events: none` keeps the cells underneath clickable.
       */}
       <g className="board-overlay" aria-hidden="true">
-        {BOARD.filter((hex) => highlights[key(hex)]).map((hex) => (
-          <polygon
-            key={`ring-${key(hex)}`}
-            className="hex-ring"
-            data-highlight={highlights[key(hex)]}
-            points={hexPoints(hex)}
-          />
-        ))}
+        {RING_ORDER.flatMap((kind) =>
+          BOARD.filter((hex) => highlights[key(hex)] === kind).map((hex) => (
+            <polygon
+              key={`ring-${key(hex)}`}
+              className="hex-ring"
+              data-highlight={kind}
+              points={hexPoints(hex)}
+            />
+          )),
+        )}
         {BOARD.map((hex) => {
           const stack = board[key(hex)] ?? []
           // one token buries nothing, so there is no count worth showing

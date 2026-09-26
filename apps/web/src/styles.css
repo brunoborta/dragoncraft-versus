@@ -48,8 +48,7 @@ body {
 .board-overlay { pointer-events: none; }
 .hex-ring { fill: none; }
 .hex-ring[data-highlight='legal'] { stroke: var(--legal); stroke-width: 1.2; }
-.hex-ring[data-highlight='completes'] { stroke: var(--completes); stroke-width: 1.6; }
-.hex-ring[data-highlight='selected'] { stroke: var(--selected); stroke-width: 1.6; }
+.hex-ring[data-highlight='selected'] { stroke: var(--selected); stroke-width: 2.4; }
 
 /* Interface chrome, not a seventh dragon: the page background is a colour no
    token uses, so a count can never be mistaken for a piece. */

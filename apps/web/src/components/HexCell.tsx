@@ -3,7 +3,7 @@ import type { Hex, Token } from '@dcv/engine'
 import { HEX_SIZE, hexCenter, hexPoints } from '../geometry.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
-export type Highlight = 'legal' | 'completes' | 'selected'
+export type Highlight = 'legal' | 'selected'
 
 /**
  * A cell paints its own shape and token only. The highlight ring and the stack

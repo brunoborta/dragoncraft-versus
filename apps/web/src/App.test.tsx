@@ -63,16 +63,6 @@ describe('App', () => {
     expect(screen.getByText('Do not fire up')).toBeDefined()
   })
 
-  it('marks a placement that would complete a card in hand', () => {
-    startGame()
-    const completing = screen
-      .getAllByRole('button')
-      .filter((el) => el.getAttribute('data-highlight') === 'completes')
-    // the opening position may or may not offer one; the assertion is that the
-    // mark is reserved for placements that really do complete a card
-    for (const el of completing) expect(el.getAttribute('data-highlight')).toBe('completes')
-  })
-
   it('does not put spatial actions in the decision bar', () => {
     startGame()
     expect(screen.queryByText(/^Place on /)).toBeNull()
@@ -200,7 +190,7 @@ describe('App', () => {
       return true
     }
 
-    const offered = '.hex-cell[data-highlight="legal"], .hex-cell[data-highlight="completes"]'
+    const offered = '.hex-cell[data-highlight="legal"]'
     const first = document.querySelector<SVGGElement>(offered)
     if (!first) return false
 
