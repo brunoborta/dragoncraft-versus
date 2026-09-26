@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from './App.js'
 
 describe('App', () => {
@@ -180,5 +180,66 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Undo'))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
+
+  /**
+   * Clicks whatever the interface is offering, in the order a player would find
+   * it. Returns false when there is nothing to click, which means the machine
+   * is on turn and the test should let its timer run.
+   */
+  function takeAnyTurnAction(): boolean {
+    const barButton = document.querySelector<HTMLButtonElement>('.prompt-actions button')
+    if (barButton) {
+      fireEvent.click(barButton)
+      return true
+    }
+
+    const scoreButton = document.querySelector<HTMLButtonElement>('.card button')
+    if (scoreButton) {
+      fireEvent.click(scoreButton)
+      return true
+    }
+
+    const offered = '.hex-cell[data-highlight="legal"], .hex-cell[data-highlight="completes"]'
+    const first = document.querySelector<SVGGElement>(offered)
+    if (!first) return false
+
+    // a placement confirms on a second tap of the same space; a two-hex move
+    // leaves that space selected and wants a different one for the destination
+    fireEvent.click(first)
+    fireEvent.click(first)
+    if (first.getAttribute('data-highlight') === 'selected') {
+      const destination = document.querySelector<SVGGElement>(offered)
+      if (destination) fireEvent.click(destination)
+    }
+    return true
+  }
+
+  it('plays a whole game and asks for an opponent again on a new one', () => {
+    vi.useFakeTimers()
+    try {
+      startGame('Easy')
+
+      let steps = 0
+      while (!screen.queryByRole('dialog', { name: 'Final score' })) {
+        steps += 1
+        expect(steps, 'the game never reached its end').toBeLessThan(3000)
+        if (takeAnyTurnAction()) continue
+        // nothing on offer: the machine is deciding
+        act(() => {
+          vi.advanceTimersByTime(500)
+        })
+      }
+
+      // guards the loop against passing by exiting on its first turn: a real
+      // game runs to something like a hundred decisions
+      expect(steps).toBeGreaterThan(50)
+
+      fireEvent.click(screen.getByText('New game'))
+      expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
+      expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

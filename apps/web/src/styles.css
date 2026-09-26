@@ -42,11 +42,19 @@ body {
 }
 
 .hex-cell { cursor: pointer; }
-.hex-cell[data-highlight='legal'] .hex-shape { stroke: var(--legal); stroke-width: 1.2; }
-.hex-cell[data-highlight='completes'] .hex-shape { stroke: var(--completes); stroke-width: 1.6; }
-.hex-cell[data-highlight='selected'] .hex-shape { fill: #2a3540; stroke: var(--selected); stroke-width: 1.6; }
+.hex-cell[data-highlight='selected'] .hex-shape { fill: #2a3540; }
 
-.stack-depth { fill: var(--ink); font-weight: 700; }
+/* The rings live above every cell, so each side gets its full stroke width. */
+.board-overlay { pointer-events: none; }
+.hex-ring { fill: none; }
+.hex-ring[data-highlight='legal'] { stroke: var(--legal); stroke-width: 1.2; }
+.hex-ring[data-highlight='completes'] { stroke: var(--completes); stroke-width: 1.6; }
+.hex-ring[data-highlight='selected'] { stroke: var(--selected); stroke-width: 1.6; }
+
+/* Interface chrome, not a seventh dragon: the page background is a colour no
+   token uses, so a count can never be mistaken for a piece. */
+.stack-badge circle { fill: var(--bg); stroke: var(--ink); stroke-width: 0.5; }
+.stack-badge text { fill: var(--ink); font-weight: 700; }
 
 .token-preview { opacity: 0.5; }
 .token-preview-ring { fill: none; stroke: var(--ink); stroke-width: 0.8; stroke-dasharray: 2 2; }

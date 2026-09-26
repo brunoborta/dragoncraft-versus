@@ -5,6 +5,14 @@ import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
 export type Highlight = 'legal' | 'completes' | 'selected'
 
+/**
+ * A cell paints its own shape and token only. The highlight ring and the stack
+ * badge live in the board's overlay, drawn after every cell: rendered here they
+ * would be overpainted along each edge by whichever neighbour comes later,
+ * which is what made a ring thick on three sides and thin on the other three,
+ * and what clipped the stack numbers.
+ */
+
 export function HexCell({
   hex,
   stack,
@@ -39,18 +47,6 @@ export function HexCell({
       {top ? (
         <g transform={`translate(${center.x} ${center.y})`}>
           <TokenGlyph token={top} radius={HEX_SIZE * 0.6} />
-          {stack.length > 1 ? (
-            <text
-              className="stack-depth"
-              x={HEX_SIZE * 0.62}
-              y={HEX_SIZE * 0.62}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={HEX_SIZE * 0.45}
-            >
-              {stack.length}
-            </text>
-          ) : null}
         </g>
       ) : null}
       {preview ? (
