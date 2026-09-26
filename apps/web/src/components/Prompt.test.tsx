@@ -85,21 +85,16 @@ describe('Prompt', () => {
     expect(container.querySelectorAll('.prompt-actions .token-chip svg')).toHaveLength(3)
   })
 
-  it('names the two cards each discard button would return', () => {
+  it('leaves the discard to the cards, carrying only the confirmation', () => {
     const hand = [card('line-bread'), card('tri-plant'), card('line-iron'), card('tri-meat')]
     const view = staged({ kind: 'coinDiscard' }, hand)
-    const actions: Action[] = [
-      { type: 'coinDiscard', cardIds: [hand[0].id, hand[1].id] },
-      { type: 'coinDiscard', cardIds: [hand[2].id, hand[3].id] },
-    ]
+    // the bar is handed the confirming action only once two cards are marked
+    const actions: Action[] = [{ type: 'coinDiscard', cardIds: [hand[0].id, hand[1].id] }]
     const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
 
     const labels = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.textContent)
-    expect(labels).toEqual([
-      `Return ${cardName(hand[0])} + ${cardName(hand[1])}`,
-      `Return ${cardName(hand[2])} + ${cardName(hand[3])}`,
-    ])
-    expect(new Set(labels).size).toBe(labels.length)
+    expect(labels).toEqual(['Put these two back'])
+    expect(container.textContent).not.toContain(cardName(hand[0]))
   })
 })
 

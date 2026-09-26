@@ -1,7 +1,7 @@
 import { abilitiesOf, actionKey, hexEq } from '@dcv/engine'
 import type { Action, Hex, PlayerView, Token } from '@dcv/engine'
 import type { ReactNode } from 'react'
-import { describeAction, describeCoinDiscard, promptFor } from '../game/labels.js'
+import { describeAction, promptFor } from '../game/labels.js'
 import { DRAGON_THEME } from '../theme.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
@@ -70,9 +70,8 @@ export function Prompt({
   })
 
   /**
-   * `describeAction` cannot name what it is choosing between: the three crystal
-   * tokens live on the pending and the discard pairs live in the hand, and it
-   * sees neither. So those two labels are built here.
+   * `describeAction` cannot name the three crystal tokens: they live on the
+   * pending, which it does not see. So that label is built here.
    */
   function label(action: Action): ReactNode {
     if (action.type === 'crystalPick' && pending?.kind === 'crystalPick') {
@@ -85,7 +84,6 @@ export function Prompt({
         )
       }
     }
-    if (action.type === 'coinDiscard') return describeCoinDiscard(action, view.you.hand)
     if (action.type === 'fireUp' || action.type === 'plantTarget') {
       return (
         <>

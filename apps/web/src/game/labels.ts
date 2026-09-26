@@ -25,22 +25,6 @@ export function cardName(card: ShopCard): string {
   return `Two ${DRAGON_THEME[repeated].label} and one ${DRAGON_THEME[odd].label}`
 }
 
-/**
- * The coin discard is the one permanent decision in the game — the pair goes
- * to the bottom of a deck you will not see again — and `legalActions` offers up
- * to six of them, so each button has to name the two cards it returns.
- */
-export function describeCoinDiscard(
-  action: Extract<Action, { type: 'coinDiscard' }>,
-  hand: readonly ShopCard[],
-): string {
-  const names = action.cardIds.map((id) => {
-    const card = hand.find((candidate) => candidate.id === id)
-    return card ? cardName(card) : id
-  })
-  return `Return ${names[0]} + ${names[1]}`
-}
-
 export function describeAction(action: Action): string {
   switch (action.type) {
     case 'place':
@@ -65,7 +49,8 @@ export function describeAction(action: Action): string {
     case 'spendCoin':
       return 'Spend a coin'
     case 'coinDiscard':
-      return 'Return these two cards'
+      // which two is said by the cards themselves, marked on screen
+      return 'Put these two back'
     case 'scoreCard':
       return 'Scored a card'
     case 'endTurn':

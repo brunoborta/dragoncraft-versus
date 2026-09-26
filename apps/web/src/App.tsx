@@ -30,6 +30,7 @@ export function App() {
   const [selected, setSelected] = useState<Hex | null>(null)
   const [inspecting, setInspecting] = useState<Hex | null>(null)
   const [logOpen, setLogOpen] = useState(false)
+  const [returning, setReturning] = useState<string[]>([])
 
   // `level ?? 'easy'` is never read: the effect returns on `enabled` first
   useOpponent({
@@ -48,6 +49,22 @@ export function App() {
   const targets = boardTargets(actions, selected)
   const pending = view.pending[view.pending.length - 1]
 
+  /**
+   * A coin discard offers every pair in hand, which is up to six buttons of
+   * near-identical text next to the very cards they name. The cards carry the
+   * choice instead, so the bar holds only the confirmation, and only once two
+   * are marked.
+   */
+  const barActions =
+    pending?.kind === 'coinDiscard'
+      ? actions.filter(
+          (action) =>
+            action.type === 'coinDiscard' &&
+            returning.length === 2 &&
+            action.cardIds.every((id) => returning.includes(id)),
+        )
+      : actions
+
   // the board marks what is legal, and nothing else: the printed game does not
   // point out where a card would complete, so neither does this one
   const highlights: Record<string, Highlight> = {}
@@ -62,7 +79,16 @@ export function App() {
   function handleAct(action: Action): void {
     setSelected(null)
     setInspecting(null)
+    setReturning([])
     game.perform(action)
+  }
+
+  function toggleReturn(cardId: string): void {
+    setReturning((current) => {
+      if (current.includes(cardId)) return current.filter((id) => id !== cardId)
+      // exactly two go back, so a third tap does nothing until one is released
+      return current.length < 2 ? [...current, cardId] : current
+    })
   }
 
   function selectHex(hex: Hex): void {
@@ -92,6 +118,7 @@ export function App() {
     setSeed(next)
     game.reset(next)
     setLogOpen(false)
+    setReturning([])
     // a new game asks again: this is the only place the opponent is chosen
     setLevel(null)
   }
@@ -99,7 +126,7 @@ export function App() {
   function decision() {
     if (ended) return <GameOver state={game.state} onRestart={restart} />
     if (!myTurn) return <OpponentThinking />
-    return <Prompt view={view} actions={actions} selected={selected} onAct={handleAct} />
+    return <Prompt view={view} actions={barActions} selected={selected} onAct={handleAct} />
   }
 
   return (
@@ -120,7 +147,13 @@ export function App() {
           />
         ) : null}
         <Controls level={level} canUndo={game.canUndo && myTurn} onUndo={undo} />
-        <Hand view={view} actions={actions} onAct={handleAct} />
+        <Hand
+          view={view}
+          actions={actions}
+          onAct={handleAct}
+          returning={returning}
+          onToggleReturn={myTurn ? toggleReturn : undefined}
+        />
         {decision()}
       </footer>
       {logOpen ? <LogDialog view={view} onClose={() => setLogOpen(false)} /> : null}

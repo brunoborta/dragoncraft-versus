@@ -178,15 +178,26 @@ describe('App', () => {
    * is on turn and the test should let its timer run.
    */
   function takeAnyTurnAction(): boolean {
+    const scoreButton = [...document.querySelectorAll<HTMLButtonElement>('.card button')].find(
+      (button) => !button.classList.contains('card-return'),
+    )
+    if (scoreButton) {
+      fireEvent.click(scoreButton)
+      return true
+    }
+
     const barButton = document.querySelector<HTMLButtonElement>('.prompt-actions button')
     if (barButton) {
       fireEvent.click(barButton)
       return true
     }
 
-    const scoreButton = document.querySelector<HTMLButtonElement>('.card button')
-    if (scoreButton) {
-      fireEvent.click(scoreButton)
+    // a coin discard is answered on the cards: mark two, then the bar confirms
+    const toMark = [...document.querySelectorAll<HTMLButtonElement>('.card-return')].find(
+      (button) => !button.disabled && button.getAttribute('aria-pressed') === 'false',
+    )
+    if (toMark) {
+      fireEvent.click(toMark)
       return true
     }
 
@@ -204,6 +215,34 @@ describe('App', () => {
     }
     return true
   }
+
+  it('puts two cards back by marking them on the cards, not from a list of pairs', () => {
+    startGame()
+    stackTwoOnInnerRing()
+    fireEvent.click(screen.getByText('Do not fire up'))
+    fireEvent.click(screen.getByText('Spend a coin'))
+
+    // four in hand now, and the bar asks the question without answering it
+    expect(document.querySelectorAll('.card')).toHaveLength(4)
+    expect(screen.getByText('Put two cards at the bottom of the deck')).toBeDefined()
+    expect(document.querySelectorAll('.prompt-actions button')).toHaveLength(0)
+
+    const names = [...document.querySelectorAll('.card-name')].map((el) => el.textContent)
+    const marks = [...document.querySelectorAll<HTMLButtonElement>('.card-return')]
+    expect(marks).toHaveLength(4)
+
+    fireEvent.click(marks[0])
+    fireEvent.click(marks[1])
+    // a third is refused: exactly two go back
+    expect([...document.querySelectorAll<HTMLButtonElement>('.card-return')][2].disabled).toBe(true)
+
+    fireEvent.click(screen.getByText('Put these two back'))
+
+    const left = [...document.querySelectorAll('.card-name')].map((el) => el.textContent)
+    expect(left).toHaveLength(2)
+    expect(left).not.toContain(names[0])
+    expect(left).not.toContain(names[1])
+  })
 
   it('plays a whole game and asks for an opponent again on a new one', () => {
     vi.useFakeTimers()
