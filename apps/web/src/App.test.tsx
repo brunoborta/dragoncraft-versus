@@ -178,9 +178,20 @@ describe('App', () => {
    * is on turn and the test should let its timer run.
    */
   function takeAnyTurnAction(): boolean {
-    const scoreButton = [...document.querySelectorAll<HTMLButtonElement>('.card button')].find(
-      (button) => !button.classList.contains('card-return'),
-    )
+    // a coin discard takes over the screen: pick the keepers, then finish
+    const dialog = document.querySelector('.discard-dialog')
+    if (dialog) {
+      const finish = dialog.querySelector<HTMLButtonElement>('.discard-finish')
+      if (finish && !finish.disabled) {
+        fireEvent.click(finish)
+        return true
+      }
+      const unpicked = dialog.querySelector<HTMLElement>('.card[data-picked="false"]')
+      if (unpicked) fireEvent.click(unpicked)
+      return true
+    }
+
+    const scoreButton = document.querySelector<HTMLButtonElement>('.card button')
     if (scoreButton) {
       fireEvent.click(scoreButton)
       return true
@@ -189,15 +200,6 @@ describe('App', () => {
     const barButton = document.querySelector<HTMLButtonElement>('.prompt-actions button')
     if (barButton) {
       fireEvent.click(barButton)
-      return true
-    }
-
-    // a coin discard is answered on the cards: mark two, then the bar confirms
-    const toMark = [...document.querySelectorAll<HTMLButtonElement>('.card-return')].find(
-      (button) => !button.disabled && button.getAttribute('aria-pressed') === 'false',
-    )
-    if (toMark) {
-      fireEvent.click(toMark)
       return true
     }
 
@@ -216,32 +218,34 @@ describe('App', () => {
     return true
   }
 
-  it('puts two cards back by marking them on the cards, not from a list of pairs', () => {
+  it('puts two cards back by picking the ones to keep in a dialog', () => {
     startGame()
     stackTwoOnInnerRing()
     fireEvent.click(screen.getByText('Do not fire up'))
     fireEvent.click(screen.getByText('Spend a coin'))
 
-    // four in hand now, and the bar asks the question without answering it
-    expect(document.querySelectorAll('.card')).toHaveLength(4)
-    expect(screen.getByText('Put two cards at the bottom of the deck')).toBeDefined()
-    expect(document.querySelectorAll('.prompt-actions button')).toHaveLength(0)
+    const dialog = screen.getByLabelText('Choose the cards to keep')
+    const cards = [...dialog.querySelectorAll<HTMLElement>('.card')]
+    expect(cards).toHaveLength(4)
+    expect(screen.getByText(/^Keep 2\./)).toBeDefined()
 
-    const names = [...document.querySelectorAll('.card-name')].map((el) => el.textContent)
-    const marks = [...document.querySelectorAll<HTMLButtonElement>('.card-return')]
-    expect(marks).toHaveLength(4)
+    const finish = screen.getByText('Finish') as HTMLButtonElement
+    expect(finish.disabled).toBe(true)
 
-    fireEvent.click(marks[0])
-    fireEvent.click(marks[1])
-    // a third is refused: exactly two go back
-    expect([...document.querySelectorAll<HTMLButtonElement>('.card-return')][2].disabled).toBe(true)
+    const names = cards.map((card) => card.querySelector('.card-name')?.textContent)
+    fireEvent.click(cards[0])
+    fireEvent.click(cards[1])
+    expect(finish.disabled).toBe(false)
 
-    fireEvent.click(screen.getByText('Put these two back'))
+    // a third pick is refused: exactly two stay
+    fireEvent.click(cards[2])
+    expect(cards[2].getAttribute('data-picked')).toBe('false')
 
-    const left = [...document.querySelectorAll('.card-name')].map((el) => el.textContent)
-    expect(left).toHaveLength(2)
-    expect(left).not.toContain(names[0])
-    expect(left).not.toContain(names[1])
+    fireEvent.click(finish)
+    expect(screen.queryByLabelText('Choose the cards to keep')).toBeNull()
+
+    const left = [...document.querySelectorAll('.hand .card-name')].map((el) => el.textContent)
+    expect(left).toEqual([names[0], names[1]])
   })
 
   it('plays a whole game and asks for an opponent again on a new one', () => {

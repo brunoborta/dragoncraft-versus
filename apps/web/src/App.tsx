@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Board } from './components/Board.js'
 import { Controls } from './components/Controls.js'
 import { DifficultySetup } from './components/DifficultySetup.js'
+import { DiscardDialog, keepCount } from './components/DiscardDialog.js'
 import { GameOver } from './components/GameOver.js'
 import { Hand } from './components/Hand.js'
 import { LogDialog } from './components/LogDialog.js'
@@ -30,7 +31,7 @@ export function App() {
   const [selected, setSelected] = useState<Hex | null>(null)
   const [inspecting, setInspecting] = useState<Hex | null>(null)
   const [logOpen, setLogOpen] = useState(false)
-  const [returning, setReturning] = useState<string[]>([])
+  const [keeping, setKeeping] = useState<string[]>([])
 
   // `level ?? 'easy'` is never read: the effect returns on `enabled` first
   useOpponent({
@@ -49,21 +50,10 @@ export function App() {
   const targets = boardTargets(actions, selected)
   const pending = view.pending[view.pending.length - 1]
 
-  /**
-   * A coin discard offers every pair in hand, which is up to six buttons of
-   * near-identical text next to the very cards they name. The cards carry the
-   * choice instead, so the bar holds only the confirmation, and only once two
-   * are marked.
-   */
-  const barActions =
-    pending?.kind === 'coinDiscard'
-      ? actions.filter(
-          (action) =>
-            action.type === 'coinDiscard' &&
-            returning.length === 2 &&
-            action.cardIds.every((id) => returning.includes(id)),
-        )
-      : actions
+  // a coin discard is answered in its own dialog, on the cards themselves, so
+  // the bar behind it offers nothing
+  const discarding = myTurn && pending?.kind === 'coinDiscard'
+  const barActions = discarding ? [] : actions
 
   // the board marks what is legal, and nothing else: the printed game does not
   // point out where a card would complete, so neither does this one
@@ -79,16 +69,29 @@ export function App() {
   function handleAct(action: Action): void {
     setSelected(null)
     setInspecting(null)
-    setReturning([])
+    setKeeping([])
     game.perform(action)
   }
 
-  function toggleReturn(cardId: string): void {
-    setReturning((current) => {
+  function toggleKeep(cardId: string): void {
+    const wanted = keepCount(view.you.hand)
+    setKeeping((current) => {
       if (current.includes(cardId)) return current.filter((id) => id !== cardId)
-      // exactly two go back, so a third tap does nothing until one is released
-      return current.length < 2 ? [...current, cardId] : current
+      // one too many does nothing: release one before picking another
+      return current.length < wanted ? [...current, cardId] : current
     })
+  }
+
+  /** Whatever was not picked is what goes back — always exactly two cards. */
+  function finishDiscard(): void {
+    const returned = view.you.hand
+      .filter((card) => !keeping.includes(card.id))
+      .map((card) => card.id)
+    const action = actions.find(
+      (candidate) =>
+        candidate.type === 'coinDiscard' && candidate.cardIds.every((id) => returned.includes(id)),
+    )
+    if (action) handleAct(action)
   }
 
   function selectHex(hex: Hex): void {
@@ -118,7 +121,7 @@ export function App() {
     setSeed(next)
     game.reset(next)
     setLogOpen(false)
-    setReturning([])
+    setKeeping([])
     // a new game asks again: this is the only place the opponent is chosen
     setLevel(null)
   }
@@ -147,15 +150,17 @@ export function App() {
           />
         ) : null}
         <Controls level={level} canUndo={game.canUndo && myTurn} onUndo={undo} />
-        <Hand
-          view={view}
-          actions={actions}
-          onAct={handleAct}
-          returning={returning}
-          onToggleReturn={myTurn ? toggleReturn : undefined}
-        />
+        <Hand view={view} actions={actions} onAct={handleAct} />
         {decision()}
       </footer>
+      {discarding ? (
+        <DiscardDialog
+          hand={view.you.hand}
+          keeping={keeping}
+          onToggle={toggleKeep}
+          onFinish={finishDiscard}
+        />
+      ) : null}
       {logOpen ? <LogDialog view={view} onClose={() => setLogOpen(false)} /> : null}
       {level === null ? <DifficultySetup onChoose={setLevel} /> : null}
     </main>

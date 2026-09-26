@@ -230,7 +230,20 @@ body {
 .log-who { margin: 0; font-weight: 700; font-size: 13px; }
 .log-turns ul { margin: 0; padding-left: 14px; color: var(--muted); font-size: 13px; }
 
-/* A card marked to go back to the bottom of the deck. */
-.card[data-returning='true'] { border-color: var(--selected); opacity: 0.72; }
-.card-return { background: #2a3540; color: var(--ink); border: 1px solid #3a4652; }
-.card-return:disabled { opacity: 0.4; }
+/* A card picked to stay in hand, inside the discard dialog. */
+.card[data-picked] { cursor: pointer; }
+.card[data-picked='false'] { opacity: 0.55; }
+.card[data-picked='true'] { border-color: var(--selected); border-width: 2px; opacity: 1; }
+
+.discard-cards { display: flex; flex-wrap: wrap; gap: 8px; }
+.discard-cards .card { flex: 1 1 40%; }
+.discard-finish {
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: var(--completes);
+  font: inherit;
+  font-weight: 600;
+}
+.discard-finish:disabled { opacity: 0.4; }
