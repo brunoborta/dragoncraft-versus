@@ -2,7 +2,13 @@ import { drawMany, drawToken, returnToBag } from './bag.js'
 import { canReceive, moveTop, occupiedHexes, swapTops, topOf } from './board.js'
 import { BOARD, hexEq, neighbors, onBoard } from './hex.js'
 import { abilitiesOf } from './tokens.js'
-import type { Action, DragonType, GameState, Hex, Pending } from './types.js'
+import type { Action, DragonType, GameState, Hex, LogEntry, Pending, Token } from './types.js'
+
+/** A drawn token is an invisible step unless the log names it. */
+function logDraws(state: GameState, tokens: readonly Token[]): GameState {
+  const entries: LogEntry[] = tokens.map((token) => ({ seat: state.current, action: { type: 'draw', token } }))
+  return { ...state, log: [...state.log, ...entries] }
+}
 
 /**
  * Fires up `ability` as if from the token on `at`. Movement abilities open a
@@ -19,7 +25,7 @@ export function fireUpAbility(state: GameState, ability: DragonType, at: Hex): G
     case 'meat':
       return push({ kind: 'meat', at })
     case 'iron':
-      return push({ kind: 'iron', at, movesLeft: 2 })
+      return push({ kind: 'iron', at, movesLeft: 2, movedTo: [] })
     case 'potion':
       return push({ kind: 'potion' })
     case 'plant':
@@ -27,12 +33,15 @@ export function fireUpAbility(state: GameState, ability: DragonType, at: Hex): G
     case 'bread': {
       const drawn = drawToken(state)
       if (!drawn.token) return drawn.state
-      return push({ kind: 'place', token: drawn.token, fireUpAllowed: true }, drawn.state)
+      return push(
+        { kind: 'place', token: drawn.token, fireUpAllowed: true },
+        logDraws(drawn.state, [drawn.token]),
+      )
     }
     case 'crystal': {
       const drawn = drawMany(state, 3)
       if (drawn.tokens.length === 0) return drawn.state
-      return push({ kind: 'crystalPick', tokens: drawn.tokens }, drawn.state)
+      return push({ kind: 'crystalPick', tokens: drawn.tokens }, logDraws(drawn.state, drawn.tokens))
     }
   }
 }
@@ -69,6 +78,11 @@ export function abilityActions(state: GameState, pending: Pending): Action[] | n
     case 'iron': {
       const actions: Action[] = [{ type: 'ironDone' }]
       for (const from of movableNeighbors(state, pending.at)) {
+        // the token already shifted sits on top of its destination, so barring
+        // that whole space is exactly right: whatever is under it was not
+        // movable to begin with. The first move's *origin* stays open, because
+        // a token revealed there is a different token and the rule allows it.
+        if (pending.movedTo.some((hex) => hexEq(hex, from))) continue
         for (const to of destinations(state, from, true)) {
           actions.push({ type: 'ironMove', from, to })
         }
@@ -122,15 +136,20 @@ export function reduceAbility(state: GameState, action: Action): GameState | nul
       if (!pending || pending.kind !== 'iron') throw new Error('ironMove outside an iron pending')
       const movesLeft = pending.movesLeft - 1
       const rest = state.pending.slice(0, -1)
+      const movedTo = [...pending.movedTo, action.to]
       return {
         ...state,
         board: moveTop(state.board, action.from, action.to),
-        pending: movesLeft > 0 ? [...rest, { ...pending, movesLeft }] : rest,
+        pending: movesLeft > 0 ? [...rest, { ...pending, movesLeft, movedTo }] : rest,
         log: [...state.log, { seat: state.current, action }],
       }
     }
     case 'ironDone':
-      return { ...state, pending: state.pending.slice(0, -1) }
+      return {
+        ...state,
+        pending: state.pending.slice(0, -1),
+        log: [...state.log, { seat: state.current, action }],
+      }
     case 'crystalPick': {
       const pending = state.pending[state.pending.length - 1]
       if (!pending || pending.kind !== 'crystalPick') throw new Error('crystalPick outside a crystalPick pending')

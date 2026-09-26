@@ -22,9 +22,10 @@ describe('createGame', () => {
 
 describe('legalActions while placing', () => {
   it('offers all 19 spaces while no stack is full', () => {
+    // the coin rides alongside every pending, so the placements are the subset
     const actions = legalActions(createGame(1))
-    expect(actions).toHaveLength(BOARD.length)
-    expect(actions.every((a) => a.type === 'place')).toBe(true)
+    expect(actions.filter((a) => a.type === 'place')).toHaveLength(BOARD.length)
+    expect(actions.every((a) => a.type === 'place' || a.type === 'spendCoin')).toBe(true)
   })
 
   it('stops offering a space once it holds 3 tokens', () => {
@@ -113,6 +114,51 @@ describe('end of turn', () => {
     const skipped = applyAction(placed, { type: 'skipFireUp' })
     const after = applyAction(skipped, { type: 'endTurn' })
     expect(after.players[after.current].coinSpentThisTurn).toBe(false)
+  })
+})
+
+describe('spending a coin', () => {
+  it('is offered while the opening placement is still pending', () => {
+    const game = createGame(12)
+    expect(game.phase).toBe('play')
+    expect(legalActions(game).some((a) => a.type === 'spendCoin')).toBe(true)
+  })
+
+  it('is offered in the middle of an ability', () => {
+    let state = createGame(12)
+    state = applyAction(state, placeAt(state, 0, 0))
+    const fire = legalActions(state).find((a) => a.type === 'fireUp')
+    if (!fire) throw new Error('expected a fire-up to be offered')
+    state = applyAction(state, fire)
+    if (state.pending.length === 0) return
+    expect(legalActions(state).some((a) => a.type === 'spendCoin')).toBe(true)
+  })
+
+  it('keeps the placement pending underneath, so the token still gets played', () => {
+    let state = applyAction(createGame(12), { type: 'spendCoin' })
+    expect(state.pending.map((p) => p.kind)).toEqual(['place', 'coinDiscard'])
+    const hand = state.players[state.current].hand
+    state = applyAction(state, { type: 'coinDiscard', cardIds: [hand[0].id, hand[1].id] })
+    expect(state.pending.map((p) => p.kind)).toEqual(['place'])
+    expect(state.players[state.current].hand).toHaveLength(2)
+  })
+
+  it('is not offered again while its own discard is pending', () => {
+    const state = applyAction(createGame(12), { type: 'spendCoin' })
+    expect(legalActions(state).some((a) => a.type === 'spendCoin')).toBe(false)
+  })
+
+  it('is not offered twice in the same turn', () => {
+    let state = applyAction(createGame(12), { type: 'spendCoin' })
+    const hand = state.players[state.current].hand
+    state = applyAction(state, { type: 'coinDiscard', cardIds: [hand[0].id, hand[1].id] })
+    expect(legalActions(state).some((a) => a.type === 'spendCoin')).toBe(false)
+  })
+
+  it('is not offered with an empty deck, where it only ever costs reputation', () => {
+    const game = createGame(12)
+    const dry: GameState = { ...game, deck: [] }
+    expect(legalActions(dry).some((a) => a.type === 'spendCoin')).toBe(false)
   })
 })
 

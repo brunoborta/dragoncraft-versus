@@ -47,6 +47,13 @@ describe('bread', () => {
     expect(legalActions(state).some((a) => a.type === 'fireUp')).toBe(true)
   })
 
+  it('logs the token it drew, so the draw is not an invisible step', () => {
+    const after = fire(staged({ held: 'bread' }), 'bread')
+    const pending = after.pending.at(-1)
+    if (pending?.kind !== 'place') throw new Error('expected a place pending')
+    expect(after.log.at(-1)?.action).toEqual({ type: 'draw', token: pending.token })
+  })
+
   it('does nothing when there is nothing left to draw', () => {
     const state = staged({ held: 'bread', bag: [], extrasAdded: true })
     expect(fire(state, 'bread').phase).toBe('score')
@@ -61,6 +68,15 @@ describe('crystal', () => {
     expect(pending?.kind).toBe('crystalPick')
     expect(after.bag).toHaveLength(state.bag.length - 3)
     expect(legalActions(after).filter((a) => a.type === 'crystalPick')).toHaveLength(3)
+  })
+
+  it('logs all three tokens it drew', () => {
+    const after = fire(staged({ held: 'crystal' }), 'crystal')
+    const pending = after.pending.at(-1)
+    if (pending?.kind !== 'crystalPick') throw new Error('expected a crystalPick pending')
+    expect(after.log.slice(-3).map((entry) => entry.action)).toEqual(
+      pending.tokens.map((token) => ({ type: 'draw', token })),
+    )
   })
 
   it('returns the two unchosen tokens to the bag', () => {

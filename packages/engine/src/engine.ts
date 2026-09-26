@@ -87,19 +87,35 @@ function pendingActions(state: GameState, pending: Pending): Action[] {
 
 const SCORING_PHASES = new Set(['score', 'final-score'])
 
+/**
+ * The coin is orthogonal to the pending stack: legal at any time before
+ * REFRESH, once per turn — which includes the middle of the PLAY phase, where
+ * buying a fresh hand before committing the token is a real option.
+ *
+ * Two guards: offering it while its own discard is still open would spend the
+ * same coin twice, and with an empty deck it draws nothing while REFRESH hands
+ * the discarded pair straight back, costing a reputation for no change.
+ */
+function canSpendCoin(state: GameState, pending: Pending | undefined): boolean {
+  if (pending?.kind === 'coinDiscard') return false
+  if (state.deck.length === 0) return false
+  const player = state.players[state.current]
+  return player.coins > 0 && !player.coinSpentThisTurn
+}
+
 export function legalActions(state: GameState): Action[] {
   if (state.phase === 'ended') return []
 
   const pending = topPending(state)
-  if (pending) return pendingActions(state, pending)
+  const coin: Action[] = canSpendCoin(state, pending) ? [{ type: 'spendCoin' }] : []
+  if (pending) return [...pendingActions(state, pending), ...coin]
   if (!SCORING_PHASES.has(state.phase)) return []
 
-  const player = state.players[state.current]
   const actions: Action[] = scoreableCards(state, state.current).map((card) => ({
     type: 'scoreCard',
     cardId: card.id,
   }))
-  if (player.coins > 0 && !player.coinSpentThisTurn) actions.push({ type: 'spendCoin' })
+  actions.push(...coin)
   actions.push({ type: 'endTurn' })
   return actions
 }
@@ -166,7 +182,11 @@ function reduce(state: GameState, action: Action): GameState {
       }
     }
     case 'skipFireUp':
-      return { ...state, pending: state.pending.slice(0, -1) }
+      return {
+        ...state,
+        pending: state.pending.slice(0, -1),
+        log: [...state.log, { seat: state.current, action }],
+      }
     case 'fireUp': {
       const pending = topPending(state)
       if (!pending || pending.kind !== 'mayFireUp') throw new Error('fireUp outside a mayFireUp pending')
@@ -239,8 +259,13 @@ function reduce(state: GameState, action: Action): GameState {
 /** PLAY ends by itself once the pending stack empties. */
 function settle(state: GameState): GameState {
   let current = state
-  // A pending with no possible action resolves itself.
-  while (current.pending.length > 0 && legalActions(current).length === 0) {
+  // A pending with no possible action of its own resolves itself: this is how a
+  // plant with no occupied neighbour disappears instead of deadlocking. It has
+  // to read the pending's own actions and not `legalActions`, because the coin
+  // is always in that list and would keep a targetless pending alive forever.
+  while (current.pending.length > 0) {
+    const top = current.pending[current.pending.length - 1]
+    if (pendingActions(current, top).length > 0) break
     current = { ...current, pending: current.pending.slice(0, -1) }
   }
   if (current.phase === 'play' && current.pending.length === 0) return { ...current, phase: 'score' }

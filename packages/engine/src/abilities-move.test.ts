@@ -21,6 +21,7 @@ function staged(board: Record<string, ReturnType<typeof single>[]>, held: Parame
 const A = { q: 0, r: 0 }
 const B = { q: 1, r: 0 }
 const C = { q: 2, r: 0 }
+const D = { q: 1, r: -1 }
 
 describe('firing up is optional', () => {
   it('offers both firing up and skipping after a placement', () => {
@@ -34,6 +35,12 @@ describe('firing up is optional', () => {
     let state = applyAction(staged({}, 'meat'), { type: 'place', at: A })
     state = applyAction(state, { type: 'skipFireUp' })
     expect(state.phase).toBe('score')
+  })
+
+  it('logs the decision not to fire up', () => {
+    let state = applyAction(staged({}, 'meat'), { type: 'place', at: A })
+    state = applyAction(state, { type: 'skipFireUp' })
+    expect(state.log.at(-1)?.action).toEqual({ type: 'skipFireUp' })
   })
 })
 
@@ -157,6 +164,29 @@ describe('iron', () => {
       .filter((x): x is Extract<Action, { type: 'ironMove' }> => x.type === 'ironMove')
       .map((m) => key(m.to))
     expect(targets).not.toContain(key(C))
+  })
+
+  it('never offers a second move to the token it just moved', () => {
+    // D neighbours both B and the iron on A, so before this guard existed the
+    // token that landed on D was offered up for a second move of its own.
+    let state = staged({ [key(B)]: [single('bread')] }, 'iron')
+    state = applyAction(state, { type: 'place', at: A })
+    state = applyAction(state, { type: 'fireUp', ability: 'iron' })
+    state = applyAction(state, { type: 'ironMove', from: B, to: D })
+    expect(topOf(state.board, D)).toEqual(single('bread'))
+    const froms = legalActions(state)
+      .filter((x): x is Extract<Action, { type: 'ironMove' }> => x.type === 'ironMove')
+      .map((m) => key(m.from))
+    expect(froms).not.toContain(key(D))
+  })
+
+  it('logs stopping, so a declined second move is not silence', () => {
+    let state = staged({ [key(B)]: [single('bread')] }, 'iron')
+    state = applyAction(state, { type: 'place', at: A })
+    state = applyAction(state, { type: 'fireUp', ability: 'iron' })
+    state = applyAction(state, { type: 'ironMove', from: B, to: C })
+    state = applyAction(state, { type: 'ironDone' })
+    expect(state.log.at(-1)?.action).toEqual({ type: 'ironDone' })
   })
 
   it('ends by itself after 2 moves', () => {

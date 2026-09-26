@@ -45,7 +45,12 @@ export type Pending =
   | { kind: 'mayFireUp'; at: Hex }
   | { kind: 'crystalPick'; tokens: Token[] }
   | { kind: 'meat'; at: Hex }
-  | { kind: 'iron'; at: Hex; movesLeft: number }
+  /**
+   * `movedTo` is the trail of the tokens this iron has already shifted: the
+   * rule asks for 2 *distinct* tokens, and a moved token often lands on
+   * another space adjacent to the iron.
+   */
+  | { kind: 'iron'; at: Hex; movesLeft: number; movedTo: Hex[] }
   | { kind: 'potion' }
   | { kind: 'plant'; at: Hex }
   | { kind: 'coinDiscard' }
