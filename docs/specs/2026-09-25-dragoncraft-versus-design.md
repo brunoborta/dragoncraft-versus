@@ -292,13 +292,19 @@ escala de um celular pequeno a um desktop sem cálculo de pixel.
 profundidade na borda. Nada de perspectiva 3D, que come espaço e não é legível
 em 40 pixels. Tocar numa pilha abre ela.
 
-**Destaque de padrão (recurso central):** com um token na mão, cada casa legal
-mostra se aquela colocação completa um card do jogador. Casar padrão
-rotacionado de cabeça, em tela pequena, é cansativo; o matcher já faz essa
-conta.
+**Destaque de padrão — removido depois de jogar.** O desenho original marcava,
+com um token na mão, cada casa cuja colocação completaria um card do jogador,
+com o argumento de que casar padrão rotacionado de cabeça em tela pequena é
+cansativo. Jogando, o dono do projeto decidiu tirar: **o jogo impresso não
+aponta onde o padrão fecha, e este é uma cópia de regras.** Um auxílio que a
+caixa não dá muda a dificuldade do jogo, e achar o padrão é parte do que se
+está jogando. O tabuleiro marca o que é legal, e nada além disso.
 
-**Toque em dois tempos:** primeiro toque mostra o preview (token translúcido e
-o que completaria), segundo confirma. Reavaliar depois de jogar de verdade.
+`wouldComplete` continua no motor: a função não some, porque a avaliação da
+máquina a usa para medir quão perto de pontuar uma posição está.
+
+**Toque em dois tempos:** primeiro toque mostra o preview do token translúcido
+na casa, segundo confirma. Reavaliar depois de jogar de verdade.
 
 **Score explícito:** cards pontuáveis ficam realçados, mas nada pontua sozinho.
 Segurar um card pontuável é jogada válida.

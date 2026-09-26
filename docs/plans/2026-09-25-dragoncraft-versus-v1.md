@@ -479,9 +479,16 @@ export function areAdjacent(a: Hex, b: Hex): boolean {
 /** The 6 starting spaces: the ring around the centre. */
 export const INNER_RING: readonly Hex[] = neighbors(CENTER)
 
-/** 60-degree rotation about the centre. Six applications return to the original. */
+/**
+ * 60-degree rotation about the centre. Six applications return to the original.
+ *
+ * The `+ 0` normalizes IEEE-754 negative zero: `-h.r` is `-0` when `h.r` is 0,
+ * and deep equality (vitest `toEqual`, `Object.is`) treats `-0` and `0` as
+ * different values. The matcher compares rotated coordinates, so a stray `-0`
+ * would silently fail to match. Do not "simplify" this away.
+ */
 export function rotate(h: Hex): Hex {
-  return { q: -h.r, r: h.q + h.r }
+  return { q: -h.r + 0, r: h.q + h.r + 0 }
 }
 
 export function key(h: Hex): HexKey {
@@ -2941,7 +2948,9 @@ const card = (id: string): ShopCard => {
 
 /** A board where `line-bread` already matches, and a player holding that card. */
 function readyToScore(overrides: Partial<GameState> = {}): GameState {
-  const base = createInitialState(3)
+  // seed 1: seed 3 deals a deck whose top card collides by id with a card this
+  // fixture places in hand by hand, which no real game can produce.
+  const base = createInitialState(1)
   return {
     ...base,
     board: {
@@ -2987,7 +2996,8 @@ describe('scoring a card', () => {
         [key({ q: -2, r: 0 })]: [single('bread')],
         [key({ q: -1, r: 0 })]: [single('bread')],
         [key({ q: 0, r: 0 })]: [single('bread')],
-        [key({ q: 0, r: 1 })]: [single('bread')],
+        // (-1,1) closes a triangle with (-1,0) and (0,0); (0,1) would not
+        [key({ q: -1, r: 1 })]: [single('bread')],
       },
     })
     const withTwo: GameState = {
@@ -3779,7 +3789,9 @@ describe('medium', () => {
         [key({ q: -1, r: 0 })]: [single('bread')],
         [key({ q: 0, r: 0 })]: [single('bread')],
       },
-      players: [{ ...base.players[0], hand: [card('line-bread')], coins: 0 }, base.players[1]],
+      // the hand keeps HAND_SIZE cards: shrinking it without adjusting the deck
+      // breaks determinize's card conservation, a state no real game can reach
+      players: [{ ...base.players[0], hand: [card('line-bread'), card('tri-plant')], coins: 0 }, base.players[1]],
       current: 0,
       phase: 'score',
       pending: [],
@@ -4046,8 +4058,31 @@ export default defineConfig({
   test: {
     include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.{ts,tsx}'],
     environmentMatchGlobs: [['apps/**', 'jsdom']],
+    // @testing-library/react registers its own afterEach(cleanup), which needs
+    // Vitest's globals. Without this the DOM leaks between it() blocks.
+    globals: true,
   },
 })
+```
+
+Duas coisas na raiz que não são opcionais e não são óbvias:
+
+**O `tsconfig.json` da raiz precisa de mais do que o glob.** Este repo não usa project
+references, então `tsc -b` compila um projeto monolítico sob as opções da raiz — o
+`apps/web/tsconfig.json` não é consultado. Além de estender `include` para `apps/*/src`, a raiz
+precisa de `"jsx": "react-jsx"` e de `"lib": ["ES2022", "DOM", "DOM.Iterable"]`, ou o app inteiro
+falha a compilar. Vale conferir que a verificação está mesmo acontecendo: introduza um erro de
+tipo de propósito, veja `tsc -b` pegá-lo, e remova.
+
+**Fixar a versão do React.** `@testing-library/react` puxa React 19 para a raiz enquanto
+`apps/web` declara 18.3.1, e as duas cópias quebram todo teste de componente. Acrescentar ao
+`package.json` da raiz:
+
+```json
+  "overrides": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
 ```
 
 - [ ] **Step 2: Escrever o teste do tema**
@@ -5108,7 +5143,7 @@ Acrescentar ao `styles.css`:
 .card .pattern { width: 100%; height: 56px; }
 .card-name { margin: 0; font-size: 12px; text-align: center; }
 .card-rep { position: absolute; top: 6px; right: 8px; font-weight: 700; color: var(--completes); }
-.card button { min-height: 40px; width: 100%; border-radius: 8px; border: 0; background: var(--completes); font: inherit; font-weight: 600; }
+.card button { min-height: 44px; width: 100%; border-radius: 8px; border: 0; background: var(--completes); font: inherit; font-weight: 600; }
 
 .pattern-hex { fill: #222a33; stroke: #39434e; stroke-width: 0.6; }
 ```
@@ -5426,25 +5461,32 @@ export function Prompt({
 
 - [ ] **Step 5: Inspecionar uma pilha**
 
-A spec pede que tocar numa pilha abra ela. Um toque numa casa que **não** é alvo
-da decisão atual não tem outro significado, então é aí que a inspeção cabe, sem
-disputar com a seleção.
+A spec pede que tocar numa pilha abra ela. Toda casa com token mostra o que há
+embaixo ao ser tocada — inclusive quando ela também é alvo da decisão atual, e
+é justamente aí que a informação serve: o primeiro toque mostra a prévia da
+jogada **e** o conteúdo da pilha, que é o que você precisa pra decidir o
+segundo toque. A inspeção some assim que uma ação é executada.
 
 Teste, em `apps/web/src/App.test.tsx`:
 
 ```tsx
-  it('opens a stack when a space that is not a target is tapped', () => {
+  it('opens a stack when an occupied space is tapped', () => {
     render(<App />)
-    const occupied = screen.getByLabelText(/^1,0: /)
-    fireEvent.click(occupied)
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
   })
 
-  it('closes the stack detail on the next tap', () => {
+  it('shows nothing for an empty space', () => {
+    render(<App />)
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+  })
+
+  it('closes the stack detail once an action is taken', () => {
     render(<App />)
     fireEvent.click(screen.getByLabelText(/^1,0: /))
-    fireEvent.click(screen.getByLabelText('2,-2: empty'))
-    expect(screen.queryByLabelText('Stack at 1,0')).toBeNull()
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 ```
 
@@ -5484,22 +5526,28 @@ No `App.tsx`, guardar a casa inspecionada e limpá-la a cada toque:
   function selectHex(hex: Hex): void {
     const outcome = resolveTap(game.actions, selected, hex)
     setSelected(outcome.select)
+
     if (outcome.action) {
       setInspecting(null)
       game.perform(outcome.action)
       return
     }
-    // not a target: show what is stacked there instead
+
+    // any tapped space that holds tokens shows what is stacked there
     const stack = game.state.board[key(hex)] ?? []
-    setInspecting(outcome.select === null && stack.length > 0 ? hex : null)
+    setInspecting(stack.length > 0 ? hex : null)
   }
 ```
 
 E renderizar `{inspecting ? <StackDetail hex={inspecting} stack={game.state.board[key(inspecting)] ?? []} /> : null}` logo acima da `<Prompt />`.
 
-Acrescentar ao `styles.css`:
+Acrescentar ao `styles.css`, e de passagem corrigir uma contradição do plano: a Task 17 define
+`.card button { min-height: 40px }`, abaixo dos 44px que as Global Constraints exigem de todo
+alvo de toque. Levar esse valor para 44px.
 
 ```css
+.card button { min-height: 44px; }
+
 .stack-detail { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
 .stack-detail-title { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
 .stack-detail ol { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none; }
