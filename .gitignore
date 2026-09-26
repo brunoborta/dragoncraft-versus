@@ -6,3 +6,7 @@ dist/
 
 # Rulebook original (material de terceiros, fonte de consulta apenas)
 FlamecraftDuals_Rulebook.pdf
+
+# Prints de referência e rascunhos de sessão: ficam no disco, fora do repo
+references/
+.superpowers/
