@@ -43,19 +43,18 @@ describe('useGame', () => {
     expect(result.current.state.pending).toHaveLength(1)
   })
 
-  it('undoUntil rewinds past a run of states to the first matching one', () => {
+  it('will not step back past the token being drawn, however often it is asked', () => {
     const { result } = renderHook(() => useGame(42))
-    act(() => result.current.perform(result.current.actions[0]))
-    act(() => result.current.perform(result.current.actions[0]))
-    const target = result.current.state.phase
-    act(() => result.current.undoUntil((state) => state.pending.length === 1))
-    expect(result.current.state.pending).toHaveLength(1)
-    expect(result.current.state.phase).not.toBe(target)
-  })
+    // the opening draw is the only entry in a fresh log
+    expect(result.current.state.log).toHaveLength(1)
 
-  it('undoUntil never rewinds past the opening position', () => {
-    const { result } = renderHook(() => useGame(42))
-    act(() => result.current.undoUntil(() => false))
+    act(() => result.current.perform(result.current.actions[0]))
+    act(() => result.current.perform(result.current.actions[0]))
+    expect(result.current.state.log.length).toBeGreaterThan(1)
+
+    for (let attempt = 0; attempt < 5; attempt += 1) act(() => result.current.undo())
+
+    expect(result.current.state.log).toHaveLength(1)
     expect(result.current.canUndo).toBe(false)
   })
 })

@@ -113,8 +113,8 @@ export function App({ seed: given }: { seed?: number } = {}) {
   function undo(): void {
     setSelected(null)
     setInspecting(null)
-    // rewind past whatever the machine did, back to your own turn
-    game.undoUntil((state) => state.current === HUMAN_SEAT)
+    // one action at a time, and never across a draw or into the machine's turn
+    game.undo()
   }
 
   function restart(): void {
