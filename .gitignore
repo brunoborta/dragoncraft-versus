@@ -4,8 +4,8 @@ dist/
 *.local
 *.tsbuildinfo
 
-# Rulebook original (material de terceiros, fonte de consulta apenas)
-FlamecraftDuals_Rulebook.pdf
+# Material de terceiros usado apenas como fonte de consulta
+*.pdf
 
 # Prints de referência e rascunhos de sessão: ficam no disco, fora do repo
 references/
