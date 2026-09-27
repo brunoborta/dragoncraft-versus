@@ -235,6 +235,16 @@ body {
   font: inherit;
 }
 
+.log-rounds { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.log-round {
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #2b333d;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 .log-turns { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 .log-turns > li { display: grid; gap: 2px; }
 .log-who { margin: 0; font-weight: 700; font-size: 13px; }

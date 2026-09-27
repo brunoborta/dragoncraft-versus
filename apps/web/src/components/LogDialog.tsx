@@ -1,5 +1,5 @@
 import type { PlayerView } from '@dcv/engine'
-import { groupLog } from '../game/log.js'
+import { groupRounds } from '../game/log.js'
 
 /**
  * The whole history, newest turn first. The top bar can only hold a couple of
@@ -7,7 +7,8 @@ import { groupLog } from '../game/log.js'
  * longer than that — so reading what actually happened needs its own surface.
  */
 export function LogDialog({ view, onClose }: { view: PlayerView; onClose: () => void }) {
-  const turns = groupLog(view.log, view.seat).reverse()
+  // newest round first, but the two turns inside one read in the order played
+  const rounds = groupRounds(view.log, view.seat).reverse()
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -24,15 +25,22 @@ export function LogDialog({ view, onClose }: { view: PlayerView; onClose: () => 
             ✕
           </button>
         </div>
-        <ol className="log-turns">
-          {turns.map((turn) => (
-            <li key={turn.at}>
-              <p className="log-who">{turn.who}</p>
-              <ul>
-                {turn.lines.map((line, index) => (
-                  <li key={`${turn.at}-${index}`}>{line}</li>
+        <ol className="log-rounds">
+          {rounds.map((round) => (
+            <li key={round.number}>
+              <p className="log-round">Round {round.number}</p>
+              <ol className="log-turns">
+                {round.turns.map((turn) => (
+                  <li key={turn.at}>
+                    <p className="log-who">{turn.who}</p>
+                    <ul>
+                      {turn.lines.map((line, index) => (
+                        <li key={`${turn.at}-${index}`}>{line}</li>
+                      ))}
+                    </ul>
+                  </li>
                 ))}
-              </ul>
+              </ol>
             </li>
           ))}
         </ol>

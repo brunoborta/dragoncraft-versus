@@ -1,7 +1,7 @@
 import { single } from '@dcv/engine'
 import type { LogEntry, Seat } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
-import { describeLogEntry, groupLog } from './log.js'
+import { describeLogEntry, groupLog, groupRounds } from './log.js'
 
 const entry = (seat: Seat, action: LogEntry['action']): LogEntry => ({ seat, action })
 
@@ -46,5 +46,35 @@ describe('describeLogEntry', () => {
   it('says You and Opponent rather than a seat number', () => {
     expect(describeLogEntry(entry(0, { type: 'endTurn' }), 0)).toBe('You: End turn')
     expect(describeLogEntry(entry(1, { type: 'endTurn' }), 0)).toBe('Opponent: End turn')
+  })
+})
+
+describe('groupRounds', () => {
+  it('pairs the two turns of a round', () => {
+    const rounds = groupRounds([...aTurn(0), ...aTurn(1)], 0)
+    expect(rounds).toHaveLength(1)
+    expect(rounds[0].number).toBe(1)
+    expect(rounds[0].turns.map((turn) => turn.who)).toEqual(['You', 'Opponent'])
+  })
+
+  it('opens every round with whoever opened the game', () => {
+    // the Fire Up Chart sometimes gives the machine the first turn, and then
+    // every round in that game reads Opponent first
+    const rounds = groupRounds([...aTurn(1), ...aTurn(0), ...aTurn(1), ...aTurn(0)], 0)
+    expect(rounds.map((round) => round.turns.map((turn) => turn.who))).toEqual([
+      ['Opponent', 'You'],
+      ['Opponent', 'You'],
+    ])
+  })
+
+  it('leaves the round in progress half full', () => {
+    const rounds = groupRounds([...aTurn(0), ...aTurn(1), ...aTurn(0)], 0)
+    expect(rounds).toHaveLength(2)
+    expect(rounds[1].number).toBe(2)
+    expect(rounds[1].turns.map((turn) => turn.who)).toEqual(['You'])
+  })
+
+  it('has no rounds before anyone has moved', () => {
+    expect(groupRounds([], 0)).toEqual([])
   })
 })

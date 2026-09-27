@@ -41,3 +41,25 @@ export function groupLog(log: readonly LogEntry[], seat: Seat): LogTurn[] {
 
   return turns
 }
+
+export type LogRound = { number: number; turns: LogTurn[] }
+
+/**
+ * A round is one turn from each side. Turns already alternate — a turn ends
+ * when the seat changes — so a round is simply the next two of them, which
+ * makes whoever opened the game open every round in it. When the Fire Up
+ * Chart hands the machine the first turn, its rounds read Opponent then You,
+ * and no round is ever half a round for structural reasons.
+ *
+ * The round being played is the exception: it holds one turn until the reply.
+ */
+export function groupRounds(log: readonly LogEntry[], seat: Seat): LogRound[] {
+  const turns = groupLog(log, seat)
+  const rounds: LogRound[] = []
+
+  for (let index = 0; index < turns.length; index += 2) {
+    rounds.push({ number: rounds.length + 1, turns: turns.slice(index, index + 2) })
+  }
+
+  return rounds
+}

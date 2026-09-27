@@ -94,13 +94,14 @@ describe('App', () => {
     expect(screen.queryByRole('combobox')).toBeNull()
   })
 
-  it('opens the full log grouped into turns, naming each side once', () => {
+  it('opens the full log grouped into rounds, naming each side once per turn', () => {
     startGame()
     stackTwoOnInnerRing()
     fireEvent.click(screen.getByText('Do not fire up'))
     fireEvent.click(screen.getByText('Full log'))
 
     const dialog = screen.getByLabelText('Move log')
+    expect(dialog.querySelector('.log-round')?.textContent).toBe('Round 1')
     expect(dialog.querySelectorAll('.log-who')).toHaveLength(1)
     expect(dialog.querySelector('.log-who')?.textContent).toBe('You')
     expect(dialog.textContent).not.toMatch(/Player/)
