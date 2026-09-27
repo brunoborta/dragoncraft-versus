@@ -5,8 +5,8 @@ Status: aprovado, aguardando plano de implementação
 
 ## 1. Contexto e objetivo
 
-Jogo de tabuleiro digital, jogável no navegador, com as mesmas regras do
-Flamecraft Duals (Cardboard Alchemy) e com nome, identidade visual e textos
+Jogo de tabuleiro digital, jogável no navegador. As regras vêm de um jogo de
+tabuleiro físico existente; o nome, a identidade visual e todos os textos são
 próprios. Regras de jogo não são protegidas por direito autoral; nome, arte e
 textos são, e nenhum deles é reaproveitado aqui.
 
@@ -14,8 +14,8 @@ textos são, e nenhum deles é reaproveitado aqui.
 multiplayer online é requisito, não enfeite, e que o jogo precisa estar
 hospedado e ser confiável. Não é portfólio nem exercício.
 
-**Fonte das regras:** `FlamecraftDuals_Rulebook.pdf` na raiz do projeto
-(16 páginas). Geometria do tabuleiro extraída das ilustrações do próprio PDF;
+**Fonte das regras:** o rulebook do jogo físico (16 páginas), mantido fora do
+repositório. Geometria do tabuleiro extraída das ilustrações do próprio rulebook;
 composição do deck derivada analiticamente e confirmada pelo dono do jogo
 físico.
 
