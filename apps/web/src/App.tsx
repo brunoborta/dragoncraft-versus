@@ -17,13 +17,16 @@ import { HUMAN_SEAT, MACHINE_SEAT } from './game/seats.js'
 import { useGame } from './game/useGame.js'
 import { useOpponent } from './game/useOpponent.js'
 import { boardTargets, resolveTap } from './game/selection.js'
+import { findGame, isDebugEnabled, type Outcome } from './game/debug.js'
 import { randomSeed } from './game/seed.js'
 
 /**
  * `seed` is for tests and for replaying a game someone reported. Left out — as
- * it is in the real app — every game draws its own.
+ * it is in the real app — every game draws its own. `debug` likewise defaults
+ * to what the URL fragment says.
  */
-export function App({ seed: given }: { seed?: number } = {}) {
+export function App({ seed: given, debug }: { seed?: number; debug?: boolean } = {}) {
+  const debugging = debug ?? isDebugEnabled(globalThis.location?.hash ?? '')
   const [seed, setSeed] = useState(() => given ?? randomSeed())
   // null until chosen: the game does not start, and the machine does not move,
   // before the player has picked who they are playing against
@@ -117,6 +120,21 @@ export function App({ seed: given }: { seed?: number } = {}) {
     game.undo()
   }
 
+  /**
+   * Jumps to a finished game with the outcome asked for, so the final screen
+   * can be looked at without playing a hundred moves. The game it lands on is
+   * one the rules really produce — see `findGame`.
+   */
+  function jumpTo(outcome: Outcome): void {
+    const found = findGame(outcome, HUMAN_SEAT, randomSeed())
+    if (!found) return
+    setSelected(null)
+    setInspecting(null)
+    setKeeping([])
+    setSeed(found.seed)
+    game.load(found.state)
+  }
+
   function restart(): void {
     // `given` pins the opening game only; every game after it draws its own
     const next = randomSeed()
@@ -150,6 +168,16 @@ export function App({ seed: given }: { seed?: number } = {}) {
             stack={game.state.board[key(inspecting)] ?? []}
             onClose={() => setInspecting(null)}
           />
+        ) : null}
+        {debugging ? (
+          <div className="debug">
+            <button type="button" onClick={() => jumpTo('win')}>
+              Win now
+            </button>
+            <button type="button" onClick={() => jumpTo('lose')}>
+              Lose now
+            </button>
+          </div>
         ) : null}
         <Controls level={level} seed={seed} canUndo={game.canUndo && myTurn} onUndo={undo} />
         <Hand view={view} actions={actions} onAct={handleAct} />

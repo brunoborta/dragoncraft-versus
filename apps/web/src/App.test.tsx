@@ -78,6 +78,23 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText(/^1,0: /))
   }
 
+  it('hides the debug hatch unless the URL asks for it', () => {
+    startGame()
+    expect(screen.queryByText('Win now')).toBeNull()
+    expect(screen.queryByText('Lose now')).toBeNull()
+  })
+
+  it('jumps to a finished game you won, and to one you lost', () => {
+    render(<App seed={2} debug />)
+    fireEvent.click(screen.getByText('Easy'))
+
+    fireEvent.click(screen.getByText('Win now'))
+    expect(screen.getByText('You win')).toBeDefined()
+
+    fireEvent.click(screen.getByText('Lose now'))
+    expect(screen.getByText('You lose')).toBeDefined()
+  })
+
   it('shows the seed of the game being played', () => {
     startGame()
     expect(screen.getByText('Seed 2')).toBeDefined()

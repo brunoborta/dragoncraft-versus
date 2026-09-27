@@ -270,3 +270,17 @@ body {
   font-weight: 600;
 }
 .discard-finish:disabled { opacity: 0.4; }
+
+/* Only reachable with #debug in the URL: a way to look at the final screen
+   without playing a hundred moves. */
+.debug { display: flex; gap: 8px; }
+.debug button {
+  flex: 1 1 0;
+  min-height: 36px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed #3a4652;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+}

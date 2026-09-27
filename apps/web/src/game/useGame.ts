@@ -16,6 +16,8 @@ export type GameSession = {
   undo: () => void
   canUndo: boolean
   reset: (seed: number) => void
+  /** Replaces the history with a state from elsewhere, losing what came before. */
+  load: (state: GameState) => void
 }
 
 /**
@@ -40,7 +42,11 @@ export function useGame(seed: number): GameSession {
     setHistory([createGame(nextSeed)])
   }, [])
 
+  const load = useCallback((state: GameState) => {
+    setHistory([state])
+  }, [])
+
   const canUndo = useMemo(() => history.length - 1 > undoFloor(history), [history])
 
-  return { state, actions, perform, undo, canUndo, reset }
+  return { state, actions, perform, undo, canUndo, reset, load }
 }
