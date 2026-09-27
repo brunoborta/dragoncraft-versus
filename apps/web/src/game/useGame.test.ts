@@ -43,18 +43,24 @@ describe('useGame', () => {
     expect(result.current.state.pending).toHaveLength(1)
   })
 
-  it('will not step back past the token being drawn, however often it is asked', () => {
+  it('will not step back into the turn before this one, however often it is asked', () => {
     const { result } = renderHook(() => useGame(42))
-    // the opening draw is the only entry in a fresh log
-    expect(result.current.state.log).toHaveLength(1)
+    const opener = result.current.state.current
 
+    // play on until the turn changes hands, which both ends a turn and draws
+    for (let step = 0; step < 40 && result.current.state.current === opener; step += 1) {
+      act(() => result.current.perform(result.current.actions[0]))
+    }
+    expect(result.current.state.current, 'the turn never changed hands').not.toBe(opener)
+
+    const atTurnStart = result.current.state.log.length
     act(() => result.current.perform(result.current.actions[0]))
-    act(() => result.current.perform(result.current.actions[0]))
-    expect(result.current.state.log.length).toBeGreaterThan(1)
+    expect(result.current.state.log.length).toBeGreaterThan(atTurnStart)
 
-    for (let attempt = 0; attempt < 5; attempt += 1) act(() => result.current.undo())
+    for (let attempt = 0; attempt < 10; attempt += 1) act(() => result.current.undo())
 
-    expect(result.current.state.log).toHaveLength(1)
+    expect(result.current.state.current).not.toBe(opener)
+    expect(result.current.state.log).toHaveLength(atTurnStart)
     expect(result.current.canUndo).toBe(false)
   })
 })
