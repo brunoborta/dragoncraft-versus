@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w @dcv/web",
     "build": "npm run build -w @dcv/web",
@@ -14,6 +17,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
+    "@types/node": "^26.6.3",
     "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"

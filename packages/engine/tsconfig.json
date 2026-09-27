@@ -1,4 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    // no ambient types at all: the engine must not see Node or the DOM, and
+    // an empty list says so rather than relying on nothing being installed
+    "types": []
+  },
   "include": ["src"]
 }

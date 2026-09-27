@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-// read from the repo root: under jsdom `import.meta.url` is not a file URL
+// vitest does not process CSS, so `?raw` comes back empty; read it off disk
 const css = readFileSync(resolve(process.cwd(), 'apps/web/src/styles.css'), 'utf8')
 
 /** The custom properties declared on :root, by name without the leading dashes. */
