@@ -11,6 +11,16 @@
 
 * { box-sizing: border-box; }
 
+/* The ring is for keyboard navigation, where it is the only thing saying where
+   you are. `:focus` also fires on a tap, and a tapped board space already says
+   it is selected in its own colour — so `:focus-visible` keeps the ring for
+   the people who need it and stops drawing one for everyone else. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--selected);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   background: var(--bg);
