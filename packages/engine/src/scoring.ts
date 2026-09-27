@@ -7,17 +7,24 @@ export function scoreableCards(state: GameState, seat: Seat): ShopCard[] {
 }
 
 /**
- * Scored reputation plus 1 per unspent coin. The single home of the rule: the
- * live panels in the UI read it too, so the board can never disagree with the
- * final screen. It asks for only the two fields the rule uses, because a
- * `PlayerView`'s opponent is not a whole `PlayerState` — it has no hand.
+ * Reputation actually banked: what scored cards are worth, and nothing else.
+ * This is the number a player watches during the game. It asks for only the
+ * field the rule uses, because a `PlayerView`'s opponent is not a whole
+ * `PlayerState` — it has no hand.
  */
-export function scoreOf(player: { scored: readonly ShopCard[]; coins: number }): number {
-  return player.scored.reduce((sum, card) => sum + card.reputation, 0) + player.coins
+export function bankedReputation(player: { scored: readonly ShopCard[] }): number {
+  return player.scored.reduce((sum, card) => sum + card.reputation, 0)
 }
 
+/**
+ * Banked reputation plus 1 per unspent coin. Coins convert at the end of the
+ * game and not before, so this line is the single place that knows they ever
+ * do — a live panel showing it would start every player at 3 and dock them a
+ * point for spending a coin.
+ */
 export function finalScore(state: GameState, seat: Seat): number {
-  return scoreOf(state.players[seat])
+  const player = state.players[seat]
+  return bankedReputation(player) + player.coins
 }
 
 /** Most reputation wins; ties break on scored cards, then it is a shared victory. */

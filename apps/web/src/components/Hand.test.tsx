@@ -12,6 +12,14 @@ describe('Hand', () => {
     expect(container.querySelectorAll('.card')).toHaveLength(2)
   })
 
+  it('starts at zero reputation, however many coins you are holding', () => {
+    render(<Hand view={view} actions={[]} onAct={() => {}} />)
+    // coins become reputation at the end of the game; counting them now would
+    // open every game at 3 and dock a point for spending one
+    expect(screen.getByText(/0 reputation/)).toBeDefined()
+    expect(screen.getByText(/3 coins/)).toBeDefined()
+  })
+
   it('shows your coins', () => {
     render(<Hand view={view} actions={[]} onAct={() => {}} />)
     expect(screen.getByText(/3 coins/)).toBeDefined()

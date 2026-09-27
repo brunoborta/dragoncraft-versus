@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DECK } from './cards.js'
 import { applyAction, legalActions } from './engine.js'
 import { key } from './hex.js'
-import { finalScore, scoreOf, scoreableCards, winner } from './scoring.js'
+import { bankedReputation, finalScore, scoreableCards, winner } from './scoring.js'
 import { createInitialState } from './setup.js'
 import { single } from './tokens.js'
 import type { GameState, ShopCard } from './types.js'
@@ -156,6 +156,21 @@ describe('end of game', () => {
   })
 })
 
+describe('banked reputation', () => {
+  it('counts scored cards and nothing else', () => {
+    const base = createInitialState(6)
+    const player = { ...base.players[0], scored: [card('line-bread'), card('tri-plant')], coins: 3 }
+    // coins become reputation at the end of the game, not while it is running
+    expect(bankedReputation(player)).toBe(6)
+  })
+
+  it('is zero for a player who has scored nothing, however many coins they hold', () => {
+    const base = createInitialState(6)
+    expect(bankedReputation(base.players[0])).toBe(0)
+    expect(base.players[0].coins).toBe(3)
+  })
+})
+
 describe('final score', () => {
   it('sums scored reputation plus one per unspent coin', () => {
     const base = createInitialState(6)
@@ -171,7 +186,7 @@ describe('final score', () => {
     expect(winner(state)).toBe(0)
   })
 
-  it('is the same rule whether asked per seat or per player, so the UI cannot drift', () => {
+  it('is banked reputation plus the coins, and the coins only count here', () => {
     const base = createInitialState(6)
     const state: GameState = {
       ...base,
@@ -180,9 +195,10 @@ describe('final score', () => {
         { ...base.players[1], scored: [card('tri-plant'), card('line-iron')], coins: 0 },
       ],
     }
-    expect(scoreOf(state.players[0])).toBe(finalScore(state, 0))
-    expect(scoreOf(state.players[1])).toBe(finalScore(state, 1))
-    expect(scoreOf(state.players[0])).toBe(5)
+    expect(finalScore(state, 0)).toBe(bankedReputation(state.players[0]) + 2)
+    expect(finalScore(state, 1)).toBe(bankedReputation(state.players[1]))
+    expect(bankedReputation(state.players[0])).toBe(3)
+    expect(finalScore(state, 0)).toBe(5)
   })
 
   it('breaks a tie by number of scored cards', () => {

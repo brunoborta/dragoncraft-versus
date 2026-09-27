@@ -1,4 +1,4 @@
-import { BOARD, canReceive, canScore, single, wouldComplete } from '@dcv/engine'
+import { BOARD, bankedReputation, canReceive, canScore, single, wouldComplete } from '@dcv/engine'
 import type { Board, GameState, Seat, ShopCard } from '@dcv/engine'
 
 /** Is there a single placement that would complete this card? */
@@ -26,7 +26,7 @@ const CLOSE_WEIGHT = 2
 export function evaluate(state: GameState, seat: Seat): number {
   const player = state.players[seat]
 
-  const banked = player.scored.reduce((sum, card) => sum + card.reputation, 0)
+  const banked = bankedReputation(player)
   let ready = 0
   let close = 0
   for (const card of player.hand) {

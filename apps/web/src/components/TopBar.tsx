@@ -1,4 +1,4 @@
-import { scoreOf } from '@dcv/engine'
+import { bankedReputation } from '@dcv/engine'
 import type { PlayerView } from '@dcv/engine'
 import { describeLogEntry } from '../game/log.js'
 
@@ -26,7 +26,7 @@ export function TopBar({ view, onOpenLog }: { view: PlayerView; onOpenLog: () =>
       </p>
       <p className="opponent">
         Opponent — {view.opponent.handCount} cards, {view.opponent.coins} coins,{' '}
-        {scoreOf(view.opponent)} reputation
+        {bankedReputation(view.opponent)} reputation
       </p>
       <div className="log-row">
         <ol className="log" aria-label="Recent moves">
