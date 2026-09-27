@@ -8,16 +8,22 @@ import { LEVEL_LABEL } from './DifficultySetup.js'
  */
 export function Controls({
   level,
+  seed,
   onUndo,
   canUndo,
 }: {
   level: Difficulty | null
+  /** Shown so a game can be named, replayed or reported. */
+  seed: number
   onUndo: () => void
   canUndo: boolean
 }) {
   return (
     <div className="controls">
-      <p className="level">{level ? `Opponent: ${LEVEL_LABEL[level]}` : ''}</p>
+      <p className="level">
+        {level ? `Opponent: ${LEVEL_LABEL[level]}` : ''}
+        <span className="seed">Seed {seed}</span>
+      </p>
       <button type="button" onClick={onUndo} disabled={!canUndo}>
         Undo
       </button>

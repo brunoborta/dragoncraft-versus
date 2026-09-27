@@ -8,7 +8,7 @@ describe('App', () => {
    * answered, so every test has to choose an opponent before anything else.
    */
   function startGame(level: 'Easy' | 'Medium' = 'Easy') {
-    const rendered = render(<App />)
+    const rendered = render(<App seed={2} />)
     fireEvent.click(screen.getByText(level))
     return rendered
   }
@@ -78,8 +78,25 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText(/^1,0: /))
   }
 
+  it('shows the seed of the game being played', () => {
+    startGame()
+    expect(screen.getByText('Seed 2')).toBeDefined()
+  })
+
+  it('draws a seed of its own when none is given', () => {
+    // the app picks the seed; the engine is the part that may not
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    try {
+      render(<App />)
+      fireEvent.click(screen.getByText('Easy'))
+      expect(screen.getByText('Seed 500000')).toBeDefined()
+    } finally {
+      random.mockRestore()
+    }
+  })
+
   it('does not start until an opponent is chosen', () => {
-    render(<App />)
+    render(<App seed={2} />)
     expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
     const legal = screen
       .getAllByRole('button')
@@ -269,8 +286,14 @@ describe('App', () => {
       // game runs to something like a hundred decisions
       expect(steps).toBeGreaterThan(50)
 
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.123456)
       fireEvent.click(screen.getByText('New game'))
+      random.mockRestore()
+
       expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
+      // a new game is a new game: the seed it was pinned to does not come back
+      fireEvent.click(screen.getByText('Easy'))
+      expect(screen.getByText('Seed 123456')).toBeDefined()
       expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
     } finally {
       vi.useRealTimers()
