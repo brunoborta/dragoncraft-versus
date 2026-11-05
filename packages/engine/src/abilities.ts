@@ -14,8 +14,17 @@ function logDraws(state: GameState, tokens: readonly Token[]): GameState {
  * Fires up `ability` as if from the token on `at`. Movement abilities open a
  * pending; drawing abilities touch the bag first. Recursion through plant is
  * just this function calling itself through the pending stack.
+ *
+ * `activated` carries the plants a recursive chain has already used, so that
+ * the chain cannot return to one. Every caller that starts a fresh fire-up
+ * leaves it empty; only `plantTarget` passes anything.
  */
-export function fireUpAbility(state: GameState, ability: DragonType, at: Hex): GameState {
+export function fireUpAbility(
+  state: GameState,
+  ability: DragonType,
+  at: Hex,
+  activated: readonly Hex[] = [],
+): GameState {
   const push = (pending: Pending, next: GameState = state): GameState => ({
     ...next,
     pending: [...next.pending, pending],
@@ -29,7 +38,7 @@ export function fireUpAbility(state: GameState, ability: DragonType, at: Hex): G
     case 'potion':
       return push({ kind: 'potion' })
     case 'plant':
-      return push({ kind: 'plant', at })
+      return push({ kind: 'plant', at, activated: [...activated, at] })
     case 'bread': {
       const drawn = drawToken(state)
       if (!drawn.token) return drawn.state
@@ -104,6 +113,11 @@ export function abilityActions(state: GameState, pending: Pending): Action[] | n
     case 'plant': {
       const actions: Action[] = []
       for (const hex of movableNeighbors(state, pending.at)) {
+        // A space the chain has already fired up is spent. Like iron, the bar
+        // is on the space and not on the token that was standing there, which
+        // also settles the dual: a plant chain gets one activation out of a
+        // space, not one per ability it offers.
+        if (pending.activated.some((used) => hexEq(used, hex))) continue
         const token = topOf(state.board, hex)
         if (!token) continue
         for (const ability of abilitiesOf(token)) actions.push({ type: 'plantTarget', at: hex, ability })
@@ -164,8 +178,12 @@ export function reduceAbility(state: GameState, action: Action): GameState | nul
       }
     }
     case 'plantTarget': {
+      const pending = state.pending[state.pending.length - 1]
+      if (!pending || pending.kind !== 'plant') throw new Error('plantTarget outside a plant pending')
       const popped: GameState = { ...state, pending: state.pending.slice(0, -1) }
-      const fired = fireUpAbility(popped, action.ability, action.at)
+      // the trail travels with the chain, so a plant fired up from here knows
+      // every space the chain has already spent
+      const fired = fireUpAbility(popped, action.ability, action.at, pending.activated)
       return { ...fired, log: [...fired.log, { seat: state.current, action }] }
     }
     default:

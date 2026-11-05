@@ -155,4 +155,37 @@ describe('plant', () => {
     expect(targets).toHaveLength(1)
     expect(targets[0]).toEqual({ type: 'plantTarget', at: B, ability: 'meat' })
   })
+
+  it('never offers a plant the chain has already fired up', () => {
+    const state = staged({ board: { [key(B)]: [single('plant')] }, held: 'plant' })
+    const after = applyAction(fire(state, 'plant'), { type: 'plantTarget', at: B, ability: 'plant' })
+    const back = legalActions(after).filter((a) => a.type === 'plantTarget' && key(a.at) === key(A))
+    expect(back).toHaveLength(0)
+  })
+
+  /**
+   * Two plants whose only occupied neighbour is each other. Each one's single
+   * legal move used to be "activate the other", which handed the turn back and
+   * forth with nothing else ever on offer — a game that could not be finished,
+   * reachable in roughly one real game in a hundred and fifty. With the trail
+   * in place the second plant has nowhere left to go and the chain resolves.
+   */
+  it('ends a chain between two plants that can only see each other', () => {
+    const state = staged({ board: { [key(B)]: [single('plant')] }, held: 'plant' })
+    const after = applyAction(fire(state, 'plant'), { type: 'plantTarget', at: B, ability: 'plant' })
+    expect(after.phase).toBe('score')
+    expect(after.pending).toHaveLength(0)
+  })
+
+  it('still lets a chain run through three different plants', () => {
+    // A -> B -> C, each plant handing on to the next, then C has nothing left
+    const state = staged({
+      board: { [key(B)]: [single('plant')], [key(C)]: [single('plant')] },
+      held: 'plant',
+    })
+    let after = applyAction(fire(state, 'plant'), { type: 'plantTarget', at: B, ability: 'plant' })
+    expect(after.pending.at(-1)?.kind).toBe('plant')
+    after = applyAction(after, { type: 'plantTarget', at: C, ability: 'plant' })
+    expect(after.phase).toBe('score')
+  })
 })

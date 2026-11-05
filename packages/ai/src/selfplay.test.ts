@@ -66,6 +66,35 @@ describe('self-play', () => {
   )
 
   /**
+   * Mirror matches, which is the gap that let the plant deadlock through.
+   *
+   * Two plants whose only occupied neighbour is each other used to hand the
+   * turn back and forth forever, with nothing else ever legal. Every pairing
+   * here is played by `playGame`, which caps a game at 5000 steps — so the
+   * suite would have caught it on the first run. It never did, because no test
+   * had a level play itself, and the shape only turned up when Medium built
+   * the board at both ends. A level against itself explores board shapes that
+   * no cross-pairing reaches.
+   */
+  it(
+    'plays every level against itself with no illegal action and no hang',
+    () => {
+      const mirrors: [Strategy, number][] = [
+        [easy, GAMES],
+        [medium, GAMES],
+        [hard, 12],
+      ]
+      for (const [strategy, games] of mirrors) {
+        for (let seed = 0; seed < games; seed++) {
+          const state = playGame(seed, [strategy, strategy])
+          expect(state.phase, `${strategy.level} against itself hung on seed ${seed}`).toBe('ended')
+        }
+      }
+    },
+    { timeout: 600_000 },
+  )
+
+  /**
    * The ladder has to be a ladder: three rungs the player can feel, rather
    * than one real opponent with a shrug on either side. Easy used to average
    * about 3 reputation a game, which is less an easy opponent than an absent

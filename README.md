@@ -99,6 +99,12 @@ The suite leans where the bugs are, which is the engine.
   Easy and Hard against Medium, with no illegal action and no hang. One test
   asserts the ladder is in order on both win rate and scoreline, so a tuning
   change that flattens two levels into one fails.
+- **Mirror matches.** Every level also plays itself. That is not symmetry for
+  its own sake: a game that could not be finished — two plants handing the turn
+  to each other forever — sat in the engine for months, reachable about once in
+  a hundred and fifty games, and the step cap in self-play would have caught it
+  immediately. It never did, because nothing had a level play itself, and the
+  board shape only turned up with the same judgement building both ends.
 - **The fast path against the slow one.** `evaluate.ts` keeps the readable
   statement of "is this card one placement away", built from the engine's own
   primitives, purely so the integer version has something to be checked

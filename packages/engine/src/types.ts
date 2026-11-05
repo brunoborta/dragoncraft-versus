@@ -52,7 +52,16 @@ export type Pending =
    */
   | { kind: 'iron'; at: Hex; movesLeft: number; movedTo: Hex[] }
   | { kind: 'potion' }
-  | { kind: 'plant'; at: Hex }
+  /**
+   * `activated` is the trail of plants this chain has already fired up,
+   * starting with the plant that opened it. The rules make plant recursive —
+   * a plant may activate another plant, and so on — but two plants whose only
+   * occupied neighbour is each other would hand each other the turn forever,
+   * and `legalActions` would offer that as the single legal move. Barring a
+   * space the chain has already used is what ends it, exactly as `iron`'s
+   * `movedTo` ends a run of moves.
+   */
+  | { kind: 'plant'; at: Hex; activated: Hex[] }
   | { kind: 'coinDiscard' }
 
 export type Action =

@@ -172,7 +172,12 @@ no fim.
 - **potion** — Trocar de posição 2 tokens quaisquer do tabuleiro, inclusive o
   próprio potion.
 - **plant** — Escolher 1 token adjacente ao plant e usar a habilidade dele. Um
-  plant pode ativar outro plant, e assim por diante (recursivo).
+  plant pode ativar outro plant, e assim por diante (recursivo). Uma cadeia
+  nunca volta a uma casa que já ativou: dois plants cuja única vizinha ocupada
+  é um ao outro passariam o turno de um para o outro para sempre, e seria a
+  única jogada legal. O impedimento é por **casa**, não por token — uma cadeia
+  tira uma ativação de cada casa, não uma por habilidade que ela ofereça, o que
+  também resolve o caso do token dual.
 
 Habilidades afetam apenas o token que está no **topo** de uma pilha, e o topo
 pode mudar durante o turno.

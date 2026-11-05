@@ -58,7 +58,7 @@ describe('Prompt', () => {
 
   it('names no hex coordinate on a plant target button', () => {
     const at = { q: 1, r: 0 }
-    const view = staged({ kind: 'plant', at: { q: 0, r: 0 } })
+    const view = staged({ kind: 'plant', at: { q: 0, r: 0 }, activated: [{ q: 0, r: 0 }] })
     const actions: Action[] = [
       { type: 'plantTarget', at, ability: 'potion' },
       { type: 'plantTarget', at, ability: 'plant' },
