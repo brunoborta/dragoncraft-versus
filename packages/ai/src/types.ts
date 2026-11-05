@@ -1,6 +1,6 @@
 import type { Action, PlayerView, RngState } from '@dcv/engine'
 
-export type Difficulty = 'easy' | 'medium'
+export type Difficulty = 'easy' | 'medium' | 'hard'
 
 /**
  * A strategy only ever sees `PlayerView`: it does not know the opponent hand

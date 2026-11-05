@@ -7,7 +7,7 @@ describe('App', () => {
    * The game opens on a difficulty modal and does not start until it is
    * answered, so every test has to choose an opponent before anything else.
    */
-  function startGame(level: 'Easy' | 'Medium' = 'Easy') {
+  function startGame(level: 'Easy' | 'Medium' | 'Hard' = 'Easy') {
     const rendered = render(<App seed={2} />)
     fireEvent.click(screen.getByText(level))
     return rendered

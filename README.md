@@ -59,8 +59,17 @@ that with no special cases.
 **`packages/ai`** holds the opponents. The important part is a type signature:
 a strategy is handed a `PlayerView`, never a `GameState`. It reaches a full
 state only through `determinize`, which *guesses* the hidden information. The
-machine cannot see your hand because the compiler will not let it. Medium beats
-Easy 39 games to 1 over 40.
+machine cannot see your hand because the compiler will not let it.
+
+The three levels are one brain at three depths. **Medium** is greedy over a
+single guess, one decision at a time. **Easy** is Medium with a shaky hand: the
+same judgement, thrown away on about 45% of decisions, which compounds over the
+five decisions of a turn into recognisable intentions rarely carried through.
+**Hard** searches the whole turn before committing to its first move, prices an
+unspent coin at the one reputation the rules actually pay for it, and subtracts
+what the board is handing you — estimated from every card it has not seen
+rather than from one guessed pair. Measured over a dozen-odd games apiece, the
+three average roughly 9, 15 and 25 reputation.
 
 **`apps/web`** holds the interface. Portrait first, SVG board, everything
 committed in two taps so a mis-tap never costs a move. It only ever offers what
@@ -76,7 +85,13 @@ The suite leans where the bugs are, which is the engine.
   that all 42 tokens and all 42 cards are still accounted for, that a legal
   move always exists, and that the game terminates.
 - **Self-play.** A hundred games of Easy against Medium with no illegal action
-  and no hang.
+  and no hang, and a shorter run of Hard against Medium. One test asserts the
+  ladder is in order on both win rate and scoreline, so a tuning change that
+  flattens two levels into one fails.
+- **The fast path against the slow one.** Hard's position scoring answers
+  `canScore` and `isOneAway` in a fiftieth of the work, which is the only
+  reason it fits in the think time. One test checks it gives the engine's
+  answer for all 42 cards across several hundred boards taken from real games.
 - **A game through the real DOM.** One test drives a complete game through the
   interface, clicking what a player would click.
 

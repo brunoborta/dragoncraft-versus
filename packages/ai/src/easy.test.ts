@@ -1,6 +1,7 @@
-import { createGame, legalActions, toPlayerView } from '@dcv/engine'
+import { createGame, legalActions, nextInt, toPlayerView } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
 import { easy } from './easy.js'
+import { medium } from './medium.js'
 
 describe('easy', () => {
   it('always picks one of the offered actions', () => {
@@ -38,5 +39,39 @@ describe('easy', () => {
     const actions = legalActions(state)
     const first = easy.chooseAction(view, actions, 77)
     expect(first.rng).not.toBe(77)
+  })
+
+  /**
+   * Easy is Medium with a shaky hand, not a dice roll. Over a spread of
+   * positions it should land on Medium's move far more often than chance would
+   * — and still not always, or it would not be Easy.
+   */
+  it('follows medium most of the time, but not always', () => {
+    let agreed = 0
+    let total = 0
+    let chance = 0
+    let rng = 101
+
+    for (let seed = 0; seed < 60; seed++) {
+      const state = createGame(seed)
+      const view = toPlayerView(state, state.current)
+      const actions = legalActions(state)
+      if (actions.length < 3) continue
+
+      // Medium is asked with the rng state Easy will be holding by the time it
+      // delegates, so that "followed Medium" means exactly that and not
+      // "happened to agree with Medium on a different roll".
+      const mediumPick = medium.chooseAction(view, actions, nextInt(rng, 100).rng).action
+      const easyPick = easy.chooseAction(view, actions, rng)
+      rng = easyPick.rng
+
+      if (JSON.stringify(easyPick.action) === JSON.stringify(mediumPick)) agreed += 1
+      chance += 1 / actions.length
+      total += 1
+    }
+
+    expect(total).toBeGreaterThan(20)
+    expect(agreed).toBeGreaterThan(chance)
+    expect(agreed).toBeLessThan(total)
   })
 })

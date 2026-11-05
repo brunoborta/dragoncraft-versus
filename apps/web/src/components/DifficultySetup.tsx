@@ -1,13 +1,15 @@
 import type { Difficulty } from '@dcv/ai'
 
 export const LEVELS: { value: Difficulty; label: string; blurb: string }[] = [
-  { value: 'easy', label: 'Easy', blurb: 'Plays at random, but never passes up a card it can score' },
+  { value: 'easy', label: 'Easy', blurb: 'Plays for the same things as Medium, then fumbles about half of them' },
   { value: 'medium', label: 'Medium', blurb: 'Looks a move ahead and plays to bank reputation' },
+  { value: 'hard', label: 'Hard', blurb: 'Plans the whole turn, keeps its coins, and watches what the board gives you' },
 ]
 
 export const LEVEL_LABEL: Record<Difficulty, string> = {
   easy: 'Easy',
   medium: 'Medium',
+  hard: 'Hard',
 }
 
 /**
