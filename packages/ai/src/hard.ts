@@ -2,17 +2,21 @@ import { searchTurn, type SearchConfig } from './search.js'
 import type { Strategy } from './types.js'
 
 /**
- * Tuned against the clock, not against taste: the interface gives the opponent
- * 400ms to think, and the search has to finish inside that on a phone.
- * Simulating is nearly free — `applyAction` costs a hundredth of a
- * millisecond — while scoring a position costs a tenth of one, so the budget
- * is spent almost entirely on how many positions get scored.
+ * Tuned against the clock: the interface gives the opponent 400ms to think and
+ * the search runs on the main thread, so what matters is the worst move of a
+ * game, not the average one. This settles at about 9ms a decision and 81ms at
+ * worst.
+ *
+ * Measured over 20 games against Medium, widening from 4/2 to 8/3 took the
+ * scoreline from 25.8 to 28.8 for two and a half times the work. Going on to
+ * 16/4 bought 1.4 more points and pushed the worst decision to 248ms, which is
+ * long enough to feel like a dropped frame — so it stops here.
  */
 export const HARD_CONFIG: SearchConfig = {
-  width: 4,
-  candidateCap: 72,
-  samples: 2,
-  maxDepth: 10,
+  width: 8,
+  candidateCap: 96,
+  samples: 3,
+  maxDepth: 12,
 }
 
 /**

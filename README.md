@@ -68,8 +68,19 @@ five decisions of a turn into recognisable intentions rarely carried through.
 **Hard** searches the whole turn before committing to its first move, prices an
 unspent coin at the one reputation the rules actually pay for it, and subtracts
 what the board is handing you — estimated from every card it has not seen
-rather than from one guessed pair. Measured over a dozen-odd games apiece, the
-three average roughly 9, 15 and 25 reputation.
+rather than from one guessed pair. Over forty games apiece the three average
+roughly 9, 16 and 29 reputation.
+
+Pattern matching is where all the time goes, so it does not run the readable
+way. Asking whether a board serves a card means walking six orientations over
+nineteen anchors, and the engine does that by adding hexes into fresh objects,
+formatting `"q,r"` keys and hashing them — three allocations per cell check,
+thirteen thousand checks to judge one board. None of that depends on the
+position: which spaces a card can occupy is fixed when the deck is. So
+`patterns.ts` computes it once into flat arrays of board indices and reduces a
+position to nineteen integers, turning each check into an array read and a
+bitwise and. That is about sixty times faster and took Hard from 54ms a
+decision to 2.7ms, with the headroom spent on searching wider instead.
 
 **`apps/web`** holds the interface. Portrait first, SVG board, everything
 committed in two taps so a mis-tap never costs a move. It only ever offers what
@@ -84,14 +95,16 @@ The suite leans where the bugs are, which is the engine.
   the legal moves, asserting on every single step that no stack exceeds three,
   that all 42 tokens and all 42 cards are still accounted for, that a legal
   move always exists, and that the game terminates.
-- **Self-play.** A hundred games of Easy against Medium with no illegal action
-  and no hang, and a shorter run of Hard against Medium. One test asserts the
-  ladder is in order on both win rate and scoreline, so a tuning change that
-  flattens two levels into one fails.
-- **The fast path against the slow one.** Hard's position scoring answers
-  `canScore` and `isOneAway` in a fiftieth of the work, which is the only
-  reason it fits in the think time. One test checks it gives the engine's
-  answer for all 42 cards across several hundred boards taken from real games.
+- **Self-play.** A hundred games of Easy against Medium, plus forty apiece of
+  Easy and Hard against Medium, with no illegal action and no hang. One test
+  asserts the ladder is in order on both win rate and scoreline, so a tuning
+  change that flattens two levels into one fails.
+- **The fast path against the slow one.** `evaluate.ts` keeps the readable
+  statement of "is this card one placement away", built from the engine's own
+  primitives, purely so the integer version has something to be checked
+  against. One test holds them to the same answer for all 42 cards across
+  several hundred boards taken from real games. A fast path with nothing to
+  compare itself to is a fast path nobody can trust.
 - **A game through the real DOM.** One test drives a complete game through the
   interface, clicking what a player would click.
 

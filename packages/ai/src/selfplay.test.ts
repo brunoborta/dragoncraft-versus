@@ -66,40 +66,25 @@ describe('self-play', () => {
   )
 
   /**
-   * Hard searches whole turns and so costs a hundred times what a random move
-   * costs. Fewer games than the suite above on purpose: this one is here to
-   * show it never produces an illegal action over a long run, and the strength
-   * claims below are measured separately.
-   */
-  it(
-    'plays hard against medium with no illegal action and no hang',
-    () => {
-      for (let seed = 0; seed < 8; seed++) {
-        const seats: [Strategy, Strategy] = seed % 2 === 0 ? [hard, medium] : [medium, hard]
-        const state = playGame(seed, seats)
-        expect(state.phase).toBe('ended')
-        expect(['draw', 0, 1]).toContain(winner(state))
-      }
-    },
-    { timeout: 300_000 },
-  )
-
-  /**
    * The ladder has to be a ladder: three rungs the player can feel, rather
    * than one real opponent with a shrug on either side. Easy used to average
    * about 3 reputation a game, which is less an easy opponent than an absent
    * one; sharing Medium's judgement and discarding it at random puts it within
    * reach of Medium without catching it.
    *
-   * Both duels are measured once and then asserted on twice, because each
-   * costs minutes and the win rate and the scoreline are two readings of the
-   * same games.
+   * Both duels are measured once and asserted on twice: the win rate and the
+   * scoreline are two readings of the same games, and there is no reason to
+   * play them again for the second reading.
+   *
+   * These eighty games run through `playGame` like the suite above, so they
+   * are also Hard's "no illegal action, no hang" run — which is why there is
+   * no separate one.
    */
   it(
     'puts the three levels in order, by win rate and by score',
     () => {
-      const easyVsMedium = record(easy, medium, 16)
-      const hardVsMedium = record(hard, medium, 12)
+      const easyVsMedium = record(easy, medium, 40)
+      const hardVsMedium = record(hard, medium, 40)
 
       expect(
         easyVsMedium.bWins,

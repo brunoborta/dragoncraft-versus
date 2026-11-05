@@ -1,6 +1,7 @@
 import { applyAction, determinize, shuffle } from '@dcv/engine'
 import type { Action, Seat } from '@dcv/engine'
-import { evaluate } from './evaluate.js'
+import { evaluateWith } from './evaluate.js'
+import { scanBoard } from './patterns.js'
 import type { Strategy } from './types.js'
 
 /**
@@ -35,7 +36,10 @@ export const medium: Strategy = {
 
     for (const action of candidates) {
       const next = applyAction(guess.state, action)
-      const score = evaluate(next, view.seat) - evaluate(next, opponent) * OPPONENT_WEIGHT
+      // both seats are asked about the same board, so it is reduced once
+      const scan = scanBoard(next.board)
+      const score =
+        evaluateWith(scan, next, view.seat) - evaluateWith(scan, next, opponent) * OPPONENT_WEIGHT
       if (score > bestScore) {
         bestScore = score
         best = action

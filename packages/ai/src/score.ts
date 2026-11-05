@@ -1,16 +1,6 @@
-import {
-  BOARD,
-  DECK,
-  HAND_SIZE,
-  add,
-  bankedReputation,
-  canReceive,
-  onBoard,
-  rotations,
-  tokenMatches,
-  topOf,
-} from '@dcv/engine'
-import type { Board, GameState, PatternCell, Seat, ShopCard } from '@dcv/engine'
+import { DECK, HAND_SIZE, bankedReputation } from '@dcv/engine'
+import type { Board, GameState, Seat, ShopCard } from '@dcv/engine'
+import { outlookScan, scanBoard, servesScan, type BoardScan, type Outlook } from './patterns.js'
 
 /**
  * Everything here is denominated in reputation, the unit `finalScore` actually
@@ -33,6 +23,18 @@ const CLOSE = 0.35
  */
 const THREAT = 0.6
 
+export type { Outlook } from './patterns.js'
+
+/** Is the card's pattern on the board right now? */
+export function serves(board: Board, card: ShopCard): boolean {
+  return servesScan(scanBoard(board), card)
+}
+
+/** Whether the board serves this card, is one placement away, or neither. */
+export function outlook(board: Board, card: ShopCard): Outlook {
+  return outlookScan(scanBoard(board), card)
+}
+
 /**
  * A card one placement away is worth nothing once there is no turn left to
  * complete it in. Without this the machine spends the last turn of the game
@@ -44,108 +46,18 @@ function closeWeight(state: GameState): number {
   return CLOSE
 }
 
-/** The 6 orientations of a card, computed once per card for the whole run. */
-const ROTATION_CACHE = new Map<string, PatternCell[][]>()
-
-function rotationsOf(card: ShopCard): PatternCell[][] {
-  let cached = ROTATION_CACHE.get(card.id)
-  if (!cached) {
-    cached = rotations(card.pattern)
-    ROTATION_CACHE.set(card.id, cached)
-  }
-  return cached
-}
-
-/**
- * Is the card's pattern on the board right now? Same answer as the engine's
- * `canScore`, over the cached orientations: the threat estimate asks this of
- * every unseen card, so the allocation `rotations` would do each time shows up.
- */
-export function serves(board: Board, card: ShopCard): boolean {
-  for (const pattern of rotationsOf(card)) {
-    for (const anchor of BOARD) {
-      let hit = true
-      for (const cell of pattern) {
-        const hex = add(anchor, cell.offset)
-        const top = onBoard(hex) ? topOf(board, hex) : undefined
-        if (!top || !tokenMatches(top, cell.type)) {
-          hit = false
-          break
-        }
-      }
-      if (hit) return true
-    }
-  }
-  return false
-}
-
-export type Outlook = 'ready' | 'close' | 'far'
-
-/**
- * Whether the board already serves this card, is one placement from serving
- * it, or neither.
- *
- * `evaluate.ts` answers the same question with `canScore` plus `isOneAway`,
- * and `isOneAway` tries every token type on every free space and rescans the
- * whole board each time — about fifty full pattern scans for one card. This
- * walks the card's orientations once and counts the cells each anchor is
- * missing, which is the same answer for a fiftieth of the work. The search
- * calls it thousands of times per move, so that ratio is the difference
- * between Hard fitting in the think time and not.
- *
- * `close` means one cell is unmatched and its space can still take a token,
- * exactly as before: neither version asks whether the bag can still supply
- * the token it would need.
- */
-export function outlook(board: Board, card: ShopCard): Outlook {
-  let close = false
-
-  for (const pattern of rotationsOf(card)) {
-    for (const anchor of BOARD) {
-      let missing = 0
-      let reachable = true
-      let fits = true
-
-      for (const cell of pattern) {
-        const hex = add(anchor, cell.offset)
-        if (!onBoard(hex)) {
-          fits = false
-          break
-        }
-        const top = topOf(board, hex)
-        if (top && tokenMatches(top, cell.type)) continue
-        missing += 1
-        if (missing > 1) break
-        if (!canReceive(board, hex)) reachable = false
-      }
-
-      if (!fits) continue
-      if (missing === 0) return 'ready'
-      if (missing === 1 && reachable) close = true
-    }
-  }
-
-  return close ? 'close' : 'far'
-}
-
-/**
- * What `seat` is worth right now, in reputation: banked, plus coins at their
- * true end-game value, plus credit for cards the board is already serving.
- * Reads only fields a `PlayerView` exposes for the seat it is asked about.
- */
-export function positionScore(state: GameState, seat: Seat): number {
-  const player = state.players[seat]
+function handValue(scan: BoardScan, state: GameState, seat: Seat): number {
   const close = closeWeight(state)
-
   let ready = 0
   let pending = 0
-  for (const card of player.hand) {
-    const how = outlook(state.board, card)
+
+  for (const card of state.players[seat].hand) {
+    const how = outlookScan(scan, card)
     if (how === 'ready') ready += card.reputation
     else if (how === 'close') pending += card.reputation
   }
 
-  return bankedReputation(player) + player.coins + ready * READY + pending * close
+  return ready * READY + pending * close
 }
 
 /**
@@ -160,7 +72,7 @@ export function positionScore(state: GameState, seat: Seat): number {
  *
  * It never reads the opponent's hand, only its size.
  */
-export function opponentThreat(state: GameState, seat: Seat): number {
+function threatValue(scan: BoardScan, state: GameState, seat: Seat): number {
   const other = (1 - seat) as Seat
   const handCount = state.players[other].hand.length
   if (handCount === 0) return 0
@@ -170,23 +82,51 @@ export function opponentThreat(state: GameState, seat: Seat): number {
       (card) => card.id,
     ),
   )
-  const pool = DECK.filter((card) => !seen.has(card.id))
-  if (pool.length === 0) return 0
 
   let served = 0
-  for (const card of pool) {
-    if (serves(state.board, card)) served += card.reputation
+  let unseen = 0
+  for (const card of DECK) {
+    if (seen.has(card.id)) continue
+    unseen += 1
+    if (servesScan(scan, card)) served += card.reputation
   }
+  if (unseen === 0) return 0
 
   // probability any one unseen card sits in their hand
-  return (served * handCount) / pool.length
+  return (served * handCount) / unseen
+}
+
+/**
+ * What `seat` is worth right now, in reputation: banked, plus coins at their
+ * true end-game value, plus credit for cards the board is already serving.
+ * Reads only fields a `PlayerView` exposes for the seat it is asked about.
+ */
+export function positionScore(state: GameState, seat: Seat): number {
+  const player = state.players[seat]
+  return (
+    bankedReputation(player) + player.coins + handValue(scanBoard(state.board), state, seat)
+  )
+}
+
+export function opponentThreat(state: GameState, seat: Seat): number {
+  return threatValue(scanBoard(state.board), state, seat)
 }
 
 /**
  * The full leaf evaluation: our position, less what the board hands them.
- * Costs a scan of the unseen deck, so the search only pays for it on the
- * handful of lines that survive pruning.
+ *
+ * Both halves ask questions about the same board, so the board is reduced to
+ * integers once and both read that. The threat term costs a sweep of the
+ * unseen deck, so the search only pays for it on the lines that survive
+ * pruning.
  */
 export function leafScore(state: GameState, seat: Seat): number {
-  return positionScore(state, seat) - THREAT * opponentThreat(state, seat)
+  const scan = scanBoard(state.board)
+  const player = state.players[seat]
+  return (
+    bankedReputation(player) +
+    player.coins +
+    handValue(scan, state, seat) -
+    THREAT * threatValue(scan, state, seat)
+  )
 }
