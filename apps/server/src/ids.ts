@@ -1,18 +1,18 @@
 /**
- * No 0/O, 1/I/l: a room code gets read aloud across a table and typed on a
- * phone. Six characters of 32 is a billion rooms, plenty for a map that
- * holds a few hundred.
+ * Six digits, Kahoot-style: a PIN is read aloud across a room and typed on a
+ * phone's number pad, so it is only digits, leading zeros included. A million
+ * PINs against a ceiling of a few hundred live rooms keeps both collisions
+ * (retried by `Rooms.create`) and lucky guesses rare.
  */
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-const ROOM_ID_LENGTH = 6
+const PIN_LENGTH = 6
 
 export function roomId(): string {
-  const bytes = new Uint8Array(ROOM_ID_LENGTH)
+  const bytes = new Uint32Array(1)
   crypto.getRandomValues(bytes)
-  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('')
+  return String(bytes[0] % 10 ** PIN_LENGTH).padStart(PIN_LENGTH, '0')
 }
 
-/** What proves a seat is yours. The link only says which room. */
+/** What proves a seat is yours. The PIN only says which room. */
 export function seatToken(): string {
   return crypto.randomUUID()
 }

@@ -286,17 +286,12 @@ body {
 }
 
 /* online */
-.room-link {
-  margin: 0;
-  padding: 10px 12px;
-  background: #2a3540;
-  border: 1px solid #3a4652;
-  border-radius: 8px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-  word-break: break-all;
-  user-select: all;
-}
 .modal > button { min-height: 44px; background: #2a3540; color: var(--ink); border: 1px solid #3a4652; border-radius: 8px; font: inherit; }
 .modal > button.primary { background: var(--completes); color: var(--bg); border: 0; font-weight: 600; }
 .connection { margin: 0; padding: 8px 12px; border-radius: 8px; background: #3a3022; color: var(--ink); font-size: 13px; }
+.pin { margin: 4px 0; text-align: center; font-size: 44px; font-weight: 700; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; user-select: all; }
+.pin-form { display: grid; gap: 10px; }
+.pin-input { min-height: 56px; padding: 0 12px; text-align: center; font: inherit; font-size: 32px; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; background: #2a3540; color: var(--ink); border: 1px solid #3a4652; border-radius: 8px; }
+.pin-form > button { min-height: 44px; border-radius: 8px; font: inherit; }
+.pin-form > button.primary { background: var(--completes); color: var(--bg); border: 0; font-weight: 600; }
+.pin-form > button:disabled, .level-choice:disabled { opacity: 0.4; }

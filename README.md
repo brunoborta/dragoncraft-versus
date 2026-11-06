@@ -116,7 +116,8 @@ The suite leans where the bugs are, which is the engine.
 
 ## Online
 
-Two friends, one link, no accounts. The game runs on a small Node server
+Two friends, a six-digit PIN, no accounts: one picks Against a player → Create
+and reads out the PIN, the other picks Join and types it. The game runs on a small Node server
 (`apps/server`) that imports the engine unchanged: it holds the real state of
 each room, checks every incoming action against `legalActions`, applies it,
 and sends each seat its own `toPlayerView` — plus the legal actions for that
@@ -141,7 +142,7 @@ as a secret, with `ALLOWED_ORIGINS` naming the site.
 ## Scope
 
 Standard two-player mode, against the machine or against a friend over the
-internet from a shared link. Spectators, rematches in the same room and
+internet with a PIN. Spectators, rematches in the same room and
 persistence across a server restart are not built yet; the protocol has
 room for them.
 

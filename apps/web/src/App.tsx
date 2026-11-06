@@ -2,11 +2,11 @@ import type { Difficulty } from '@dcv/ai'
 import { useEffect, useState } from 'react'
 import { Closed, Connection } from './components/Connection.js'
 import { GameScreen } from './components/GameScreen.js'
-import { LEVEL_LABEL, OpponentSetup } from './components/OpponentSetup.js'
-import type { OpponentChoice } from './components/OpponentSetup.js'
+import { LEVEL_LABEL, ModeSetup } from './components/ModeSetup.js'
+import type { Start } from './components/ModeSetup.js'
 import { RoomLobby } from './components/RoomLobby.js'
 import { findGame, isDebugEnabled, type Outcome } from './game/debug.js'
-import { parseRoute, roomHash, roomLink } from './game/route.js'
+import { parseRoute, roomHash } from './game/route.js'
 import { HUMAN_SEAT } from './game/seats.js'
 import { randomSeed } from './game/seed.js'
 import { serverUrl } from './game/serverUrl.js'
@@ -31,7 +31,7 @@ export function App({
   const [route, setRoute] = useState(() => parseRoute(globalThis.location?.hash ?? ''))
   // null until chosen: the game does not start, and the machine does not move,
   // before the player has picked who they are playing against
-  const [choice, setChoice] = useState<OpponentChoice | null>(null)
+  const [start, setStart] = useState<Start | null>(null)
 
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(location.hash))
@@ -40,33 +40,31 @@ export function App({
   }, [])
 
   function leave(): void {
-    setChoice(null)
+    setStart(null)
     if (globalThis.location && location.hash.startsWith('#/room/')) {
       history.replaceState(null, '', location.pathname + location.search)
       setRoute({ kind: 'home' })
     }
   }
 
-  const online = url !== null && (choice === 'online' || route.kind === 'room')
-  if (online) {
-    return (
-      <OnlineApp
-        url={url}
-        room={route.kind === 'room' ? route.id : null}
-        connect={connect}
-        onLeave={leave}
-      />
-    )
+  if (url !== null) {
+    // a reload inside a game goes back to it; otherwise the choice says where to go
+    const room =
+      route.kind === 'room' ? route.id : start?.kind === 'join' ? start.pin : start?.kind === 'create' ? null : undefined
+    if (room !== undefined) {
+      // keyed so leaving one game and opening another starts a fresh connection
+      return <OnlineApp key={room ?? 'new'} url={url} room={room} connect={connect} onLeave={leave} />
+    }
   }
 
   return (
     <LocalApp
       seed={given}
-      level={choice === 'online' ? null : choice}
+      level={start?.kind === 'computer' ? start.level : null}
       debugging={debugging}
       online={url !== null}
-      onChoose={setChoice}
-      onNewGame={() => setChoice(null)}
+      onStart={setStart}
+      onNewGame={() => setStart(null)}
     />
   )
 }
@@ -76,14 +74,14 @@ function LocalApp({
   level,
   debugging,
   online,
-  onChoose,
+  onStart,
   onNewGame,
 }: {
   seed?: number
   level: Difficulty | null
   debugging: boolean
   online: boolean
-  onChoose: (choice: OpponentChoice) => void
+  onStart: (start: Start) => void
   onNewGame: () => void
 }) {
   const [seed, setSeed] = useState(() => given ?? randomSeed())
@@ -134,15 +132,15 @@ function LocalApp({
           extras={debugHatch}
         />
       ) : null}
-      {level === null ? <OpponentSetup online={online} onChoose={onChoose} /> : null}
+      {level === null ? <ModeSetup online={online} onStart={onStart} /> : null}
     </>
   )
 }
 
 /**
- * A game on the server. The room id comes either from the link that was
- * opened or from the server, once it has opened a room for us; in the
- * second case the fragment is updated so a reload lands back in the room.
+ * A game on the server. The PIN comes either from what was typed in Join or
+ * from the server, once it has opened a room for us. Either way it is written
+ * into the fragment, so a reload lands back in the same game.
  */
 function OnlineApp({
   url,
@@ -160,26 +158,23 @@ function OnlineApp({
 
   useEffect(() => {
     if (roomId && globalThis.location && parseRoute(location.hash).kind !== 'room') {
+      // replace, not push: Back should leave the game, not step into the lobby
       history.replaceState(null, '', roomHash(roomId))
     }
   }, [roomId])
 
-  if (status.kind === 'closed') return <Closed reason={status.reason} onLeave={onLeave} />
+  if (status.kind === 'closed') return <Closed reason={status.reason} started={table.view !== null} onLeave={onLeave} />
 
   if (table.view === null) {
-    if (status.kind === 'waiting') {
-      const link = roomId && globalThis.location ? roomLink(roomId, location) : null
-      return <RoomLobby link={link} onLeave={onLeave} />
-    }
-    return <RoomLobby link={null} onLeave={onLeave} />
+    return <RoomLobby pin={status.kind === 'waiting' ? roomId : null} onLeave={onLeave} />
   }
 
   return (
     <GameScreen
       table={table}
       view={table.view}
-      label="Opponent: a friend"
-      detail={roomId ? `Room ${roomId}` : ''}
+      label="Opponent: a player"
+      detail={roomId ? `PIN ${roomId}` : ''}
       restartLabel="Back to menu"
       onRestart={onLeave}
       extras={<Connection status={status} opponentConnected={table.opponentConnected} />}

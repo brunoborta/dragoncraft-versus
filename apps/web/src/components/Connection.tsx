@@ -22,12 +22,13 @@ export function Connection({ status, opponentConnected }: { status: TableStatus;
   return null
 }
 
-export function Closed({ reason, onLeave }: { reason: string; onLeave: () => void }) {
+/** `started` false is a join that never got in — a wrong PIN, a full game — not a game that ended. */
+export function Closed({ reason, started, onLeave }: { reason: string; started: boolean; onLeave: () => void }) {
   return (
     <div className="modal-backdrop">
       <section className="modal" role="dialog" aria-modal="true" aria-label="Game closed">
         <div className="modal-head">
-          <h2>This game is over</h2>
+          <h2>{started ? 'This game is over' : 'Could not join'}</h2>
         </div>
         <p className="modal-note">{reason}</p>
         <button type="button" className="primary" onClick={onLeave}>

@@ -9,6 +9,7 @@ describe('App', () => {
    */
   function startGame(level: 'Easy' | 'Medium' | 'Hard' = 'Easy') {
     const rendered = render(<App seed={2} />)
+    fireEvent.click(screen.getByText('Against the computer'))
     fireEvent.click(screen.getByText(level))
     return rendered
   }
@@ -86,6 +87,7 @@ describe('App', () => {
 
   it('jumps to a finished game you won, and to one you lost', () => {
     render(<App seed={2} debug />)
+    fireEvent.click(screen.getByText('Against the computer'))
     fireEvent.click(screen.getByText('Easy'))
 
     fireEvent.click(screen.getByText('Win now'))
@@ -105,6 +107,7 @@ describe('App', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
     try {
       render(<App />)
+      fireEvent.click(screen.getByText('Against the computer'))
       fireEvent.click(screen.getByText('Easy'))
       expect(screen.getByText('Seed 500000')).toBeDefined()
     } finally {
@@ -309,6 +312,7 @@ describe('App', () => {
 
       expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
       // a new game is a new game: the seed it was pinned to does not come back
+      fireEvent.click(screen.getByText('Against the computer'))
       fireEvent.click(screen.getByText('Easy'))
       expect(screen.getByText('Seed 123456')).toBeDefined()
       expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
@@ -352,39 +356,62 @@ describe('App online', () => {
     globalThis.localStorage?.clear()
   })
 
-  it('does not offer a friend online when the site was built without a server', () => {
-    render(<App seed={2} server={null} />)
-    expect(screen.queryByText('A friend online')).toBeNull()
+  it('asks for the mode first, then the difficulty, with a way back', () => {
+    render(<App seed={2} server="ws://test" />)
+    expect(screen.queryByText('Easy')).toBeNull()
+    fireEvent.click(screen.getByText('Against the computer'))
+    expect(screen.getByText('Hard')).toBeDefined()
+    fireEvent.click(screen.getByLabelText('Back'))
+    expect(screen.getByText('Against a player')).toBeDefined()
   })
 
-  it('opens a room, shows the link to share, and waits', () => {
+  it('cannot pick a player when the site was built without a server', () => {
+    render(<App seed={2} server={null} />)
+    const button = screen.getByText('Against a player').closest('button') as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(screen.getByText('Not available in this build')).toBeDefined()
+  })
+
+  it('creates a game and shows its PIN while waiting', () => {
     const { connect, latest } = fakeConnect()
     render(<App seed={2} server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('A friend online'))
+    fireEvent.click(screen.getByText('Against a player'))
+    fireEvent.click(screen.getByText('Create'))
 
     act(() => latest().onopen?.())
     expect(latest().sent).toEqual([{ type: 'create' }])
-    expect(screen.getByText('Opening a room…')).toBeDefined()
+    expect(screen.getByText('Talking to the server…')).toBeDefined()
 
-    act(() => latest().receive({ type: 'seated', room: 'ROOM01', seat: 0, token: 't', role: 'player' }))
+    act(() => latest().receive({ type: 'seated', room: '042137', seat: 0, token: 't', role: 'player' }))
     act(() => latest().receive({ type: 'waiting' }))
-    expect(screen.getByLabelText('Room link').textContent).toContain('#/room/ROOM01')
+    expect(screen.getByLabelText('Game PIN').textContent).toBe('042 137')
     expect(screen.getByText('Waiting for your friend…')).toBeDefined()
-    expect(window.location.hash).toBe('#/room/ROOM01')
+    // so a reload comes back to the same game
+    expect(window.location.hash).toBe('#/room/042137')
   })
 
-  it('joins the room in the link and plays from the view the server sends', async () => {
+  it('joins by PIN, taking digits only, and plays from the view the server sends', async () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
-    window.location.hash = '#/room/ROOM01'
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
+    fireEvent.click(screen.getByText('Against a player'))
+    fireEvent.click(screen.getByText('Join'))
+
+    const input = screen.getByLabelText('Game PIN') as HTMLInputElement
+    const join = screen.getByRole('button', { name: 'Join' }) as HTMLButtonElement
+    fireEvent.change(input, { target: { value: '04-21' } })
+    expect(input.value).toBe('0421')
+    expect(join.disabled).toBe(true)
+    fireEvent.change(input, { target: { value: '04213799' } })
+    expect(input.value).toBe('042137')
+    fireEvent.click(join)
 
     act(() => latest().onopen?.())
-    expect(latest().sent).toEqual([{ type: 'join', room: 'ROOM01' }])
+    expect(latest().sent).toEqual([{ type: 'join', room: '042137' }])
 
     const state = createGame(2)
     const seat = state.current
-    act(() => latest().receive({ type: 'seated', room: 'ROOM01', seat, token: 't', role: 'player' }))
+    act(() => latest().receive({ type: 'seated', room: '042137', seat, token: 't', role: 'player' }))
     act(() =>
       latest().receive({
         type: 'view',
@@ -394,8 +421,8 @@ describe('App online', () => {
       }),
     )
 
-    expect(screen.getByText('Room ROOM01')).toBeDefined()
-    expect(screen.getByText('Opponent: a friend')).toBeDefined()
+    expect(screen.getByText('PIN 042137')).toBeDefined()
+    expect(screen.getByText('Opponent: a player')).toBeDefined()
     const legal = screen.getAllByRole('button').filter((el) => el.getAttribute('data-highlight') === 'legal')
     expect(legal).toHaveLength(19)
     // no undo across the wire
@@ -408,17 +435,39 @@ describe('App online', () => {
     expect(screen.getByText('Opponent is thinking…')).toBeDefined()
   })
 
-  it('says so when the wire drops, and when the room is gone', () => {
-    window.location.hash = '#/room/ROOM01'
+  it('goes back into the game in the fragment on reload', () => {
+    window.location.hash = '#/room/042137'
+    const { connect, latest } = fakeConnect()
+    // this test DOM has no localStorage of its own
+    const stored = new Map([['dcv:room:042137', JSON.stringify({ token: 'mine', seat: 1 })]])
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => stored.get(k) ?? null,
+      setItem: (k: string, v: string) => void stored.set(k, v),
+      clear: () => stored.clear(),
+    })
+    try {
+      render(<App server="ws://test" connect={connect} />)
+      act(() => latest().onopen?.())
+      expect(latest().sent).toEqual([{ type: 'join', room: '042137', token: 'mine' }])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('says so when the PIN leads nowhere, and goes back to the start', () => {
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
+    fireEvent.click(screen.getByText('Against a player'))
+    fireEvent.click(screen.getByText('Join'))
+    fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '999999' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Join' }))
     act(() => latest().onopen?.())
-    act(() => latest().receive({ type: 'error', code: 'room-not-found', message: 'This room does not exist, or has already closed' }))
-    expect(screen.getByLabelText('Game closed')).toBeDefined()
-    expect(screen.getByText('This room does not exist, or has already closed')).toBeDefined()
+    act(() => latest().receive({ type: 'error', code: 'room-not-found', message: 'No game is open with this PIN' }))
+    expect(screen.getByText('Could not join')).toBeDefined()
+    expect(screen.getByText('No game is open with this PIN')).toBeDefined()
 
     fireEvent.click(screen.getByText('Back to menu'))
-    expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
+    expect(screen.getByText('Against the computer')).toBeDefined()
     expect(window.location.hash).toBe('')
   })
 })

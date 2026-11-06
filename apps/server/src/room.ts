@@ -12,8 +12,8 @@ type SeatRecord = { token: string; client: ClientId | null }
 
 const MESSAGES: Record<ErrorCode, string> = {
   'bad-message': 'That is not a message this server understands',
-  'room-not-found': 'This room does not exist, or has already closed',
-  'room-full': 'Both seats in this room are taken',
+  'room-not-found': 'No game is open with this PIN',
+  'room-full': 'This game already has two players',
   'bad-token': 'This token does not belong to a seat in this room',
   'not-seated': 'Take a seat before playing',
   'not-started': 'The game has not started yet',

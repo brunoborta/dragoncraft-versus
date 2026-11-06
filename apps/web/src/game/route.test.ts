@@ -1,21 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { parseRoute, roomHash, roomLink } from './route.js'
+import { parseRoute, roomHash } from './route.js'
 
 describe('parseRoute', () => {
-  it('reads a room out of the fragment, upper-cased', () => {
-    expect(parseRoute('#/room/abc123')).toEqual({ kind: 'room', id: 'ABC123' })
-    expect(parseRoute('#/room/ABC123/debug')).toEqual({ kind: 'room', id: 'ABC123' })
+  it('reads a six-digit room out of the fragment', () => {
+    expect(parseRoute('#/room/012345')).toEqual({ kind: 'room', id: '012345' })
+    expect(parseRoute('#/room/012345/debug')).toEqual({ kind: 'room', id: '012345' })
+    expect(parseRoute(roomHash('987654'))).toEqual({ kind: 'room', id: '987654' })
   })
 
   it('is home for anything else', () => {
     expect(parseRoute('')).toEqual({ kind: 'home' })
     expect(parseRoute('#debug')).toEqual({ kind: 'home' })
     expect(parseRoute('#/room/')).toEqual({ kind: 'home' })
-  })
-
-  it('builds a link that parses back to the same room', () => {
-    const link = roomLink('ABC123', { origin: 'https://x.example', pathname: '/dragoncraft-versus/' })
-    expect(link).toBe('https://x.example/dragoncraft-versus/#/room/ABC123')
-    expect(parseRoute(roomHash('ABC123'))).toEqual({ kind: 'room', id: 'ABC123' })
+    expect(parseRoute('#/room/12345')).toEqual({ kind: 'home' })
+    expect(parseRoute('#/room/1234567')).toEqual({ kind: 'home' })
+    expect(parseRoute('#/room/ABC123')).toEqual({ kind: 'home' })
   })
 })

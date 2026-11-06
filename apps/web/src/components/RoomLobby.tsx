@@ -1,18 +1,17 @@
 import { useState } from 'react'
 
 /**
- * The first player's screen until the second arrives. The link is the whole
- * invitation: there is no account to make and no code to type, only this to
- * send. Copying can fail (no clipboard permission, an old browser), so the
- * link is also on screen, selectable.
+ * The creator's screen until the second player arrives: the PIN, big, to be
+ * read out or sent. Copying can fail (no clipboard permission), and that is
+ * fine — the number is on screen.
  */
-export function RoomLobby({ link, onLeave }: { link: string | null; onLeave: () => void }) {
+export function RoomLobby({ pin, onLeave }: { pin: string | null; onLeave: () => void }) {
   const [copied, setCopied] = useState(false)
 
   async function copy(): Promise<void> {
-    if (!link) return
+    if (!pin) return
     try {
-      await navigator.clipboard.writeText(link)
+      await navigator.clipboard.writeText(pin)
       setCopied(true)
     } catch {
       setCopied(false)
@@ -21,18 +20,18 @@ export function RoomLobby({ link, onLeave }: { link: string | null; onLeave: () 
 
   return (
     <div className="modal-backdrop">
-      <section className="modal" role="dialog" aria-modal="true" aria-label="Invite a friend">
+      <section className="modal" role="dialog" aria-modal="true" aria-label="Waiting for a player">
         <div className="modal-head">
-          <h2>Invite a friend</h2>
+          <h2>{pin ? 'Game PIN' : 'Connecting…'}</h2>
         </div>
-        {link ? (
+        {pin ? (
           <>
-            <p className="modal-note">Send this link. Whoever opens it first sits across from you.</p>
-            <p className="room-link" aria-label="Room link">
-              {link}
+            <p className="pin" aria-label="Game PIN">
+              {pin.slice(0, 3)} {pin.slice(3)}
             </p>
-            <button type="button" className="primary" onClick={copy}>
-              {copied ? 'Copied' : 'Copy link'}
+            <p className="modal-note">Your friend picks Against a player, then Join, and types this PIN.</p>
+            <button type="button" onClick={copy}>
+              {copied ? 'Copied' : 'Copy PIN'}
             </button>
             <p className="modal-note" aria-live="polite">
               Waiting for your friend…
@@ -40,11 +39,11 @@ export function RoomLobby({ link, onLeave }: { link: string | null; onLeave: () 
           </>
         ) : (
           <p className="modal-note" aria-live="polite">
-            Opening a room…
+            Talking to the server…
           </p>
         )}
         <button type="button" onClick={onLeave}>
-          Back to menu
+          Cancel
         </button>
       </section>
     </div>

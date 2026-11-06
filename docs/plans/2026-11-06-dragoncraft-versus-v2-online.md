@@ -18,6 +18,13 @@
 - **Sem desfazer online.** O `Table` remoto expõe `canUndo: false` e a interface já esconde o botão quando não pode.
 - **Escolha de oponente num único lugar.** O modal "Choose your opponent" ganha uma quarta opção, "A friend online", ao lado de Easy/Medium/Hard. Nenhum fluxo novo antes dele, e os testes de interface que clicam em "Easy" continuam válidos.
 
+## Revisão depois de jogar (2026-11-06)
+
+Testado entre computador e celular, o fluxo por link foi trocado:
+
+- **Tela inicial por modo.** Primeiro "Against the computer" ou "Against a player"; só depois a dificuldade, ou Create/Join. A opção online não some mais sem servidor: fica desabilitada com "Not available in this build".
+- **PIN de 6 dígitos no lugar do link**, no estilo Kahoot. Create mostra o PIN; Join tem um campo numérico. O id da sala no servidor passa a ser o próprio PIN (um milhão de combinações para algumas centenas de salas). O fragmento `#/room/<PIN>` continua só para que recarregar a página volte à partida.
+
 ## Global Constraints
 
 Todas as da v1 continuam valendo. Novas:
