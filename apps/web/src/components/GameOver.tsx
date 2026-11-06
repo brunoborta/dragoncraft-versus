@@ -12,9 +12,9 @@ export function GameOver({ state, onRestart }: { state: GameState; onRestart: ()
       <h2>{headline}</h2>
       <dl>
         <dt>You</dt>
-        <dd>{finalScore(state, HUMAN_SEAT)}</dd>
+        <dd>{finalScore(state.players[HUMAN_SEAT])}</dd>
         <dt>Machine</dt>
-        <dd>{finalScore(state, MACHINE_SEAT)}</dd>
+        <dd>{finalScore(state.players[MACHINE_SEAT])}</dd>
       </dl>
       <button type="button" onClick={onRestart}>
         New game

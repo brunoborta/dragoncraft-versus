@@ -1,5 +1,5 @@
 import { canScore } from './matcher.js'
-import type { GameState, Seat, ShopCard } from './types.js'
+import type { GameState, PlayerView, Seat, ShopCard } from './types.js'
 
 /** Cards in a seat's hand whose pattern is currently on the board. */
 export function scoreableCards(state: GameState, seat: Seat): ShopCard[] {
@@ -22,20 +22,34 @@ export function bankedReputation(player: { scored: readonly ShopCard[] }): numbe
  * do — a live panel showing it would start every player at 3 and dock them a
  * point for spending a coin.
  */
-export function finalScore(state: GameState, seat: Seat): number {
-  const player = state.players[seat]
+export function finalScore(player: Scorable): number {
   return bankedReputation(player) + player.coins
 }
 
+/**
+ * The fields the final tally reads. A `PlayerView`'s opponent has them, so
+ * the screen a remote player ends on can be settled from the view alone.
+ */
+export type Scorable = { scored: readonly ShopCard[]; coins: number }
+
 /** Most reputation wins; ties break on scored cards, then it is a shared victory. */
-export function winner(state: GameState): Seat | 'draw' {
-  const a = finalScore(state, 0)
-  const b = finalScore(state, 1)
+function decide(first: Scorable, second: Scorable): 0 | 1 | 'draw' {
+  const a = finalScore(first)
+  const b = finalScore(second)
   if (a !== b) return a > b ? 0 : 1
 
-  const cardsA = state.players[0].scored.length
-  const cardsB = state.players[1].scored.length
-  if (cardsA !== cardsB) return cardsA > cardsB ? 0 : 1
+  if (first.scored.length !== second.scored.length) return first.scored.length > second.scored.length ? 0 : 1
 
   return 'draw'
+}
+
+export function winner(state: GameState): Seat | 'draw' {
+  return decide(state.players[0], state.players[1])
+}
+
+/** The same verdict as `winner`, from what one seat can see. */
+export function winnerOfView(view: PlayerView): Seat | 'draw' {
+  const result = decide(view.you, view.opponent)
+  if (result === 'draw') return 'draw'
+  return result === 0 ? view.seat : ((1 - view.seat) as Seat)
 }

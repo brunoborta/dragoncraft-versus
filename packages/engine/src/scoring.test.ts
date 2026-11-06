@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { DECK } from './cards.js'
 import { applyAction, legalActions } from './engine.js'
 import { key } from './hex.js'
-import { bankedReputation, finalScore, scoreableCards, winner } from './scoring.js'
+import { bankedReputation, finalScore, scoreableCards, winner, winnerOfView } from './scoring.js'
+import { toPlayerView } from './view.js'
 import { createInitialState } from './setup.js'
 import { single } from './tokens.js'
 import type { GameState, ShopCard } from './types.js'
@@ -181,8 +182,8 @@ describe('final score', () => {
         { ...base.players[1], scored: [card('tri-plant')], coins: 0 },
       ],
     }
-    expect(finalScore(state, 0)).toBe(3 + 2 + 2)
-    expect(finalScore(state, 1)).toBe(3)
+    expect(finalScore(state.players[0])).toBe(3 + 2 + 2)
+    expect(finalScore(state.players[1])).toBe(3)
     expect(winner(state)).toBe(0)
   })
 
@@ -195,10 +196,10 @@ describe('final score', () => {
         { ...base.players[1], scored: [card('tri-plant'), card('line-iron')], coins: 0 },
       ],
     }
-    expect(finalScore(state, 0)).toBe(bankedReputation(state.players[0]) + 2)
-    expect(finalScore(state, 1)).toBe(bankedReputation(state.players[1]))
+    expect(finalScore(state.players[0])).toBe(bankedReputation(state.players[0]) + 2)
+    expect(finalScore(state.players[1])).toBe(bankedReputation(state.players[1]))
     expect(bankedReputation(state.players[0])).toBe(3)
-    expect(finalScore(state, 0)).toBe(5)
+    expect(finalScore(state.players[0])).toBe(5)
   })
 
   it('breaks a tie by number of scored cards', () => {
@@ -210,8 +211,8 @@ describe('final score', () => {
         { ...base.players[1], scored: [card('line-iron-iron-meat'), card('line-meat-meat-iron')], coins: 2 },
       ],
     }
-    expect(finalScore(state, 0)).toBe(6)
-    expect(finalScore(state, 1)).toBe(6)
+    expect(finalScore(state.players[0])).toBe(6)
+    expect(finalScore(state.players[1])).toBe(6)
     expect(winner(state)).toBe(1)
   })
 
@@ -225,5 +226,36 @@ describe('final score', () => {
       ],
     }
     expect(winner(state)).toBe('draw')
+  })
+
+  it('settles the same winner from either seat\'s view as from the state', () => {
+    const base = createInitialState(6)
+    const cases: GameState[] = [
+      {
+        ...base,
+        players: [
+          { ...base.players[0], scored: [card('line-bread')], coins: 3 },
+          { ...base.players[1], scored: [card('line-iron-iron-meat'), card('line-meat-meat-iron')], coins: 2 },
+        ],
+      },
+      {
+        ...base,
+        players: [
+          { ...base.players[0], scored: [card('line-bread'), card('tri-plant')], coins: 0 },
+          { ...base.players[1], scored: [], coins: 1 },
+        ],
+      },
+      {
+        ...base,
+        players: [
+          { ...base.players[0], scored: [card('line-bread')], coins: 0 },
+          { ...base.players[1], scored: [card('tri-plant')], coins: 0 },
+        ],
+      },
+    ]
+    for (const state of cases) {
+      expect(winnerOfView(toPlayerView(state, 0))).toBe(winner(state))
+      expect(winnerOfView(toPlayerView(state, 1))).toBe(winner(state))
+    }
   })
 })

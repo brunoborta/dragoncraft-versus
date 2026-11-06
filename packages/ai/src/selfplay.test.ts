@@ -44,8 +44,8 @@ function record(a: Strategy, b: Strategy, games: number) {
     const result = winner(state)
     if (result === aSeat) aWins += 1
     else if (result !== 'draw') bWins += 1
-    aScore += finalScore(state, aSeat)
-    bScore += finalScore(state, (1 - aSeat) as Seat)
+    aScore += finalScore(state.players[aSeat])
+    bScore += finalScore(state.players[1 - aSeat])
   }
 
   return { aWins, bWins, aScore: aScore / games, bScore: bScore / games }
