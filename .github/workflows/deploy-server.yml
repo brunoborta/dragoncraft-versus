@@ -1,0 +1,39 @@
+name: Deploy server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/server/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: server
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Test and deploy to Fly
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # the engine and the server's own suite; the AI's hundred games are the Pages workflow's job
+      - run: npx vitest run packages/engine packages/protocol apps/server
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: env.FLY_API_TOKEN != ''
+      - run: flyctl deploy --remote-only --config apps/server/fly.toml --dockerfile apps/server/Dockerfile
+        if: env.FLY_API_TOKEN != ''
+      - if: env.FLY_API_TOKEN == ''
+        run: echo "FLY_API_TOKEN is not set; skipping the deploy"

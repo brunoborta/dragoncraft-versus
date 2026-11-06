@@ -56,7 +56,12 @@ export class Room {
   }
 
   connectedCount(): number {
-    return this.seats.filter((seat) => seat?.client != null).length
+    return this.clients().length
+  }
+
+  /** Everyone connected, for the transport to reach when the room closes. */
+  clients(): ClientId[] {
+    return this.seats.flatMap((seat) => (seat?.client != null ? [seat.client] : []))
   }
 
   private seatOf(client: ClientId): Seat | null {

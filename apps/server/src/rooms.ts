@@ -51,15 +51,15 @@ export class Rooms {
     return this.rooms.get(id)
   }
 
-  /** Removes what nobody will come back to, and says which. */
-  sweep(now: number): string[] {
-    const gone: string[] = []
-    for (const [id, room] of this.rooms) {
+  /** Removes what nobody will come back to, and hands them over so anyone still in one can be told. */
+  sweep(now: number): Room[] {
+    const gone: Room[] = []
+    for (const room of this.rooms.values()) {
       const abandoned = room.connectedCount() === 0 && now - room.idleSince >= IDLE_MS
       const neverFilled = !room.started && now - room.createdAt >= WAITING_MS
-      if (abandoned || neverFilled) gone.push(id)
+      if (abandoned || neverFilled) gone.push(room)
     }
-    for (const id of gone) this.rooms.delete(id)
+    for (const room of gone) this.rooms.delete(room.id)
     return gone
   }
 }

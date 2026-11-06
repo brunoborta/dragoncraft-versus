@@ -42,7 +42,7 @@ describe('Rooms', () => {
     lively.sit('D')
 
     expect(rooms.sweep(20 + IDLE_MS - 1)).toEqual([])
-    expect(rooms.sweep(20 + IDLE_MS)).toEqual([empty.id])
+    expect(rooms.sweep(20 + IDLE_MS)).toEqual([empty])
     expect(rooms.get(empty.id)).toBeUndefined()
     expect(rooms.get(lively.id)).toBe(lively)
   })
@@ -52,6 +52,6 @@ describe('Rooms', () => {
     const lonely = rooms.create(0)!
     lonely.sit('A')
     expect(rooms.sweep(WAITING_MS - 1)).toEqual([])
-    expect(rooms.sweep(WAITING_MS)).toEqual([lonely.id])
+    expect(rooms.sweep(WAITING_MS)).toEqual([lonely])
   })
 })
