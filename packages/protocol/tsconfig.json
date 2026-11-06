@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    // shared by the browser and the server, so it may assume neither
+    "types": []
+  },
+  "include": ["src"]
+}
