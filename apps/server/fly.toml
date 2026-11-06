@@ -1,30 +1,32 @@
-# fly deploy --config apps/server/fly.toml --dockerfile apps/server/Dockerfile
-# from the repository root. Rooms live in memory, so one machine, never
-# stopped for idleness: a stopped machine is every game in it lost.
-app = "dragoncraft-versus"
-primary_region = "gru"
+# fly.toml app configuration file generated for dragoncraft-versus on 2026-11-06T15:21:50+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'dragoncraft-versus'
+primary_region = 'gru'
 
 [build]
-  dockerfile = "apps/server/Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "8080"
-  ALLOWED_ORIGINS = "https://brunoborta.github.io"
+  ALLOWED_ORIGINS = 'https://brunoborta.github.io'
+  PORT = '8080'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
   [[http_service.checks]]
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "10s"
-    method = "GET"
-    path = "/health"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/health'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  size = 'shared-cpu-1x'
+  memory = '256mb'
