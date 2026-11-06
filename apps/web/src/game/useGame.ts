@@ -8,7 +8,7 @@ import { undoFloor } from './undoFloor.js'
  * seat's, which during the machine's turn is the machine's hand; every consumer
  * has to build the view for the seat it is drawing.
  */
-export type GameSession = {
+export type LocalGame = {
   state: GameState
   actions: Action[]
   perform: (action: Action) => void
@@ -24,7 +24,7 @@ export type GameSession = {
  * The whole state layer. Because engine states are immutable, keeping the
  * history is all undo needs — no inverse operations, no snapshots to build.
  */
-export function useGame(seed: number): GameSession {
+export function useGame(seed: number): LocalGame {
   const [history, setHistory] = useState<GameState[]>(() => [createGame(seed)])
 
   const state = history[history.length - 1]

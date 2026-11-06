@@ -2,7 +2,7 @@ import { legalActions, seedFrom, toPlayerView } from '@dcv/engine'
 import type { RngState, Seat } from '@dcv/engine'
 import { createStrategy, type Difficulty } from '@dcv/ai'
 import { useEffect, useRef } from 'react'
-import type { GameSession } from './useGame.js'
+import type { LocalGame } from './useGame.js'
 
 /** Long enough to read what it did, short enough not to feel stuck. */
 const THINK_MS = 400
@@ -13,7 +13,7 @@ export function useOpponent({
   level,
   enabled,
 }: {
-  session: GameSession
+  session: LocalGame
   seat: Seat
   level: Difficulty
   enabled: boolean

@@ -1,23 +1,31 @@
-import { finalScore, winner } from '@dcv/engine'
-import type { GameState } from '@dcv/engine'
-import { HUMAN_SEAT, MACHINE_SEAT } from '../game/seats.js'
+import { finalScore, winnerOfView } from '@dcv/engine'
+import type { PlayerView } from '@dcv/engine'
 
-export function GameOver({ state, onRestart }: { state: GameState; onRestart: () => void }) {
-  const result = winner(state)
-  const headline =
-    result === 'draw' ? 'Shared victory' : result === HUMAN_SEAT ? 'You win' : 'You lose'
+export function GameOver({
+  view,
+  opponentLabel,
+  restartLabel,
+  onRestart,
+}: {
+  view: PlayerView
+  opponentLabel: string
+  restartLabel: string
+  onRestart: () => void
+}) {
+  const result = winnerOfView(view)
+  const headline = result === 'draw' ? 'Shared victory' : result === view.seat ? 'You win' : 'You lose'
 
   return (
     <div className="game-over" role="dialog" aria-label="Final score">
       <h2>{headline}</h2>
       <dl>
         <dt>You</dt>
-        <dd>{finalScore(state.players[HUMAN_SEAT])}</dd>
-        <dt>Machine</dt>
-        <dd>{finalScore(state.players[MACHINE_SEAT])}</dd>
+        <dd>{finalScore(view.you)}</dd>
+        <dt>{opponentLabel}</dt>
+        <dd>{finalScore(view.opponent)}</dd>
       </dl>
       <button type="button" onClick={onRestart}>
-        New game
+        {restartLabel}
       </button>
     </div>
   )
