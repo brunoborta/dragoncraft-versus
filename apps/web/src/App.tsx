@@ -1,35 +1,70 @@
 import type { Difficulty } from '@dcv/ai'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Closed, Connection } from './components/Connection.js'
 import { GameScreen } from './components/GameScreen.js'
 import { LEVEL_LABEL, OpponentSetup } from './components/OpponentSetup.js'
 import type { OpponentChoice } from './components/OpponentSetup.js'
+import { RoomLobby } from './components/RoomLobby.js'
 import { findGame, isDebugEnabled, type Outcome } from './game/debug.js'
+import { parseRoute, roomHash, roomLink } from './game/route.js'
 import { HUMAN_SEAT } from './game/seats.js'
 import { randomSeed } from './game/seed.js'
 import { serverUrl } from './game/serverUrl.js'
 import { useLocalTable } from './game/useLocalTable.js'
+import { useRemoteTable } from './game/useRemoteTable.js'
+import type { Connect } from './game/useRemoteTable.js'
 
 /**
  * `seed` is for tests and for replaying a game someone reported. Left out — as
  * it is in the real app — every game draws its own. `debug` likewise defaults
- * to what the URL fragment says.
+ * to what the URL fragment says. `server` and `connect` let a test stand in
+ * for the build-time server address and the browser's WebSocket.
  */
-export function App({ seed: given, debug }: { seed?: number; debug?: boolean } = {}) {
+export function App({
+  seed: given,
+  debug,
+  server,
+  connect,
+}: { seed?: number; debug?: boolean; server?: string | null; connect?: Connect } = {}) {
   const debugging = debug ?? isDebugEnabled(globalThis.location?.hash ?? '')
+  const url = server === undefined ? serverUrl() : server
+  const [route, setRoute] = useState(() => parseRoute(globalThis.location?.hash ?? ''))
   // null until chosen: the game does not start, and the machine does not move,
   // before the player has picked who they are playing against
   const [choice, setChoice] = useState<OpponentChoice | null>(null)
 
-  if (choice === 'online') {
-    // the remote table arrives with the next task; until then the choice is not offered
-    throw new Error('online play is not wired yet')
+  useEffect(() => {
+    const onHash = () => setRoute(parseRoute(location.hash))
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  function leave(): void {
+    setChoice(null)
+    if (globalThis.location && location.hash.startsWith('#/room/')) {
+      history.replaceState(null, '', location.pathname + location.search)
+      setRoute({ kind: 'home' })
+    }
+  }
+
+  const online = url !== null && (choice === 'online' || route.kind === 'room')
+  if (online) {
+    return (
+      <OnlineApp
+        url={url}
+        room={route.kind === 'room' ? route.id : null}
+        connect={connect}
+        onLeave={leave}
+      />
+    )
   }
 
   return (
     <LocalApp
       seed={given}
-      level={choice}
+      level={choice === 'online' ? null : choice}
       debugging={debugging}
+      online={url !== null}
       onChoose={setChoice}
       onNewGame={() => setChoice(null)}
     />
@@ -40,12 +75,14 @@ function LocalApp({
   seed: given,
   level,
   debugging,
+  online,
   onChoose,
   onNewGame,
 }: {
   seed?: number
   level: Difficulty | null
   debugging: boolean
+  online: boolean
   onChoose: (choice: OpponentChoice) => void
   onNewGame: () => void
 }) {
@@ -97,7 +134,55 @@ function LocalApp({
           extras={debugHatch}
         />
       ) : null}
-      {level === null ? <OpponentSetup online={serverUrl() !== null} onChoose={onChoose} /> : null}
+      {level === null ? <OpponentSetup online={online} onChoose={onChoose} /> : null}
     </>
+  )
+}
+
+/**
+ * A game on the server. The room id comes either from the link that was
+ * opened or from the server, once it has opened a room for us; in the
+ * second case the fragment is updated so a reload lands back in the room.
+ */
+function OnlineApp({
+  url,
+  room,
+  connect,
+  onLeave,
+}: {
+  url: string
+  room: string | null
+  connect?: Connect
+  onLeave: () => void
+}) {
+  const table = useRemoteTable({ url, room, connect })
+  const { roomId, status } = table
+
+  useEffect(() => {
+    if (roomId && globalThis.location && parseRoute(location.hash).kind !== 'room') {
+      history.replaceState(null, '', roomHash(roomId))
+    }
+  }, [roomId])
+
+  if (status.kind === 'closed') return <Closed reason={status.reason} onLeave={onLeave} />
+
+  if (table.view === null) {
+    if (status.kind === 'waiting') {
+      const link = roomId && globalThis.location ? roomLink(roomId, location) : null
+      return <RoomLobby link={link} onLeave={onLeave} />
+    }
+    return <RoomLobby link={null} onLeave={onLeave} />
+  }
+
+  return (
+    <GameScreen
+      table={table}
+      view={table.view}
+      label="Opponent: a friend"
+      detail={roomId ? `Room ${roomId}` : ''}
+      restartLabel="Back to menu"
+      onRestart={onLeave}
+      extras={<Connection status={status} opponentConnected={table.opponentConnected} />}
+    />
   )
 }

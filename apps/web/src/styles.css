@@ -284,3 +284,19 @@ body {
   font: inherit;
   font-size: 12px;
 }
+
+/* online */
+.room-link {
+  margin: 0;
+  padding: 10px 12px;
+  background: #2a3540;
+  border: 1px solid #3a4652;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  word-break: break-all;
+  user-select: all;
+}
+.modal > button { min-height: 44px; background: #2a3540; color: var(--ink); border: 1px solid #3a4652; border-radius: 8px; font: inherit; }
+.modal > button.primary { background: var(--completes); color: var(--bg); border: 0; font-weight: 600; }
+.connection { margin: 0; padding: 8px 12px; border-radius: 8px; background: #3a3022; color: var(--ink); font-size: 13px; }

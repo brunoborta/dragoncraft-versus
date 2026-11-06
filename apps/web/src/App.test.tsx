@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App.js'
 
 describe('App', () => {
@@ -315,5 +315,110 @@ describe('App', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('App online', () => {
+  class FakeSocket {
+    sent: unknown[] = []
+    closed = false
+    onopen: (() => void) | null = null
+    onmessage: ((event: { data: unknown }) => void) | null = null
+    onclose: (() => void) | null = null
+    onerror: (() => void) | null = null
+    send(data: string) {
+      this.sent.push(JSON.parse(data))
+    }
+    close() {
+      this.closed = true
+    }
+    receive(message: unknown) {
+      this.onmessage?.({ data: JSON.stringify(message) })
+    }
+  }
+
+  function fakeConnect() {
+    const sockets: FakeSocket[] = []
+    const connect = () => {
+      const socket = new FakeSocket()
+      sockets.push(socket)
+      return socket
+    }
+    return { connect, latest: () => sockets[sockets.length - 1] }
+  }
+
+  afterEach(() => {
+    window.history.replaceState(null, '', window.location.pathname)
+    globalThis.localStorage?.clear()
+  })
+
+  it('does not offer a friend online when the site was built without a server', () => {
+    render(<App seed={2} server={null} />)
+    expect(screen.queryByText('A friend online')).toBeNull()
+  })
+
+  it('opens a room, shows the link to share, and waits', () => {
+    const { connect, latest } = fakeConnect()
+    render(<App seed={2} server="ws://test" connect={connect} />)
+    fireEvent.click(screen.getByText('A friend online'))
+
+    act(() => latest().onopen?.())
+    expect(latest().sent).toEqual([{ type: 'create' }])
+    expect(screen.getByText('Opening a room…')).toBeDefined()
+
+    act(() => latest().receive({ type: 'seated', room: 'ROOM01', seat: 0, token: 't', role: 'player' }))
+    act(() => latest().receive({ type: 'waiting' }))
+    expect(screen.getByLabelText('Room link').textContent).toContain('#/room/ROOM01')
+    expect(screen.getByText('Waiting for your friend…')).toBeDefined()
+    expect(window.location.hash).toBe('#/room/ROOM01')
+  })
+
+  it('joins the room in the link and plays from the view the server sends', async () => {
+    const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
+    window.location.hash = '#/room/ROOM01'
+    const { connect, latest } = fakeConnect()
+    render(<App server="ws://test" connect={connect} />)
+
+    act(() => latest().onopen?.())
+    expect(latest().sent).toEqual([{ type: 'join', room: 'ROOM01' }])
+
+    const state = createGame(2)
+    const seat = state.current
+    act(() => latest().receive({ type: 'seated', room: 'ROOM01', seat, token: 't', role: 'player' }))
+    act(() =>
+      latest().receive({
+        type: 'view',
+        view: toPlayerView(state, seat),
+        actions: legalActions(state),
+        opponentConnected: true,
+      }),
+    )
+
+    expect(screen.getByText('Room ROOM01')).toBeDefined()
+    expect(screen.getByText('Opponent: a friend')).toBeDefined()
+    const legal = screen.getAllByRole('button').filter((el) => el.getAttribute('data-highlight') === 'legal')
+    expect(legal).toHaveLength(19)
+    // no undo across the wire
+    expect((screen.getByText('Undo') as HTMLButtonElement).disabled).toBe(true)
+
+    // two taps place, and the move goes to the server rather than into a local engine
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    expect(latest().sent.at(-1)).toEqual({ type: 'action', action: { type: 'place', at: { q: 2, r: -2 } } })
+    expect(screen.getByText('Opponent is thinking…')).toBeDefined()
+  })
+
+  it('says so when the wire drops, and when the room is gone', () => {
+    window.location.hash = '#/room/ROOM01'
+    const { connect, latest } = fakeConnect()
+    render(<App server="ws://test" connect={connect} />)
+    act(() => latest().onopen?.())
+    act(() => latest().receive({ type: 'error', code: 'room-not-found', message: 'This room does not exist, or has already closed' }))
+    expect(screen.getByLabelText('Game closed')).toBeDefined()
+    expect(screen.getByText('This room does not exist, or has already closed')).toBeDefined()
+
+    fireEvent.click(screen.getByText('Back to menu'))
+    expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
+    expect(window.location.hash).toBe('')
   })
 })

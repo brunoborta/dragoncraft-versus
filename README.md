@@ -34,13 +34,13 @@ wins.
 ```bash
 npm install
 npm run dev     # serves on your network, so a phone on the same wifi can play
-npm test        # 251 tests
+npm test
 npm run build
 ```
 
 ## How it is built
 
-Three workspace packages, and the boundary between them is the point.
+Five workspace packages, and the boundaries between them are the point.
 
 **`packages/engine`** holds the rules. It has no runtime dependencies, imports
 no React and no DOM, and never calls `Math.random`, `Date.now` or `crypto` —
@@ -114,11 +114,36 @@ The suite leans where the bugs are, which is the engine.
 - **A game through the real DOM.** One test drives a complete game through the
   interface, clicking what a player would click.
 
+## Online
+
+Two friends, one link, no accounts. The game runs on a small Node server
+(`apps/server`) that imports the engine unchanged: it holds the real state of
+each room, checks every incoming action against `legalActions`, applies it,
+and sends each seat its own `toPlayerView` — plus the legal actions for that
+seat, so the phone never needs the full state and never gets the seed, the
+deck or the other hand. The messages are in `packages/protocol`.
+
+Rooms live in memory. Each seat gets a token the browser keeps in
+`localStorage`, so a phone that sleeps through a few turns comes back as the
+same player and is handed the whole view again. A room nobody is connected
+to for half an hour is dropped.
+
+```bash
+npm run dev -w @dcv/server             # ws://localhost:8080, any origin
+VITE_SERVER_URL=http://localhost:8080 npm run dev   # the site, with the online option
+```
+
+The site is built without an online option unless `VITE_SERVER_URL` is set;
+the Pages workflow reads it from the repository variable `SERVER_URL`. The
+server deploys to Fly from `apps/server/fly.toml` when `FLY_API_TOKEN` is set
+as a secret, with `ALLOWED_ORIGINS` naming the site.
+
 ## Scope
 
-Standard two-player mode, against the machine. Online play against a friend is
-the next thing, and the engine was shaped for it: the rules already run
-unchanged on a server, and the view a player gets is already filtered.
+Standard two-player mode, against the machine or against a friend over the
+internet from a shared link. Spectators, rematches in the same room and
+persistence across a server restart are not built yet; the protocol has
+room for them.
 
 The design documents in [`docs/`](docs/) are in Portuguese — the spec argues
 the decisions, the plan is the task-by-task build.

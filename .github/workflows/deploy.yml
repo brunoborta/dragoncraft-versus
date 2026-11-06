@@ -30,7 +30,10 @@ jobs:
       - run: npm run typecheck
       # the self-play suite plays 140 whole games, so this is the slow one
       - run: npm test
+      # the server's address, if one is deployed; without it the site has no online option
       - run: npm run build
+        env:
+          VITE_SERVER_URL: ${{ vars.SERVER_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/dist
