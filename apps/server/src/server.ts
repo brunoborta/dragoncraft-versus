@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server } from 'node:http'
 import type { Duplex } from 'node:stream'
+import { winnerOfView } from '@dcv/engine'
 import { parseClientMessage } from '@dcv/protocol'
 import type { ServerMessage } from '@dcv/protocol'
 import { WebSocket, WebSocketServer } from 'ws'
@@ -25,13 +26,26 @@ export type RunningServer = {
   close: () => Promise<void>
 }
 
-type Connection = { socket: WebSocket; room: Room | null; alive: boolean }
+type Connection = { socket: WebSocket; room: Room | null; alive: boolean; timedOut: boolean }
+
+/** Why a socket closed, in words someone reading the host's logs can act on. */
+function closeReason(code: number, timedOut: boolean): string {
+  if (timedOut) return 'no answer to ping'
+  // 1005 is a close with no code, which is what a bare `socket.close()` sends
+  if (code === 1000 || code === 1001 || code === 1005) return 'closed by the client'
+  if (code === 4000) return 'replaced by a newer connection'
+  if (code === 1006) return 'connection lost'
+  return `code ${code}`
+}
 
 /**
  * Sockets in, sockets out, and nothing about the game: every decision is
  * the room's. This layer only knows which socket is which client, refuses
  * origins it was not told about, and keeps the connections honest with a
  * ping. The HTTP server underneath exists for the host's health check.
+ *
+ * It is also what logs: one line per thing that happened to a player, so
+ * "I dropped" can be traced in the host's logs to when and why.
  */
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const rooms = options.rooms ?? new Rooms()
@@ -73,6 +87,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
     connection.socket.send(JSON.stringify(message))
     // the seat is someone else's now; keeping this socket would only confuse it
     if (message.type === 'error' && message.code === 'replaced') {
+      log(`${client} replaced in room ${connection.room?.id ?? '-'}`)
       connection.room = null
       connection.socket.close(4000, 'replaced')
     }
@@ -89,9 +104,40 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
     if (seated && connection) connection.room = room
   }
 
+  /** What a join came to, from the messages the room answered with. */
+  function logJoin(client: ClientId, room: Room, out: Outbound[], rejoin: boolean): void {
+    for (const { to, message } of out) {
+      if (to !== client) continue
+      if (message.type === 'seated') {
+        log(`${client} ${rejoin ? 'rejoined' : 'joined'} room ${room.id} as seat ${message.seat}`)
+        return
+      }
+      if (message.type === 'error') {
+        log(`${client} refused in room ${room.id}: ${message.code}`)
+        return
+      }
+    }
+  }
+
+  /** A refused move, or the move that ended the game. */
+  function logAction(client: ClientId, room: Room, out: Outbound[]): void {
+    const refused = out.find((o) => o.message.type === 'error')
+    if (refused?.message.type === 'error') {
+      log(`${client} move refused in room ${room.id}: ${refused.message.code}`)
+      return
+    }
+    // once ended every move is refused, so a view that says ended here is the last move
+    const view = out.find((o) => o.message.type === 'view')?.message
+    if (view?.type === 'view' && view.view.phase === 'ended') {
+      const result = winnerOfView(view.view)
+      log(`room ${room.id} game over: ${result === 'draw' ? 'draw' : `seat ${result} won`}`)
+    }
+  }
+
   function handle(client: ClientId, text: string): void {
     const message = parseClientMessage(text)
     if (!message) {
+      log(`${client} sent a message the server cannot read`)
       send(client, errorMessage('bad-message'))
       return
     }
@@ -102,23 +148,27 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       case 'create': {
         const room = rooms.create(now())
         if (!room) {
+          log(`${client} could not open a room: busy (${rooms.size} live)`)
           send(client, errorMessage('busy'))
           return
         }
         const out = room.sit(client)
         bind(client, room, out)
         deliver(out)
-        log(`room ${room.id} opened (${rooms.size} live)`)
+        log(`room ${room.id} opened by ${client} (${rooms.size} live)`)
         return
       }
       case 'join': {
         const room = rooms.get(message.room)
         if (!room) {
+          log(`${client} tried room ${message.room}: not found`)
           send(client, errorMessage('room-not-found'))
           return
         }
+        const rejoin = message.token !== undefined
         const out = message.token === undefined ? room.sit(client) : room.rejoin(client, message.token)
         bind(client, room, out)
+        logJoin(client, room, out, rejoin)
         deliver(out)
         return
       }
@@ -127,7 +177,9 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
           send(client, errorMessage('not-seated'))
           return
         }
-        deliver(connection.room.act(client, message.action))
+        const out = connection.room.act(client, message.action)
+        logAction(client, connection.room, out)
+        deliver(out)
         return
       }
     }
@@ -135,23 +187,30 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
 
   wss.on('connection', (socket) => {
     const client: ClientId = `c${nextClient++}`
-    const connection: Connection = { socket, room: null, alive: true }
+    const connection: Connection = { socket, room: null, alive: true, timedOut: false }
     connections.set(client, connection)
+    log(`${client} connected (${connections.size} online)`)
 
     socket.on('pong', () => {
       connection.alive = true
     })
     socket.on('message', (data) => handle(client, data.toString()))
-    socket.on('close', () => {
+    socket.on('close', (code) => {
       connections.delete(client)
+      const where = connection.room ? ` from room ${connection.room.id}` : ''
+      log(`${client} disconnected${where}: ${closeReason(code, connection.timedOut)} (${connections.size} online)`)
       if (connection.room) deliver(connection.room.disconnect(client, now()))
     })
-    socket.on('error', () => socket.terminate())
+    socket.on('error', (error) => {
+      log(`${client} socket error: ${error.message}`)
+      socket.terminate()
+    })
   })
 
   const pinger = setInterval(() => {
     for (const connection of connections.values()) {
       if (!connection.alive) {
+        connection.timedOut = true
         connection.socket.terminate()
         continue
       }

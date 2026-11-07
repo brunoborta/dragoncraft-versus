@@ -154,6 +154,32 @@ describe('the server over real sockets', () => {
     clients.B.close()
   })
 
+  it('logs who joined which room, and when and why they dropped', async () => {
+    const lines: string[] = []
+    const logged = (pattern: RegExp) =>
+      new Promise<void>((resolve) => {
+        const check = () => (lines.some((line) => pattern.test(line)) ? resolve() : setTimeout(check, 5))
+        check()
+      })
+    server = await startServer({ port: 0, allowedOrigins: [], log: (line) => lines.push(line) })
+    const a = new Client(server.port)
+    await a.open()
+    a.send({ type: 'create' })
+    const seated = await a.nextOf('seated')
+
+    const b = new Client(server.port)
+    await b.open()
+    b.send({ type: 'join', room: seated.room })
+    await b.nextOf('seated')
+    b.socket.terminate()
+    await logged(/disconnected from room/)
+
+    expect(lines).toContainEqual(expect.stringMatching(new RegExp(`^room ${seated.room} opened by c1`)))
+    expect(lines).toContain(`c2 joined room ${seated.room} as seat 1`)
+    expect(lines).toContainEqual(expect.stringMatching(new RegExp(`^c2 disconnected from room ${seated.room}: connection lost`)))
+    a.close()
+  })
+
   it('closes the old socket when its seat is taken over with the token', async () => {
     server = await startServer({ port: 0, allowedOrigins: [] })
     const a = new Client(server.port)
