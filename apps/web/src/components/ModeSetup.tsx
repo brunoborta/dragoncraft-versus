@@ -127,6 +127,7 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
               autoFocus
               placeholder="000000"
               maxLength={PIN_LENGTH}
+              size={PIN_LENGTH}
               value={pin}
               // digits only, whatever the keyboard or a paste brings
               onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH))}
