@@ -1,4 +1,5 @@
 import { roomId, seatToken } from './ids.js'
+import type { TableOptions } from '@dcv/protocol'
 import { Room } from './room.js'
 
 /** A room nobody is connected to for this long is gone. Phones sleep; half an hour is not a dropped wifi. */
@@ -38,11 +39,11 @@ export class Rooms {
   }
 
   /** `null` when the ceiling is reached: the caller answers `busy`. */
-  create(now: number): Room | null {
+  create(now: number, options?: TableOptions): Room | null {
     if (this.rooms.size >= this.maxRooms) return null
     let id = this.newId()
     while (this.rooms.has(id)) id = this.newId()
-    const room = new Room(id, this.newSeed(), this.newToken, now)
+    const room = new Room(id, this.newSeed(), this.newToken, now, options)
     this.rooms.set(id, room)
     return room
   }

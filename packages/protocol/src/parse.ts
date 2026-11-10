@@ -1,8 +1,26 @@
 import type { Action } from '@dcv/engine'
-import type { ClientMessage } from './messages.js'
+import { DEFAULT_TABLE_OPTIONS } from './messages.js'
+import type { ClientMessage, TableOptions } from './messages.js'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * The options record, or null if it is not one. Every known option must be a
+ * boolean when present; a missing one takes its default (an older client),
+ * an unknown one is dropped (a newer one).
+ */
+export function parseTableOptions(value: unknown): TableOptions | null {
+  if (!isRecord(value)) return null
+  const options = { ...DEFAULT_TABLE_OPTIONS }
+  for (const name of Object.keys(DEFAULT_TABLE_OPTIONS) as (keyof TableOptions)[]) {
+    const given = value[name]
+    if (given === undefined) continue
+    if (typeof given !== 'boolean') return null
+    options[name] = given
+  }
+  return options
 }
 
 /**
@@ -20,8 +38,11 @@ export function parseClientMessage(text: string): ClientMessage | null {
   if (!isRecord(data)) return null
 
   switch (data.type) {
-    case 'create':
-      return { type: 'create' }
+    case 'create': {
+      if (data.options === undefined) return { type: 'create' }
+      const options = parseTableOptions(data.options)
+      return options ? { type: 'create', options } : null
+    }
     case 'join': {
       if (typeof data.room !== 'string' || data.room.length === 0) return null
       if (data.token !== undefined && typeof data.token !== 'string') return null

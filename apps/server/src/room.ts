@@ -1,7 +1,8 @@
 import { actionKey, applyAction, createGame, legalActions } from '@dcv/engine'
 import { toPlayerView } from '@dcv/engine'
 import type { Action, GameState, Seat } from '@dcv/engine'
-import type { ErrorCode, ServerMessage } from '@dcv/protocol'
+import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
+import type { ErrorCode, ServerMessage, TableOptions } from '@dcv/protocol'
 
 export type ClientId = string
 
@@ -46,6 +47,8 @@ export class Room {
     seed: number,
     private readonly newToken: () => string,
     readonly createdAt: number,
+    /** How the table is shown, as the creator chose; relayed to every seat as it sits. */
+    readonly options: TableOptions = DEFAULT_TABLE_OPTIONS,
   ) {
     this.state = createGame(seed)
     this.idleSince = createdAt
@@ -120,7 +123,7 @@ export class Room {
 
     const token = this.newToken()
     this.seats[seat] = { token, client }
-    const seated: Outbound = { to: client, message: { type: 'seated', room: this.id, seat, token, role: 'player' } }
+    const seated: Outbound = { to: client, message: { type: 'seated', room: this.id, seat, token, role: 'player', options: this.options } }
 
     if (this.started) return [seated, ...this.broadcastViews()]
     return [seated, ...this.arrival(client, seat)]
@@ -141,7 +144,7 @@ export class Room {
     }
     record.client = client
 
-    out.push({ to: client, message: { type: 'seated', room: this.id, seat, token, role: 'player' } })
+    out.push({ to: client, message: { type: 'seated', room: this.id, seat, token, role: 'player', options: this.options } })
     out.push(...this.arrival(client, seat))
     out.push(...this.presenceFor(seat))
     return out

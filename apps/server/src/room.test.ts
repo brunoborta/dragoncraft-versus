@@ -1,5 +1,6 @@
 import { nextInt } from '@dcv/engine'
 import type { Action, PlayerView } from '@dcv/engine'
+import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
 import type { ServerMessage } from '@dcv/protocol'
 import { describe, expect, it } from 'vitest'
 import { Room } from './room.js'
@@ -35,6 +36,21 @@ function seatBoth(room: Room) {
 }
 
 describe('Room', () => {
+  it("hands the creator's table options to both seats, the joiner's included", () => {
+    const options = { bagComposition: true, cardGlow: false, showReputation: false }
+    const room = new Room('ROOM02', 7, newToken, 0, options)
+    const { a, b } = seatBoth(room)
+    for (const messages of [to(a, 'A'), to(b, 'B')]) {
+      const seated = messages.find((m) => m.type === 'seated')
+      expect(seated && seated.type === 'seated' && seated.options).toEqual(options)
+    }
+  })
+
+  it('opens with the default options when the creator sent none', () => {
+    const seated = to(makeRoom().sit('A'), 'A').find((m) => m.type === 'seated')
+    expect(seated && seated.type === 'seated' && seated.options).toEqual(DEFAULT_TABLE_OPTIONS)
+  })
+
   it('seats the creator, tells them to wait, and sends no view until the table is full', () => {
     const room = makeRoom()
     const out = room.sit('A')

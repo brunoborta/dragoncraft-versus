@@ -39,4 +39,16 @@ describe('parseClientMessage', () => {
   it('drops fields it does not know rather than passing them through', () => {
     expect(parseClientMessage('{"type":"create","extra":1}')).toEqual({ type: 'create' })
   })
+
+  it('reads the options a room is created with, filling in what an older client leaves out', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'create', options: { bagComposition: true } }))).toEqual({
+      type: 'create',
+      options: { bagComposition: true, cardGlow: true, showReputation: true },
+    })
+  })
+
+  it('refuses options that are not booleans', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'create', options: { cardGlow: 'yes' } }))).toBeNull()
+    expect(parseClientMessage(JSON.stringify({ type: 'create', options: 3 }))).toBeNull()
+  })
 })

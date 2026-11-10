@@ -1,4 +1,5 @@
 import { createGame, legalActions, toPlayerView } from '@dcv/engine'
+import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
 import type { ClientMessage, ServerMessage } from '@dcv/protocol'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -64,7 +65,7 @@ describe('useRemoteTable', () => {
     act(() => h.latest().onopen?.())
     expect(h.latest().sent).toEqual([{ type: 'create' }])
 
-    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: 0, token: 'tok-a', role: 'player' }))
+    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: 0, token: 'tok-a', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
     act(() => h.latest().receive({ type: 'waiting' }))
     expect(h.result.current.roomId).toBe('ROOM01')
     expect(h.result.current.seat).toBe(0)
@@ -89,7 +90,7 @@ describe('useRemoteTable', () => {
   it('mirrors the view and its actions, sends a move, and offers nothing until the next view', () => {
     const h = harness('ROOM01')
     act(() => h.latest().onopen?.())
-    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 't', role: 'player' }))
+    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
     act(() => h.latest().receive(viewMessage(state.current)))
 
     expect(h.result.current.status).toEqual({ kind: 'playing' })
@@ -106,7 +107,7 @@ describe('useRemoteTable', () => {
   it('reconnects with the token after a drop, backing off, and withdraws the actions meanwhile', () => {
     const h = harness(null)
     act(() => h.latest().onopen?.())
-    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 'tok', role: 'player' }))
+    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 'tok', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
     act(() => h.latest().receive(viewMessage(state.current)))
     expect(h.result.current.actions.length).toBeGreaterThan(0)
 
@@ -149,7 +150,7 @@ describe('useRemoteTable', () => {
   it('shrugs off a refusal of one move: the view that follows is the truth', () => {
     const h = harness('ROOM01')
     act(() => h.latest().onopen?.())
-    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 't', role: 'player' }))
+    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
     act(() => h.latest().receive(viewMessage(state.current)))
     act(() => h.latest().receive({ type: 'error', code: 'illegal-action', message: 'no' }))
     expect(h.result.current.status).toEqual({ kind: 'playing' })

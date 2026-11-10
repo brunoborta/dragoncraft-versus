@@ -1,5 +1,6 @@
 import type { Action, PlayerView, Seat } from '@dcv/engine'
-import type { ClientMessage, ServerMessage } from '@dcv/protocol'
+import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
+import type { ClientMessage, ServerMessage, TableOptions } from '@dcv/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { roomStorage } from './roomStorage.js'
 import type { RoomStorage } from './roomStorage.js'
@@ -21,6 +22,8 @@ export type RemoteTable = Table & {
   /** Known once the server has seated us; the share link needs it. */
   roomId: string | null
   seat: Seat | null
+  /** The table's options as the room's creator chose them: read-only for both players. */
+  options: TableOptions
 }
 
 /** These mean the seat is not ours to come back to. Everything else is a hiccup. */
@@ -46,9 +49,12 @@ export function useRemoteTable({
   room,
   connect = defaultConnect,
   storage = roomStorage,
+  options: chosen,
 }: {
   url: string
   room: string | null
+  /** For a new room: the options it opens with. Ignored when joining. */
+  options?: TableOptions
   connect?: Connect
   storage?: RoomStorage
 }): RemoteTable {
@@ -58,6 +64,8 @@ export function useRemoteTable({
   const [opponentConnected, setOpponentConnected] = useState(false)
   const [roomId, setRoomId] = useState<string | null>(room)
   const [seat, setSeat] = useState<Seat | null>(null)
+  const [options, setOptions] = useState<TableOptions>(chosen ?? DEFAULT_TABLE_OPTIONS)
+  const chosenRef = useRef(chosen)
 
   const socketRef = useRef<SocketLike | null>(null)
   const roomRef = useRef<string | null>(room)
@@ -80,6 +88,8 @@ export function useRemoteTable({
           storage.remember(message.room, { token: message.token, seat: message.seat })
           setRoomId(message.room)
           setSeat(message.seat)
+          // an older server sends none: the defaults, then
+          if (message.options) setOptions(message.options)
           return
         case 'waiting':
           setStatus({ kind: 'waiting' })
@@ -114,7 +124,7 @@ export function useRemoteTable({
         attempt = 0
         const known = roomRef.current
         if (known === null) {
-          send({ type: 'create' })
+          send(chosenRef.current ? { type: 'create', options: chosenRef.current } : { type: 'create' })
           return
         }
         const remembered = storage.recall(known)
@@ -176,5 +186,6 @@ export function useRemoteTable({
     opponentLabel: 'Opponent',
     roomId,
     seat,
+    options,
   }
 }
