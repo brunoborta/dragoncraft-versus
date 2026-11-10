@@ -1,12 +1,49 @@
 :root {
-  --bg: #12161b;
-  --surface: #1b2129;
+  --bg: #10211a;
+  --surface: #1a3127;
   --ink: #e8eef5;
   --muted: #8a97a6;
   --legal: #4a9a5c;
   --completes: #e8b53a;
   --selected: #3f8fd0;
+
+  /* v3 palette (plan section 3.1). Declared now, adopted by the skin phases:
+     green and gold are you, wine is the opponent. */
+  --forest-900: #13261d;
+  --forest-600: #2f5a3c;
+  --brass-400: #d9b45a;
+  --brass-200: #f3dfa2;
+  --parchment: #efe2c2;
+  --parchment-ink: #3b2a17;
+  --wine-700: #6d2232;
+  --glow-valid: #9be15d;
+  --glow-select: #62c3ff;
+  --parchment-muted: #6a5434;
+  --ember-300: #f6b85a;
+  --ember-500: #e07b2a;
+  --ember-ink: #2a1406;
+  --stone-500: #5b6168;
+  --stone-ink: #f4f4f4;
+
+  /* type (3.2): a book serif for titles, its sans sibling for everything else */
+  --font-display: 'Alegreya', Georgia, serif;
+  --font-ui: 'Alegreya Sans', system-ui, -apple-system, sans-serif;
+
+  /* motion (3.4); `motion.tsx` holds the same numbers for React */
+  --t-tap: 100ms;
+  --t-ui: 200ms;
+  --t-move: 350ms;
+  --t-show: 900ms;
+
   color-scheme: dark;
+}
+
+/* Movement gives way to a short crossfade; nothing travels or bounces. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-move: 120ms;
+    --t-show: 200ms;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -23,14 +60,25 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  /* Stand-in for the greenhouse painting (plan 6.1) until the art arrives:
+     a lit centre where the board sits, falling off to deep forest. */
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 42%, #2c4a34 0%, rgb(44 74 52 / 0) 70%),
+    linear-gradient(180deg, #1c3a2a 0%, var(--bg) 55%, #0b1712 100%);
+  background-attachment: fixed;
   color: var(--ink);
-  font: 16px/1.4 system-ui, -apple-system, sans-serif;
+  font: 16px/1.4 var(--font-ui);
+  font-variant-numeric: tabular-nums;
   overscroll-behavior: none;
 }
 
+.art-scope { display: contents; }
+
 .app {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* the greenhouse painting; the wooden table at its foot sits under the hand */
+  background: var(--art-bg, none) center bottom / cover no-repeat;
   /*
    * The board row has a floor. The SVG is 88 x 97 user units, so a board row of
    * H pixels draws hexes 17.32 * H / 97 tall; below about 250px that short axis
@@ -45,64 +93,445 @@ body {
 
 .board { width: 100%; height: 100%; touch-action: manipulation; }
 
+.svg-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* The frame: a dark underside for thickness, a gold rim, a dark joint inside. */
+.board-frame { pointer-events: none; }
+.board-side { fill: #3a2a12; stroke: #3a2a12; stroke-width: 7; stroke-linejoin: round; }
+.board-rim { fill: none; stroke-width: 6; stroke-linejoin: round; }
+.board-joint { fill: #4a3d22; stroke: #5c4a26; stroke-width: 1.4; stroke-linejoin: round; }
+
+/* The whole hexagon takes the tap, joint included; only the stone is inset. */
+.hex-hit { fill: transparent; }
+/* the painted stone (a pattern the board defines per variant), then its light */
 .hex-shape {
-  fill: var(--surface);
-  stroke: #2b333d;
-  stroke-width: 0.6;
+  fill: var(--stone-fill, #e3d6b6);
+  stroke: #f6eedb;
+  stroke-opacity: 0.55;
+  stroke-width: 0.5;
 }
+.hex-shade { fill: url(#dcv-stone); pointer-events: none; }
 
 .hex-cell { cursor: pointer; }
-.hex-cell[data-highlight='selected'] .hex-shape { fill: #2a3540; }
+.hex-cell[data-highlight='selected'] .hex-shade { fill: rgb(255 255 255 / 0.3); }
 
-/* The rings live above every cell, so each side gets its full stroke width. */
+/* The rings live above every cell, so each side gets its full stroke width.
+   Bright glows on pale stone need a dark edge to hold their shape: a wider
+   dark stroke is drawn under each coloured one. */
 .board-overlay { pointer-events: none; }
-.hex-ring { fill: none; }
-.hex-ring[data-highlight='legal'] { stroke: var(--legal); stroke-width: 1.2; }
-.hex-ring[data-highlight='selected'] { stroke: var(--selected); stroke-width: 2.4; }
+.hex-ring, .hex-ring-edge { fill: none; }
+.hex-ring-edge { stroke: rgb(16 33 26 / 0.55); stroke-width: 1.5; }
+.hex-ring-edge[data-highlight='selected'] { stroke: rgb(16 33 26 / 0.7); stroke-width: 3; }
+.hex-ring[data-highlight='legal'] { stroke: var(--glow-valid); stroke-width: 0.9; }
+.hex-ring[data-highlight='selected'] { stroke: var(--glow-select); stroke-width: 1.8; }
 
-/* Interface chrome, not a seventh dragon: the page background is a colour no
+/* Interface chrome, not a seventh dragon: forest and brass are colours no
    token uses, so a count can never be mistaken for a piece. */
-.stack-badge circle { fill: var(--bg); stroke: var(--ink); stroke-width: 0.5; }
-.stack-badge text { fill: var(--ink); font-weight: 700; }
+.stack-badge circle { fill: var(--forest-900); stroke: var(--brass-400); stroke-width: 0.6; }
+.stack-badge text { fill: var(--brass-200); font-weight: 700; }
 
-.token-preview { opacity: 0.5; }
-.token-preview-ring { fill: none; stroke: var(--ink); stroke-width: 0.8; stroke-dasharray: 2 2; }
+/* ---------- tokens arriving (F8: M4; F9: M7, M8) ---------- */
 
-.top-bar { color: var(--muted); font-size: 14px; }
-.turn { margin: 0; color: var(--ink); font-weight: 600; }
+/* anything the queue did not stage, and reduced motion: a crossfade */
+.token-arrive[data-arrival='fade'] { animation: token-fade var(--t-ui) ease-out; }
+@keyframes token-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* M4: the token drops from above (bigger = nearer), squashes on impact, settles */
+.token-arrive[data-arrival='drop'] .token-arrive-body {
+  animation: token-drop 400ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes token-drop {
+  0% { transform: scale(1.35); opacity: 0; }
+  20% { opacity: 1; }
+  55% { transform: scale(1); }
+  70% { transform: scale(1.08, 0.9); }
+  85% { transform: scale(0.97, 1.03); }
+  100% { transform: scale(1); }
+}
+/* the dust kicked up where it lands */
+.dust-ring {
+  fill: none;
+  stroke: var(--brass-200);
+  stroke-width: 1.2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dust 420ms ease-out 200ms both;
+}
+@keyframes dust {
+  0% { transform: scale(0.6); opacity: 0; stroke-width: 2; }
+  25% { opacity: 0.85; }
+  100% { transform: scale(2); opacity: 0; stroke-width: 0.2; }
+}
+
+/* M7, M8: hidden while the traveller crosses, then it is simply there */
+.token-arrive[data-arrival='slide'] .token-arrive-body { animation: token-land 400ms step-end both; }
+.token-arrive[data-arrival='swap'] .token-arrive-body { animation: token-land 540ms step-end both; }
+@keyframes token-land { 0%, 99% { opacity: 0; } 100% { opacity: 1; } }
+
+.traveller { pointer-events: none; }
+
+/* a new count bumps */
+.stack-badge { transform-box: fill-box; transform-origin: center; animation: badge-bump 320ms ease-out 180ms both; }
+@keyframes badge-bump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+/* ---------- glows (M4, M5) ---------- */
+.token-glow { fill: none; stroke-width: 1.6; }
+/* the token just placed, while "Fire up?" is open: gold, with a slow pulse */
+.token-glow[data-glow='gold'] { stroke: #ffd86a; animation: glow-gold 1.4s ease-in-out infinite; }
+@keyframes glow-gold { 0%, 100% { opacity: 0.55; stroke-width: 1.4; } 50% { opacity: 1; stroke-width: 2.4; } }
+/* the token whose ability is resolving: embers */
+.token-glow[data-glow='ember'] { stroke: var(--ember-500); animation: glow-ember 0.9s ease-in-out infinite; }
+@keyframes glow-ember { 0%, 100% { opacity: 0.6; stroke: var(--ember-500); } 50% { opacity: 1; stroke: var(--ember-300); } }
+
+/* ---------- M5: the flame ---------- */
+.flame-burst { pointer-events: none; }
+.flame-ring {
+  fill: none;
+  stroke: var(--ember-300);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: flame-ring 600ms ease-out both;
+}
+@keyframes flame-ring { 0% { transform: scale(0.8); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }
+.flame-tongue {
+  fill: var(--ember-300);
+  stroke: var(--ember-500);
+  stroke-width: 0.4;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: flame-tongue 600ms ease-out both;
+  animation-delay: calc(var(--i) * 22ms);
+}
+@keyframes flame-tongue {
+  0% { transform: scaleY(0.2); opacity: 0; }
+  30% { transform: scaleY(1.3); opacity: 1; }
+  100% { transform: scaleY(0.4) translateY(-4px); opacity: 0; }
+}
+
+/* ---------- M9: the vine ---------- */
+.vine { pointer-events: none; }
+.vine-stem {
+  fill: none;
+  stroke: #6fbf4a;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-dasharray: 1 60;
+  animation: vine-grow 500ms ease-out both;
+}
+.vine-stem-shadow { stroke: #1d4a2a; stroke-width: 2.4; }
+@keyframes vine-grow { from { stroke-dasharray: 0 60; } to { stroke-dasharray: 60 60; } }
+.vine-leaf {
+  fill: #8fd45e;
+  stroke: #2f6a2a;
+  stroke-width: 0.3;
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: leaf-open 300ms ease-out both;
+  animation-delay: calc(var(--t) * 500ms);
+}
+@keyframes leaf-open { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* ---------- M3: choosing a space ---------- */
+.hex-ring[data-highlight='legal'] { animation: legal-pulse 1.8s ease-in-out infinite; }
+@keyframes legal-pulse { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
+/* the preview hovers: a slow bob, on an inner group so the placement transform stays */
+.token-preview .token { animation: preview-bob 1.6s ease-in-out infinite; }
+@keyframes preview-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.8px); } }
+
+.token-preview-ring { fill: none; stroke: var(--glow-select); stroke-width: 0.9; }
+.token-preview-level rect { fill: var(--forest-900); stroke: var(--glow-select); stroke-width: 0.4; }
+.token-preview-level text { fill: var(--ink); font-weight: 700; }
+
+/* ---------- HUD (v3, F3) ---------- */
+
+/* Read by screen readers, not drawn: what an icon or a big figure says. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.icon { display: block; width: 20px; height: 20px; flex: none; }
+
+/* Everything above the board. Fixed heights only: this is an `auto` grid row,
+   and anything that grows here shrinks the board and moves every hex centre. */
+.top-bar { display: grid; gap: 6px; }
+
+.top-row { display: flex; align-items: center; gap: 8px; }
+.top-row .plate { flex: 1; min-width: 0; }
+/* the name block may shrink (its second line ellipsizes); the figures keep their size, centred in what is left */
+.top-row .plate-body { flex: 0 1 auto; min-width: 0; display: grid; }
+.top-row .plate-stats { flex: none; justify-content: flex-end; align-self: center; margin-left: auto; }
+.top-row .level { overflow: hidden; text-overflow: ellipsis; }
+.top-row .level > span { overflow: hidden; text-overflow: ellipsis; }
+/* the level never truncates; the seed gives way first */
+.top-row .level > span:first-child { flex: none; }
+.top-row .plate { gap: 8px; padding-right: 10px; }
+.top-row .plate .avatar { width: 40px; height: 40px; }
+.top-row .plate-stats { gap: 8px; }
+.top-row .stat .icon { width: 16px; height: 16px; }
+.top-row .level { font-size: 11px; gap: 6px; }
+.top-buttons { display: flex; gap: 6px; flex: none; }
+/* who this is and which game: the plate's second line */
+.level { margin: 0; display: flex; gap: 8px; color: #b9c5bd; font-size: 12px; line-height: 1.2; white-space: nowrap; }
+.seed { opacity: 0.8; }
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--forest-900);
+  color: var(--brass-200);
+  border: 1.5px solid var(--brass-400);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.4);
+}
+.icon-button .icon { width: 22px; height: 22px; }
+
+/* A player plate: portrait, name, and the figures that matter — cards, coins,
+   reputation — together in one piece (plan 1.1, Guia item 7). */
+.plate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 14px 4px 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(24 48 36 / 0.94), rgb(12 26 19 / 0.94));
+  border: 1.5px solid var(--brass-400);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.45);
+}
+.plate-body { flex: 1; min-width: 0; }
+.plate-row { display: flex; align-items: center; gap: 8px; }
+.plate-name { font-family: var(--font-display); font-size: 17px; font-weight: 700; white-space: nowrap; }
+.plate-stats { display: flex; gap: 12px; margin-left: auto; }
+.stat { display: inline-flex; align-items: center; gap: 3px; color: var(--brass-200); font-weight: 700; }
+.stat .icon { width: 18px; height: 18px; }
+
+.avatar {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid var(--brass-400);
+  transition: box-shadow var(--t-ui);
+}
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.avatar[data-side='you'] { background: radial-gradient(circle at 35% 30%, #4f8a5c, var(--forest-900) 75%); }
+.avatar[data-side='opponent'] { background: radial-gradient(circle at 35% 30%, #a23a4e, #3a1018 75%); border-color: #c98a5a; }
+/* Whose moment it is, without reading: green around you, wine around them. */
+.avatar[data-side='you'][data-active] { box-shadow: 0 0 0 2px var(--glow-valid), 0 0 14px rgb(155 225 93 / 0.7); }
+.avatar[data-side='opponent'][data-active] { box-shadow: 0 0 0 2px #e0607a, 0 0 14px rgb(224 96 122 / 0.7); }
+
+/* The latest move, one line at a fixed height; the rest is behind the log button. */
+/* over the painting the line sits on a dark pill of its own, or it is lost in the leaves */
+.log {
+  justify-self: start;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 10px;
+  list-style: none;
+  height: 1.5em;
+  line-height: 1.5em;
+  overflow: hidden;
+  font-size: 12px;
+  color: #d5ddd7;
+  background: rgb(8 18 13 / 0.72);
+  border-radius: 999px;
+}
+.log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- board row: coins bottom left, bag bottom right ---------- */
+
+.board-area { position: relative; min-height: 0; }
+.board { display: block; }
+
+.coin-purse {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 6px 8px 4px;
+  border-radius: 12px;
+  background: rgb(12 26 19 / 0.78);
+  border: 1px solid rgb(217 180 90 / 0.7);
+  color: var(--brass-200);
+  font: inherit;
+  font-size: 12px;
+}
+.coin-purse:disabled { opacity: 0.6; }
+.coin-slots { display: flex; gap: 2px; }
+.coin-purse .coin { width: 24px; height: 24px; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.5)); }
+.coin-img { object-fit: contain; }
+
+.board-area > .board { position: relative; z-index: 1; }
+.coin-purse, .bag { z-index: 2; }
+/* a spent coin leaves its place behind, so you can see how many are gone */
+.coin-slot { width: 22px; height: 22px; margin: 1px; border-radius: 50%; border: 1.5px dashed rgb(217 180 90 / 0.65); }
+
+.bag {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  justify-items: center;
+  width: 80px;
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--brass-200);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+.bag-art { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.5)); }
+.bag-count {
+  margin-top: -8px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--forest-900);
+  border: 1px solid var(--brass-400);
+}
+/* M2: the bag shakes twice and lights up while a token comes out */
+.bag[data-drawing] .bag-art { animation: bag-shake 500ms ease-in-out 2, bag-glow 1.2s ease-out 500ms; }
+@keyframes bag-shake {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-9deg) translateY(-2px); }
+  75% { transform: rotate(9deg) translateY(-2px); }
+}
+@keyframes bag-glow {
+  0% { filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.5)) drop-shadow(0 0 14px rgb(255 220 120 / 1)); }
+  100% { filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.5)) drop-shadow(0 0 0 rgb(255 220 120 / 0)); }
+}
+
+/* the moment itself: over the board area, the token rising from the bag's corner */
+.draw-moment {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.draw-token { grid-area: 1 / 1; width: 124px; height: 135px; filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.55)); }
+.draw-token svg { width: 100%; height: 100%; }
+.draw-ribbon {
+  grid-area: 1 / 1;
+  align-self: start;
+  margin: 10% 0 0;
+  padding: 6px 22px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--brass-200);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.8);
+  background: linear-gradient(180deg, #3f7a4e, var(--forest-600) 55%, #1f3f2b);
+  border: 2px solid var(--brass-400);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.5);
+}
+/* the opponent's draw: wine, and smaller */
+.draw-moment[data-side='opponent'] .draw-ribbon { font-size: 16px; padding: 4px 16px; background: linear-gradient(180deg, #8e3346, var(--wine-700) 55%, #3e1019); border-color: #c98a5a; }
+.draw-moment[data-side='opponent'] .draw-token { width: 84px; height: 92px; }
+
+.bag-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.bag-list li { display: flex; align-items: center; gap: 8px; }
+.bag-list svg { width: 30px; height: 32px; flex: none; }
+.bag-list-name { flex: 1; font-size: 14px; }
+.bag-list-count { font-weight: 700; color: var(--brass-200); }
+
+/* ---------- decision panel ---------- */
 
 .token-chip { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
-.token-chip svg { width: 18px; height: 18px; flex: none; }
+.token-chip svg { width: 20px; height: 20px; flex: none; }
 
-.prompt { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
-.prompt-text { margin: 0 0 8px; font-weight: 600; }
+/* Parchment, with ink on it: the decision is the thing to read. */
+.prompt {
+  padding: 10px 12px;
+  border-radius: 14px;
+  color: var(--parchment-ink);
+  background-color: var(--parchment);
+  background-image: linear-gradient(180deg, rgb(255 250 235 / 0.35), rgb(120 80 30 / 0.12)), var(--art-parchment, none);
+  background-size: auto, 220px;
+  border: 2px solid var(--brass-400);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.4), 0 4px 10px rgb(0 0 0 / 0.45);
+}
+/* The opponent's moment is wine (plan 3.1): you can tell it is not yours without reading. */
+.prompt[data-side='opponent'] {
+  color: var(--ink);
+  background-image: none;
+  background: linear-gradient(180deg, #7d2a3b, var(--wine-700));
+  border-color: #b8606e;
+}
+.prompt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.prompt-text { flex: 1; min-width: 0; margin: 0; font-family: var(--font-display); font-size: 17px; font-weight: 700; line-height: 1.25; }
+.prompt-waiting, .prompt[data-side='opponent'] .prompt-text { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.hourglass { width: 22px; height: 22px; }
+.prompt-effect { display: block; margin-top: 2px; color: var(--parchment-muted); font-family: var(--font-ui); font-size: 13px; font-weight: 400; }
 .prompt-actions { display: flex; flex-wrap: wrap; gap: 8px; max-height: 30dvh; overflow-y: auto; }
+.prompt-head + .prompt-actions:not(:empty) { margin-top: 8px; }
 
 .prompt-actions button {
-  background: #2a3540;
-  color: var(--ink);
-  border: 1px solid #3a4652;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
   /* not a pill: these buttons carry a second line saying what the ability does */
   border-radius: 12px;
-  padding: 8px 14px;
   font: inherit;
-  min-height: 44px;
   text-align: left;
+  transition: transform var(--t-tap);
 }
+.prompt-actions button:active { transform: scale(0.96); }
+.action-name { display: block; font-weight: 700; }
+.action-effect { display: block; font-size: 12px; font-weight: 400; }
+.action-icon { width: 24px; height: 24px; }
 
-.action-name { display: block; }
-.action-effect,
-.prompt-effect {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
+.btn-secondary { background: #fbf5e4; color: var(--parchment-ink); border: 1.5px solid #b8913f; }
+.btn-secondary .action-effect { color: var(--parchment-muted); }
+/* Firing up is the big decision of a turn, so it burns (Dein Zug, plan 1.1). */
+.btn-fire {
+  background: linear-gradient(180deg, var(--ember-300), var(--ember-500));
+  color: var(--ember-ink);
+  border: 1.5px solid #8a3a10;
+  box-shadow: 0 0 12px rgb(240 120 40 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.45);
 }
-.prompt-effect { margin-top: 2px; }
+.btn-fire .action-effect { color: var(--ember-ink); }
 
-.opponent, .hand-meta { margin: 0; color: var(--muted); font-size: 13px; }
-.log { margin: 4px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }
-.log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--stone-500);
+  color: var(--stone-ink);
+  border: 1px solid #3f4449;
+  font: inherit;
+  font-size: 14px;
+}
+.btn-undo .icon { width: 18px; height: 18px; }
+.btn-undo:disabled { opacity: 0.45; }
 
 /*
  * `position: relative` is load-bearing: the stack inspector is absolutely
@@ -110,38 +539,138 @@ body {
  * never rescales the board under a half-finished two-tap gesture.
  */
 .bottom { display: grid; gap: 8px; position: relative; }
-.hand-cards { display: flex; gap: 8px; }
+
+/* ---------- hand: parchment cards in a fan ---------- */
+
+.hand-cards { display: flex; justify-content: center; gap: 8px; padding-top: 2px; }
+.fan-slot {
+  flex: 0 1 156px;
+  min-width: 0;
+  transform: translateY(var(--fan-drop, 0)) rotate(var(--fan-angle, 0));
+  transform-origin: 50% 140%;
+}
+.hand[data-count='3'] .fan-slot { flex-basis: 120px; }
 
 .card {
   position: relative;
-  flex: 1 1 0;
-  background: var(--surface);
-  border: 1px solid #2b333d;
-  border-radius: 10px;
-  padding: 8px;
   display: grid;
-  gap: 6px;
-  justify-items: center;
+  grid-template-rows: auto 44px;
+  gap: 2px;
+  padding: 6px 8px 4px;
+  border-radius: 12px;
+  color: var(--parchment-ink);
+  background-color: var(--parchment);
+  background-image: radial-gradient(ellipse at 50% 30%, rgb(255 250 235 / 0.4), rgb(255 250 235 / 0) 60%, rgb(120 80 30 / 0.18)), var(--art-parchment, none);
+  background-size: auto, 180px;
+  border: 2px solid var(--brass-400);
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35), 0 4px 10px rgb(0 0 0 / 0.45);
 }
-.card[data-scoreable='true'] { border-color: var(--completes); }
-.card .pattern { width: 100%; height: 56px; }
-.card-name { margin: 0; font-size: 12px; text-align: center; }
-.card-rep { position: absolute; top: 6px; right: 8px; font-weight: 700; color: var(--completes); }
-.card button { min-height: 44px; width: 100%; border-radius: 8px; border: 0; background: var(--completes); color: var(--bg); font: inherit; font-weight: 600; }
+.card .pattern { width: 100%; height: 52px; }
+.card-foot { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; }
+.card[data-scoreable='true'] .card-foot { justify-content: space-between; }
+.card-rep { display: inline-flex; align-items: center; gap: 2px; font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1; }
+.card-rep .icon { width: 26px; height: 26px; }
+/* a card that can be scored right now glows gold (M10 will make it pulse) */
+.card[data-scoreable='true'] {
+  border-color: #ffd86a;
+  box-shadow: 0 0 0 2px rgb(255 216 106 / 0.6), 0 0 16px rgb(255 200 80 / 0.7), 0 4px 10px rgb(0 0 0 / 0.45);
+}
+.card button {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #8a6a26;
+  background: var(--completes);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 700;
+}
 
-.pattern-hex { fill: #222a33; stroke: #39434e; stroke-width: 0.6; }
+.pattern-hex { fill: rgb(59 42 23 / 0.1); stroke: rgb(59 42 23 / 0.35); stroke-width: 0.6; }
 
+/* ---------- your bar ---------- */
+
+.player-bar { display: flex; align-items: center; gap: 8px; }
+/* quieter than the opponent's plate: more transparent, thinner edge, smaller portrait */
+.player-bar .plate { flex: 1; padding: 3px 10px 3px 3px; background: rgb(12 26 19 / 0.6); border-width: 1px; }
+.player-bar .avatar { width: 38px; height: 38px; }
+.player-bar .plate-name { font-size: 15px; }
+.player-bar .plate-stats { gap: 10px; }
+
+/* Always on screen (plan 1.1, Spielbrett-5): gold when you can end the turn,
+   locked while something is still open, grey on the opponent's turn. */
+.end-turn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  min-width: 128px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  transition: transform var(--t-tap), box-shadow var(--t-ui);
+}
+.end-turn:active:not(:disabled) { transform: scale(0.96); }
+.end-turn[data-state='ready'] {
+  background: linear-gradient(180deg, #f6d27a, #d9a43a 55%, #b07a1e);
+  color: #2b1a05;
+  border: 2px solid #fff0b8;
+  box-shadow: 0 0 0 2px #8a6a26, 0 0 14px rgb(255 210 110 / 0.55);
+}
+/* M12: the turn is played out — the button breathes, the way Hearthstone's does */
+.end-turn[data-glow='true'] { animation: end-turn-glow 1.6s ease-in-out infinite; }
+@keyframes end-turn-glow {
+  0%, 100% { box-shadow: 0 0 0 2px #8a6a26, 0 0 12px rgb(255 210 110 / 0.5); }
+  50% { box-shadow: 0 0 0 3px #ffe7a0, 0 0 28px rgb(255 210 110 / 0.95); }
+}
+.end-turn[data-state='locked'] { background: linear-gradient(180deg, #7a6a46, #5e5034); color: #f1e6c8; border: 2px solid #9a8452; }
+.end-turn[data-state='waiting'] { background: #4a4f55; color: #c9cdd2; border: 2px solid #5f656c; }
+
+/* ---------- small phones (360 x 640 and the like) ---------- */
+@media (max-height: 720px) {
+  .app { gap: 6px; padding: 6px; }
+  .top-bar { gap: 4px; }
+  .avatar { width: 36px; height: 36px; }
+  .player-bar .avatar { width: 32px; height: 32px; }
+  .plate-name { font-size: 15px; }
+  .prompt { padding: 8px 10px; }
+  .prompt-text { font-size: 15px; }
+  .prompt-effect { font-size: 12px; }
+  .bottom { gap: 6px; }
+  .card { padding: 4px 6px 2px; }
+  .card .pattern { height: 30px; }
+  .card { gap: 0; }
+  .card-rep { font-size: 20px; }
+  .card-rep .icon { width: 22px; height: 22px; }
+  .end-turn { min-height: 44px; min-width: 112px; font-size: 16px; }
+  .bag-art { width: 52px; height: 52px; }
+}
+
+/* ---------- dialogs (v3, F4) ---------- */
+
+/*
+ * The stack inspector sits over the top of the footer, absolutely, so opening
+ * it never changes the footer's height or rescales the board mid-gesture.
+ */
 .stack-detail {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 2;
-  background: var(--surface);
-  border: 1px solid #3a4652;
-  border-radius: 12px;
-  padding: 10px 12px;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 50%);
+  z-index: 3;
+  padding: 8px 12px 10px;
+  border-radius: 14px;
+  color: var(--parchment-ink);
+  background-color: var(--parchment);
+  background-image: linear-gradient(180deg, rgb(255 250 235 / 0.35), rgb(120 80 30 / 0.12)), var(--art-parchment, none);
+  background-size: auto, 220px;
+  border: 2px solid var(--brass-400);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 0.55);
 }
 .stack-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .stack-detail-head button {
@@ -149,43 +678,17 @@ body {
   min-height: 44px;
   background: none;
   border: 0;
-  color: var(--muted);
+  color: var(--parchment-ink);
   font: inherit;
+  font-size: 18px;
 }
-.stack-detail-title { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
-.stack-detail ol { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.stack-detail li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-.stack-detail svg { width: 28px; height: 28px; }
-
-.controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 13px; }
-.controls select, .controls button { min-height: 44px; background: #2a3540; color: var(--ink); border: 1px solid #3a4652; border-radius: 8px; font: inherit; }
-.controls button:disabled { opacity: 0.4; }
-
-.game-over { background: var(--surface); border-radius: 12px; padding: 16px; text-align: center; }
-.game-over h2 { margin: 0 0 8px; }
-.game-over dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; margin: 0 0 12px; }
-.game-over dt { color: var(--muted); text-align: left; }
-.game-over dd { margin: 0; font-weight: 700; }
-.game-over button { min-height: 44px; width: 100%; border: 0; border-radius: 8px; background: var(--completes); color: var(--bg); font: inherit; font-weight: 600; }
-
-/* The log is two lines at a fixed height: the top bar is an `auto` grid row,
-   so letting it grow would shrink the board and move every hex centre. */
-.log-row { display: flex; align-items: flex-start; gap: 8px; }
-.log { flex: 1 1 auto; height: 2.8em; overflow: hidden; }
-.log-row button {
-  flex: 0 0 auto;
-  min-height: 32px;
-  padding: 4px 10px;
-  background: #2a3540;
-  color: var(--ink);
-  border: 1px solid #3a4652;
-  border-radius: 8px;
-  font: inherit;
-  font-size: 12px;
-}
-
-.level { margin: 0; color: var(--muted); font-size: 13px; display: grid; }
-.seed { font-size: 11px; opacity: 0.8; }
+.stack-detail-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+/* bottom to top, left to right, with an arrow between: the last one is what counts */
+.stack-detail ol { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.stack-detail li { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; }
+.stack-detail li + li::before { content: '›'; margin-right: 4px; color: var(--parchment-muted); font-size: 20px; }
+.stack-detail li:last-child { color: #1d4a2a; }
+.stack-detail svg { width: 34px; height: 34px; }
 
 .modal-backdrop {
   position: fixed;
@@ -194,82 +697,238 @@ body {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgb(0 0 0 / 0.6);
+  background: linear-gradient(rgb(6 14 10 / 0.55), rgb(6 14 10 / 0.72)), var(--art-overlay, none) center / cover;
 }
+
+.modal-backdrop-front { align-content: stretch; grid-template-rows: auto 1fr; gap: 0; }
+/* the game's name, at the top of the blurred greenhouse; the dialog sits in the room below */
+.brand {
+  margin: max(6dvh, env(safe-area-inset-top)) 0 0;
+  align-self: start;
+  font-family: var(--font-display);
+  font-size: clamp(40px, 12vw, 60px);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  color: var(--brass-200);
+  text-shadow: 0 3px 6px rgb(0 0 0 / 0.85), 0 0 32px rgb(243 223 162 / 0.4);
+  display: grid;
+}
+.modal-backdrop-front .modal { align-self: center; }
+
+/* the eye: put a choice aside to look at the board (Slay the Spire). The same
+   gold button on every dialog that must be finished, centred on its top edge. */
+.choice-frame { position: relative; display: grid; justify-items: center; width: 100%; max-width: 440px; padding-top: 30px; }
+.choice-frame > .modal, .choice-frame > .discover { width: 100%; }
+.peek-button {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 54px;
+  padding: 0;
+  transform: translateX(-50%);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #2f5a3c, var(--forest-900));
+  color: var(--brass-200);
+  border: 3px solid var(--brass-400);
+  box-shadow: inset 0 0 0 1px rgb(243 223 162 / 0.5), 0 0 0 2px #6a4f1c, 0 8px 18px rgb(0 0 0 / 0.6);
+  animation: peek-glow 2s ease-in-out infinite;
+  transition: transform var(--t-tap);
+}
+.peek-button:active { transform: translateX(-50%) scale(0.94); }
+.peek-button .icon { width: 34px; height: 34px; }
+@keyframes peek-glow {
+  0%, 100% { box-shadow: inset 0 0 0 1px rgb(243 223 162 / 0.5), 0 0 0 2px #6a4f1c, 0 8px 18px rgb(0 0 0 / 0.6), 0 0 8px rgb(243 223 162 / 0.3); }
+  50% { box-shadow: inset 0 0 0 1px rgb(243 223 162 / 0.5), 0 0 0 2px #6a4f1c, 0 8px 18px rgb(0 0 0 / 0.6), 0 0 22px rgb(243 223 162 / 0.75); }
+}
+/* the Discover's heading sits under the eye, not behind it */
+.choice-frame > .discover { padding-top: 26px; }
+.choice-frame > .modal { padding-top: 32px; }
+@media (prefers-reduced-motion: reduce) { .peek-button { animation: none; } }
+.peek-back { min-height: 44px; padding: 0 14px; border-radius: 10px; font: inherit; font-weight: 700; white-space: nowrap; }
+
+/* a setting: a checkbox with a name and a note */
+.setting { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
+.setting input { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--brass-400); flex: none; }
+.setting-text { display: grid; gap: 2px; }
+.setting-name { font-weight: 700; }
+.setting-note { color: #b9c5bd; font-size: 13px; }
 
 .modal {
   width: 100%;
   max-width: 420px;
-  max-height: 80dvh;
+  max-height: 84dvh;
   overflow-y: auto;
   display: grid;
   gap: 10px;
-  padding: 16px;
-  background: var(--surface);
-  border: 1px solid #3a4652;
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+  padding: 18px 16px 16px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #1d3a2c, var(--forest-900));
+  border: 2px solid var(--brass-400);
+  box-shadow: inset 0 0 0 1px rgb(243 223 162 / 0.25), 0 14px 36px rgb(0 0 0 / 0.6);
 }
-
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.modal-head h2 { margin: 0; font-size: 16px; }
+.modal-head h2 { margin: 0; font-family: var(--font-display); font-size: 21px; color: var(--brass-200); }
 .modal-head button {
   min-width: 44px;
   min-height: 44px;
   background: transparent;
-  color: var(--ink);
+  color: var(--brass-200);
   border: 0;
   font: inherit;
+  font-size: 18px;
 }
-.modal-note { margin: 0; color: var(--muted); font-size: 13px; }
+.modal-note { margin: 0; color: #b9c5bd; font-size: 14px; }
 
+/* choices on the front door: parchment, like every decision in the game */
 .level-choice {
   display: grid;
   gap: 2px;
   text-align: left;
-  padding: 10px 14px;
-  min-height: 44px;
-  background: #2a3540;
-  color: var(--ink);
-  border: 1px solid #3a4652;
+  padding: 12px 16px;
+  min-height: 56px;
   border-radius: 12px;
+  color: var(--parchment-ink);
+  background-color: var(--parchment);
+  background-image: linear-gradient(180deg, rgb(255 250 235 / 0.4), rgb(120 80 30 / 0.1)), var(--art-parchment, none);
+  background-size: auto, 220px;
+  border: 1.5px solid #b8913f;
   font: inherit;
+  transition: transform var(--t-tap);
 }
+.level-choice:active:not(:disabled) { transform: scale(0.98); }
+.level-choice .action-name { font-family: var(--font-display); font-size: 18px; }
+.level-choice .action-effect { color: var(--parchment-muted); font-size: 13px; }
 
 .log-rounds { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
 .log-round {
   margin: 0 0 6px;
   padding-bottom: 4px;
-  border-bottom: 1px solid #2b333d;
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgb(217 180 90 / 0.35);
+  color: var(--brass-200);
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.04em;
 }
 .log-turns { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-.log-turns > li { display: grid; gap: 2px; }
-.log-who { margin: 0; font-weight: 700; font-size: 13px; }
-.log-turns ul { margin: 0; padding-left: 14px; color: var(--muted); font-size: 13px; }
+.log-turns > li { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid var(--forest-600); }
+/* green is you, wine is them — the same rule as the rest of the screen */
+.log-turns > li:has(.log-who[data-side='opponent']) { border-left-color: #a23a4e; }
+.log-who { margin: 0; font-weight: 700; font-size: 14px; }
+.log-turns ul { margin: 0; padding-left: 14px; color: #b9c5bd; font-size: 13px; }
 
-/* A card picked to stay in hand, inside the discard dialog. */
-.card[data-picked] { cursor: pointer; }
-.card[data-picked='false'] { opacity: 0.55; }
-.card[data-picked='true'] { border-color: var(--selected); border-width: 2px; opacity: 1; }
-
-.discard-cards { display: flex; flex-wrap: wrap; gap: 8px; }
-.discard-cards .card { flex: 1 1 40%; }
+/* ----- choose the cards to keep (the coin): a 2 x 2 grid (plan 1.1, Guia item 6) ----- */
+.card[data-picked] { cursor: pointer; transition: transform var(--t-tap), opacity var(--t-ui); }
+.card[data-picked='false'] { opacity: 0.6; }
+.card[data-picked='true'] {
+  border-color: var(--glow-select);
+  box-shadow: 0 0 0 2px var(--glow-select), 0 0 14px rgb(98 195 255 / 0.6);
+  opacity: 1;
+  transform: translateY(-3px);
+}
+.discard-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .discard-finish {
-  min-height: 44px;
+  min-height: 48px;
   width: 100%;
-  border: 0;
-  border-radius: 8px;
+  border: 1px solid #8a6a26;
+  border-radius: 12px;
   background: var(--completes);
   /* gold is a light fill: an inherited light label lands at 1.62:1 on it */
   color: var(--bg);
   font: inherit;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
 }
 .discard-finish:disabled { opacity: 0.4; }
+
+/* ----- the crystal's Discover: big tokens fanned over the board ----- */
+/* lighter than other dialogs: where the kept token can go is the question */
+.discover-backdrop { background: radial-gradient(ellipse at 50% 45%, rgb(6 14 10 / 0.45), rgb(6 14 10 / 0.8)); }
+.discover { display: grid; justify-items: center; gap: 6px; width: 100%; max-width: 440px; text-align: center; }
+.discover h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--brass-200);
+  text-shadow: 0 2px 6px rgb(0 0 0 / 0.8);
+}
+.discover-note { margin: 0 0 8px; color: #d5ddd7; font-size: 14px; text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
+.discover-fan { display: flex; justify-content: center; gap: 8px; width: 100%; padding: 0 10px; }
+.discover-choice {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 132px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  padding: 10px 6px 12px;
+  border-radius: 16px;
+  color: var(--parchment-ink);
+  background-color: var(--parchment);
+  background-image: linear-gradient(180deg, rgb(255 250 235 / 0.4), rgb(120 80 30 / 0.12)), var(--art-parchment, none);
+  background-size: auto, 200px;
+  border: 2px solid var(--brass-400);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.55);
+  font: inherit;
+  transform: translateY(var(--fan-drop, 0)) rotate(var(--fan-angle, 0));
+  transition: transform var(--t-ui), box-shadow var(--t-ui);
+}
+.discover-choice:hover,
+.discover-choice:focus-visible {
+  transform: translateY(calc(var(--fan-drop, 0px) - 8px)) rotate(var(--fan-angle, 0));
+  box-shadow: 0 0 0 2px var(--glow-select), 0 14px 28px rgb(0 0 0 / 0.6);
+}
+.discover-choice svg { width: 76px; height: 82px; }
+.discover-name { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+.discover-choice .prompt-effect { font-size: 12px; line-height: 1.25; }
+
+/* ----- the end of the game ----- */
+.game-over-backdrop { z-index: 12; }
+.game-over {
+  width: 100%;
+  max-width: 360px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 8px 18px 18px;
+  text-align: center;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #1f3e2f, var(--forest-900));
+  border: 2px solid var(--brass-400);
+  box-shadow: inset 0 0 0 1px rgb(243 223 162 / 0.25), 0 16px 40px rgb(0 0 0 / 0.65);
+}
+.game-over[data-result='lose'] { background: linear-gradient(180deg, #5a1d2a, #2a0e15); border-color: #c98a5a; }
+.crest { width: 150px; height: 104px; margin-top: -48px; filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.6)); }
+.crest-leaf { fill: #8fbf5a; stroke: #3c5a22; stroke-width: 0.8; }
+.crest-star { fill: #f3c64a; stroke: #8a5a12; stroke-width: 1.4; stroke-linejoin: round; }
+.crest[data-result='lose'] .crest-leaf { fill: #a07060; stroke: #4a2018; }
+.crest[data-result='lose'] .crest-star { fill: #b9a07a; stroke: #4a3418; }
+.game-over h2 { margin: -6px 0 2px; font-family: var(--font-display); font-size: 32px; color: var(--brass-200); }
+.final-scores { display: flex; justify-content: center; gap: 28px; margin: 0; }
+.final-score { display: grid; justify-items: center; gap: 2px; }
+.final-score .avatar { width: 64px; height: 64px; }
+.final-score dt { margin-top: 4px; color: #c9d4cc; font-size: 14px; }
+.final-score dd { margin: 0; font-family: var(--font-display); font-size: 34px; font-weight: 700; line-height: 1; color: var(--brass-200); }
+.game-over button {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid #8a6a26;
+  border-radius: 12px;
+  background: var(--completes);
+  color: var(--bg);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+}
+.game-over button.btn-secondary { background: #fbf5e4; color: var(--parchment-ink); border-color: #b8913f; font-size: 16px; }
+.prompt-head .btn-secondary { min-height: 44px; padding: 0 14px; border-radius: 10px; font: inherit; font-weight: 700; }
 
 /* Only reachable with #debug in the URL: a way to look at the final screen
    without playing a hundred moves. */
@@ -277,22 +936,292 @@ body {
 .debug button {
   flex: 1 1 0;
   min-height: 36px;
-  background: transparent;
-  color: var(--muted);
-  border: 1px dashed #3a4652;
+  background: rgb(8 18 13 / 0.7);
+  color: #c9d4cc;
+  border: 1px dashed rgb(217 180 90 / 0.6);
   border-radius: 8px;
   font: inherit;
   font-size: 12px;
 }
 
-/* online */
-.modal > button { min-height: 44px; background: #2a3540; color: var(--ink); border: 1px solid #3a4652; border-radius: 8px; font: inherit; }
-.modal > button.primary { background: var(--completes); color: var(--bg); border: 0; font-weight: 600; }
-.connection { margin: 0; padding: 8px 12px; border-radius: 8px; background: #3a3022; color: var(--ink); font-size: 13px; }
-.pin { margin: 4px 0; text-align: center; font-size: 44px; font-weight: 700; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; user-select: all; }
+/* ----- online: lobby, PIN, reconnecting ----- */
+.modal > button {
+  min-height: 48px;
+  border-radius: 12px;
+  background: #fbf5e4;
+  color: var(--parchment-ink);
+  border: 1.5px solid #b8913f;
+  font: inherit;
+  font-weight: 700;
+}
+.modal > button.primary { background: var(--completes); color: var(--bg); border: 1px solid #8a6a26; font-family: var(--font-display); font-size: 18px; }
+/* a notice about the wire: wine, like everything that is not your moment */
+.connection {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--wine-700);
+  border: 1px solid #b8606e;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: center;
+}
+.pin {
+  margin: 4px 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--brass-200);
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
 .pin-form { display: grid; gap: 10px; min-width: 0; }
 /* an input is 20 characters wide unless told otherwise, which at this size is wider than a phone */
-.pin-input { width: 100%; min-width: 0; min-height: 56px; padding: 0 12px; text-indent: 0.2em; text-align: center; font: inherit; font-size: 32px; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; background: #2a3540; color: var(--ink); border: 1px solid #3a4652; border-radius: 8px; }
-.pin-form > button { min-height: 44px; border-radius: 8px; font: inherit; }
-.pin-form > button.primary { background: var(--completes); color: var(--bg); border: 0; font-weight: 600; }
-.pin-form > button:disabled, .level-choice:disabled { opacity: 0.4; }
+.pin-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0 12px;
+  text-indent: 0.2em;
+  text-align: center;
+  font: inherit;
+  font-size: 32px;
+  letter-spacing: 0.2em;
+  font-variant-numeric: tabular-nums;
+  background: rgb(0 0 0 / 0.3);
+  color: var(--brass-200);
+  border: 1.5px solid var(--brass-400);
+  border-radius: 12px;
+}
+.pin-form > button { min-height: 48px; border-radius: 12px; font: inherit; }
+.pin-form > button.primary { background: var(--completes); color: var(--bg); border: 1px solid #8a6a26; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+.pin-form > button:disabled, .level-choice:disabled { opacity: 0.45; }
+
+/* ---------- turn (v3, F6) ---------- */
+
+/* the banner layer: over everything in the game, the screen dimmed behind it */
+.app { position: relative; }
+.turn-banner-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 42%, rgb(6 14 10 / 0.35), rgb(6 14 10 / 0.7));
+}
+/* light rays behind the banner, slowly turning */
+.turn-banner-rays {
+  position: absolute;
+  width: 160vmax;
+  height: 160vmax;
+  background: repeating-conic-gradient(from 0deg, rgb(255 230 160 / 0.16) 0deg 7deg, rgb(255 230 160 / 0) 7deg 20deg);
+  mask-image: radial-gradient(circle, #000 0%, transparent 38%);
+  animation: rays-turn 8s linear infinite;
+}
+.turn-banner-layer[data-side='opponent'] .turn-banner-rays {
+  background: repeating-conic-gradient(from 0deg, rgb(255 150 160 / 0.14) 0deg 7deg, rgb(255 150 160 / 0) 7deg 20deg);
+}
+@keyframes rays-turn { to { transform: rotate(360deg); } }
+
+.turn-banner {
+  position: relative;
+  padding: 12px 40px 14px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--brass-200);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 0.7);
+  white-space: nowrap;
+  background: linear-gradient(180deg, #3f7a4e, var(--forest-600) 55%, #1f3f2b);
+  border: 3px solid var(--brass-400);
+  box-shadow: inset 0 0 0 2px rgb(243 223 162 / 0.35), 0 10px 30px rgb(0 0 0 / 0.6), 0 0 40px rgb(155 225 93 / 0.35);
+}
+/* the opponent's moment is wine */
+.turn-banner-layer[data-side='opponent'] .turn-banner {
+  background: linear-gradient(180deg, #8e3346, var(--wine-700) 55%, #3e1019);
+  border-color: #c98a5a;
+  box-shadow: inset 0 0 0 2px rgb(243 200 170 / 0.3), 0 10px 30px rgb(0 0 0 / 0.6), 0 0 40px rgb(224 96 122 / 0.35);
+}
+
+/* the hourglass of "Opponent is thinking…" turns over, again and again */
+.prompt[data-side='opponent'] .hourglass { animation: hourglass-turn 2.4s ease-in-out infinite; }
+@keyframes hourglass-turn {
+  0%, 40% { transform: rotate(0deg); }
+  50%, 90% { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* reduced motion: nothing loops, nothing turns; the glow and banner stay, still */
+@media (prefers-reduced-motion: reduce) {
+  .end-turn[data-glow='true'] { animation: none; box-shadow: 0 0 0 3px #ffe7a0, 0 0 22px rgb(255 210 110 / 0.85); }
+  .turn-banner-rays, .prompt[data-side='opponent'] .hourglass { animation: none; }
+  .hex-ring[data-highlight='legal'], .token-preview .token, .token-glow, .bag[data-drawing] .bag-art { animation: none; }
+  .token-glow { opacity: 0.9; }
+  .token-arrive[data-arrival] .token-arrive-body { animation: token-fade var(--t-ui) ease-out; }
+  .dust-ring, .flame-tongue, .flame-ring, .vine-leaf { animation: none; opacity: 0; }
+  .vine-stem { animation: none; stroke-dasharray: none; }
+  .stack-badge { animation: none; }
+}
+
+/* ---------- scoring and the coin (v3, F10) ---------- */
+
+/* M10: a card that can be scored now: its gold border breathes */
+.card[data-scoreable='true'] { animation: scoreable-pulse 1.5s ease-in-out infinite; }
+@keyframes scoreable-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgb(255 216 106 / 0.55), 0 0 12px rgb(255 200 80 / 0.55), 0 4px 10px rgb(0 0 0 / 0.45); }
+  50% { box-shadow: 0 0 0 3px rgb(255 230 150 / 0.95), 0 0 26px rgb(255 200 80 / 0.95), 0 4px 10px rgb(0 0 0 / 0.45); }
+}
+
+/* the card-glow option: the card the hovering token would complete rises and glows */
+.card[data-completes] {
+  border-color: var(--glow-valid);
+  box-shadow: 0 0 0 2px var(--glow-valid), 0 0 18px rgb(155 225 93 / 0.8), 0 8px 14px rgb(0 0 0 / 0.5);
+  transform: translateY(-8px);
+  transition: transform var(--t-ui), box-shadow var(--t-ui);
+}
+
+/* the three spaces of a scored pattern, lit one after the other */
+.score-ring {
+  fill: rgb(255 216 106 / 0.18);
+  stroke: #ffd86a;
+  stroke-width: 1.6;
+  opacity: 0;
+  animation: score-ring 1100ms ease-out both;
+  animation-delay: calc(var(--i) * 140ms);
+}
+.score-rings[data-side='1'] .score-ring { stroke: #f08aa0; fill: rgb(240 138 160 / 0.15); }
+@keyframes score-ring {
+  0% { opacity: 0; stroke-width: 3; }
+  15% { opacity: 1; }
+  75% { opacity: 1; stroke-width: 1.4; }
+  100% { opacity: 0; }
+}
+
+/* the scored card, travelling from the board to the plate */
+.score-moment, .coin-moment { position: absolute; inset: 0; z-index: 14; pointer-events: none; overflow: hidden; }
+.score-card { position: absolute; width: 132px; margin: -60px 0 0 -66px; }
+.score-card-face { box-shadow: 0 0 0 3px #ffd86a, 0 0 30px rgb(255 210 110 / 0.9), 0 10px 24px rgb(0 0 0 / 0.6); }
+.score-moment[data-side='opponent'] .score-card-face { box-shadow: 0 0 0 3px #e0607a, 0 0 26px rgb(224 96 122 / 0.8), 0 10px 24px rgb(0 0 0 / 0.6); }
+
+/* stars bursting where it lands */
+.score-burst { position: absolute; width: 0; height: 0; }
+.score-star {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  background: #f3c64a;
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  opacity: 0;
+  animation: star-burst 700ms ease-out both;
+  animation-delay: calc(var(--hold-ms, 1400ms) * 0.85);
+  --angle: calc(var(--i) * 45deg);
+}
+@keyframes star-burst {
+  0% { opacity: 0; transform: rotate(var(--angle)) translateY(0) scale(0.4); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--angle)) translateY(-46px) scale(1); }
+}
+/* the figure on the plate glows while it counts */
+.stat[data-counting] .stat-value { color: #fff4c0; text-shadow: 0 0 8px rgb(255 210 110 / 0.9); }
+
+/* M11: the coin spinning away */
+.coin-flying { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.5)); }
+.coin-moment { perspective: 400px; }
+
+/* the two new cards slide into the "keep two" dialog, one after the other */
+.discard-cards .card { animation: card-in 380ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.discard-cards .card:nth-child(2) { animation-delay: 60ms; }
+.discard-cards .card:nth-child(3) { animation-delay: 160ms; }
+.discard-cards .card:nth-child(4) { animation-delay: 240ms; }
+@keyframes card-in { from { opacity: 0; transform: translateY(24px) scale(0.92); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .card[data-scoreable='true'], .discard-cards .card, .score-star { animation: none; }
+  .score-star { opacity: 0; }
+  .card[data-completes] { transform: none; }
+  .score-ring { animation: token-fade 200ms ease-out both; opacity: 1; }
+}
+
+/* ---------- polish (v3, F11) ---------- */
+
+/* M14: the end screen's crest lands in light, buttons in a row of their own */
+.crest-wrap { position: relative; display: grid; place-items: center; margin-top: -48px; }
+.crest-wrap .crest { margin-top: 0; }
+.crest-rays {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  background: repeating-conic-gradient(rgb(255 230 160 / 0.28) 0deg 8deg, rgb(255 230 160 / 0) 8deg 22deg);
+  mask-image: radial-gradient(circle, #000 0%, transparent 62%);
+  animation: rays-turn 10s linear infinite;
+  pointer-events: none;
+}
+.game-over-actions { display: grid; gap: 10px; width: 100%; }
+
+/* M15: motes of light drifting up through the greenhouse, behind everything */
+.ambience { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+/* the three rows of the game sit above the motes; everything else keeps its own layer */
+.top-bar, .board-area, .bottom { position: relative; z-index: 1; }
+.mote {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: rgb(255 238 190 / 0.85);
+  box-shadow: 0 0 6px 2px rgb(255 220 140 / 0.55);
+  opacity: 0;
+  animation: mote-drift 9s ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+@keyframes mote-drift {
+  0% { opacity: 0; transform: translate(0, 0); }
+  20% { opacity: 0.8; }
+  50% { transform: translate(12px, -40px); }
+  80% { opacity: 0.6; }
+  100% { opacity: 0; transform: translate(-6px, -90px); }
+}
+/* a hidden tab draws nothing, but say so: the animations stop where they are */
+.ambience[data-paused] .mote { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crest-rays { animation: none; }
+}
+
+/* ---------- F13 ---------- */
+
+/* three round buttons beside the plate: a touch smaller, so the plate keeps its room */
+.top-buttons .icon-button { width: 40px; height: 40px; }
+.top-buttons .icon-button .icon { width: 20px; height: 20px; }
+
+/* the rules, on one screen */
+.help-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 14px; color: #dbe3dd; }
+.help-steps strong, .help-dragons strong { color: var(--brass-200); }
+.help-subhead { margin: 6px 0 0; font-family: var(--font-display); font-size: 17px; color: var(--brass-200); }
+.help-dragons { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: #dbe3dd; }
+.help-dragons li { display: flex; align-items: center; gap: 10px; }
+.help-dragons svg { width: 30px; height: 32px; flex: none; }
+
+/* card patterns grow with the card on bigger phones */
+@media (min-height: 900px) { .card .pattern { height: 64px; } }
+
+/*
+ * Small phones (plan 8.2, item 5): a dual's fire-up choice is two ability
+ * buttons with two lines each, plus "Do not fire up" — it must fit without
+ * pushing End turn off the screen. The buttons share rows, the effect lines
+ * shrink, the cards give up height.
+ */
+@media (max-height: 720px) {
+  .prompt-actions { gap: 6px; max-height: none; }
+  .prompt-actions button { min-height: 40px; padding: 6px 10px; flex: 1 1 40%; }
+  .prompt-actions .btn-fire { flex-basis: 100%; }
+  .action-effect { font-size: 11px; line-height: 1.2; }
+  .action-icon { width: 20px; height: 20px; }
+  .card .pattern { height: 26px; }
+  .top-buttons .icon-button { width: 36px; height: 36px; }
+}

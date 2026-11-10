@@ -9,6 +9,8 @@ import { findGame, isDebugEnabled, type Outcome } from './game/debug.js'
 import { parseRoute, roomHash } from './game/route.js'
 import { HUMAN_SEAT } from './game/seats.js'
 import { randomSeed } from './game/seed.js'
+import { loadTableOptions } from './game/settings.js'
+import type { GameOptions, TableOptions } from './game/settings.js'
 import { serverUrl } from './game/serverUrl.js'
 import { useLocalTable } from './game/useLocalTable.js'
 import { useRemoteTable } from './game/useRemoteTable.js'
@@ -53,7 +55,16 @@ export function App({
       route.kind === 'room' ? route.id : start?.kind === 'join' ? start.pin : start?.kind === 'create' ? null : undefined
     if (room !== undefined) {
       // keyed so leaving one game and opening another starts a fresh connection
-      return <OnlineApp key={room ?? 'new'} url={url} room={room} connect={connect} onLeave={leave} />
+      return (
+        <OnlineApp
+          key={room ?? 'new'}
+          url={url}
+          room={room}
+          options={start?.kind === 'create' ? start.options : undefined}
+          connect={connect}
+          onLeave={leave}
+        />
+      )
     }
   }
 
@@ -61,6 +72,7 @@ export function App({
     <LocalApp
       seed={given}
       level={start?.kind === 'computer' ? start.level : null}
+      chosenOptions={start?.kind === 'computer' ? start.options : null}
       debugging={debugging}
       online={url !== null}
       onStart={setStart}
@@ -72,6 +84,7 @@ export function App({
 function LocalApp({
   seed: given,
   level,
+  chosenOptions,
   debugging,
   online,
   onStart,
@@ -79,13 +92,20 @@ function LocalApp({
 }: {
   seed?: number
   level: Difficulty | null
+  /** What the options screen gave; editable during the game, against the machine. */
+  chosenOptions: GameOptions | null
   debugging: boolean
   online: boolean
   onStart: (start: Start) => void
   onNewGame: () => void
 }) {
   const [seed, setSeed] = useState(() => given ?? randomSeed())
-  const table = useLocalTable({ seed, level })
+  // the game holds its own copy: changed from the settings dialog, reset by the next options screen
+  const [options, setOptions] = useState<GameOptions>(() => chosenOptions ?? loadTableOptions())
+  useEffect(() => {
+    if (chosenOptions) setOptions(chosenOptions)
+  }, [chosenOptions])
+  const table = useLocalTable({ seed, level, pace: options.opponentThinks ? 'thinking' : 'instant' })
 
   /**
    * Jumps to a finished game with the outcome asked for, so the final screen
@@ -125,11 +145,14 @@ function LocalApp({
         <GameScreen
           table={table}
           view={table.view}
-          label={level ? `Opponent: ${LEVEL_LABEL[level]}` : ''}
+          label={level ? LEVEL_LABEL[level] : ''}
           detail={`Seed ${seed}`}
           restartLabel="New game"
           onRestart={restart}
           extras={debugHatch}
+          paused={level === null}
+          options={options}
+          onOptionsChange={setOptions}
         />
       ) : null}
       {level === null ? <ModeSetup online={online} onStart={onStart} /> : null}
@@ -145,15 +168,18 @@ function LocalApp({
 function OnlineApp({
   url,
   room,
+  options,
   connect,
   onLeave,
 }: {
   url: string
   room: string | null
+  /** A new room's options; a joined room brings its own. */
+  options?: TableOptions
   connect?: Connect
   onLeave: () => void
 }) {
-  const table = useRemoteTable({ url, room, connect })
+  const table = useRemoteTable({ url, room, connect, options })
   const { roomId, status } = table
 
   useEffect(() => {
@@ -173,11 +199,12 @@ function OnlineApp({
     <GameScreen
       table={table}
       view={table.view}
-      label="Opponent: a player"
+      label="Friend"
       detail={roomId ? `PIN ${roomId}` : ''}
       restartLabel="Back to menu"
       onRestart={onLeave}
       extras={<Connection status={status} opponentConnected={table.opponentConnected} />}
+      options={table.options}
     />
   )
 }
