@@ -18,6 +18,28 @@ function staged(pending: Pending, hand: ShopCard[] = base.you.hand): PlayerView 
 }
 
 describe('Prompt', () => {
+  it('leaves End turn and Spend a coin to their own fixed controls', () => {
+    const view = staged({ kind: 'mayFireUp', at: { q: 0, r: 0 } })
+    const actions: Action[] = [{ type: 'skipFireUp' }, { type: 'spendCoin' }, { type: 'endTurn' }]
+    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
+    const labels = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.textContent)
+    expect(labels).toEqual(['Do not fire up'])
+  })
+
+  it('makes firing up burn and every other answer parchment', () => {
+    const view = staged({ kind: 'mayFireUp', at: { q: 0, r: 0 } })
+    const actions: Action[] = [{ type: 'fireUp', ability: 'meat' }, { type: 'skipFireUp' }]
+    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
+    const classes = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.className)
+    expect(classes).toEqual(['btn-fire', 'btn-secondary'])
+  })
+
+  it('puts whatever it is given beside the question: the Undo button', () => {
+    const view = staged({ kind: 'place', token: single('meat'), fireUpAllowed: true })
+    render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} aside={<button type="button">Undo</button>} />)
+    expect(screen.getByText('Undo').closest('.prompt-head')).not.toBeNull()
+  })
+
   it('names the token being placed, glyph and word both', () => {
     const view = staged({ kind: 'place', token: single('meat'), fireUpAllowed: true })
     const { container } = render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} />)

@@ -3,9 +3,22 @@ import type { Action, Hex, PlayerView, Token } from '@dcv/engine'
 import type { ReactNode } from 'react'
 import { describeAction, promptFor } from '../game/labels.js'
 import { DRAGON_THEME } from '../theme.js'
+import { FlameIcon, HourglassIcon } from './icons.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
-const HANDLED_BY_BOARD = new Set(['place', 'meatMove', 'ironMove', 'potionSwap', 'scoreCard'])
+/**
+ * Answered somewhere other than this panel: on the board (placing, moving,
+ * swapping), on the cards (scoring), or by a control with a fixed place of its
+ * own — End turn beside your bar, the coins in the corner of the board. Those
+ * two are offered at many points of a turn, so they cannot live in a panel
+ * whose content changes with every decision.
+ */
+const HANDLED_ELSEWHERE = new Set(['place', 'meatMove', 'ironMove', 'potionSwap', 'scoreCard', 'endTurn', 'spendCoin'])
+
+/** The look of a decision button: firing up burns, everything else is parchment. */
+function variant(action: Action): string {
+  return action.type === 'fireUp' ? 'btn-fire' : 'btn-secondary'
+}
 
 /** A token inline in a label: never the glyph without the name, never a bare index. */
 export function TokenChip({ token }: { token: Token }) {
@@ -38,13 +51,33 @@ export function AbilityEffects({ token }: { token: Token }) {
   )
 }
 
-/** Holds the decision slot while the machine plays, so its pending never reads as an instruction. */
-export function OpponentThinking() {
+const WAITING_TEXT = {
+  thinking: 'Opponent is thinking…',
+  playing: 'Opponent is playing…',
+  drawing: 'Drawing from the bag…',
+} as const
+
+/**
+ * Holds the decision slot while nothing is yours to decide, so a pending of
+ * the other seat — or one of yours the screen has not caught up with — never
+ * reads as an instruction. Wine for the opponent's moment, parchment for yours.
+ */
+export function OpponentThinking({
+  aside,
+  mode = 'thinking',
+}: {
+  aside?: ReactNode
+  mode?: keyof typeof WAITING_TEXT
+}) {
   return (
-    <section className="prompt" aria-label="Current decision">
-      <p className="prompt-text" aria-live="polite">
-        Opponent is thinking…
-      </p>
+    <section className="prompt" data-side={mode === 'drawing' ? 'you' : 'opponent'} aria-label="Current decision">
+      <div className="prompt-head">
+        <p className="prompt-text prompt-waiting" aria-live="polite">
+          {mode === 'drawing' ? null : <HourglassIcon className="hourglass" />}
+          {WAITING_TEXT[mode]}
+        </p>
+        {aside}
+      </div>
     </section>
   )
 }
@@ -54,16 +87,19 @@ export function Prompt({
   actions,
   selected,
   onAct,
+  aside,
 }: {
   view: PlayerView
   actions: readonly Action[]
   selected: Hex | null
   onAct: (action: Action) => void
+  /** Sits at the end of the question's line: the Undo button. */
+  aside?: ReactNode
 }) {
   const pending = view.pending[view.pending.length - 1]
 
   const buttons = actions.filter((action) => {
-    if (HANDLED_BY_BOARD.has(action.type)) return false
+    if (HANDLED_ELSEWHERE.has(action.type)) return false
     // a dual neighbour needs the bar to ask which of its two abilities to use
     if (action.type === 'plantTarget') return selected !== null && hexEq(action.at, selected)
     return true
@@ -87,8 +123,11 @@ export function Prompt({
     if (action.type === 'fireUp' || action.type === 'plantTarget') {
       return (
         <>
-          <span className="action-name">{describeAction(action)}</span>
-          <span className="action-effect">{DRAGON_THEME[action.ability].effect}</span>
+          {action.type === 'fireUp' ? <FlameIcon className="action-icon" /> : null}
+          <span className="action-text">
+            <span className="action-name">{describeAction(action)}</span>
+            <span className="action-effect">{DRAGON_THEME[action.ability].effect}</span>
+          </span>
         </>
       )
     }
@@ -97,19 +136,22 @@ export function Prompt({
 
   return (
     <section className="prompt" aria-label="Current decision">
-      <p className="prompt-text">
-        {promptFor(view)}
-        {pending?.kind === 'place' ? (
-          <>
-            {': '}
-            <TokenChip token={pending.token} />
-            <AbilityEffects token={pending.token} />
-          </>
-        ) : null}
-      </p>
+      <div className="prompt-head">
+        <p className="prompt-text">
+          {promptFor(view)}
+          {pending?.kind === 'place' ? (
+            <>
+              {': '}
+              <TokenChip token={pending.token} />
+              <AbilityEffects token={pending.token} />
+            </>
+          ) : null}
+        </p>
+        {aside}
+      </div>
       <div className="prompt-actions">
         {buttons.map((action) => (
-          <button key={actionKey(action)} type="button" onClick={() => onAct(action)}>
+          <button key={actionKey(action)} type="button" className={variant(action)} onClick={() => onAct(action)}>
             {label(action)}
           </button>
         ))}
