@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { DRAGON_TYPES } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
+import { DRAGON_THEME } from './theme.js'
 
 // vitest does not process CSS, so `?raw` comes back empty; read it off disk
 const css = readFileSync(resolve(process.cwd(), 'apps/web/src/styles.css'), 'utf8')
@@ -42,6 +44,15 @@ const PAIRS: [string, string, string][] = [
   ['text on a panel', 'ink', 'surface'],
   ['secondary text on a panel', 'muted', 'surface'],
   ['label on a gold button', 'bg', 'completes'],
+  // v3 skin
+  ['text on parchment', 'parchment-ink', 'parchment'],
+  ['brass numbers on a forest plate', 'brass-400', 'forest-900'],
+  ['light label on a forest button', 'ink', 'forest-600'],
+  ['light label on a wine banner', 'ink', 'wine-700'],
+  ['effect line on parchment', 'parchment-muted', 'parchment'],
+  ['label on the fire button', 'ember-ink', 'ember-500'],
+  ['label on the Undo button', 'stone-ink', 'stone-500'],
+  ['figures on a player plate', 'brass-200', 'forest-900'],
 ]
 
 describe('colour contrast', () => {
@@ -79,6 +90,20 @@ describe('colour contrast', () => {
 
       const ratio = contrast(palette[declared?.[1] ?? ''], palette.completes)
       expect(ratio, `${ratio.toFixed(2)}:1 on gold`).toBeGreaterThanOrEqual(AA_NORMAL)
+    })
+  }
+})
+
+/**
+ * The token icons are white on the token's colour. They are graphics, not text,
+ * so the bar is WCAG's 3:1 for non-text contrast — and the icon is what still
+ * tells the six apart for someone who cannot tell the colours apart.
+ */
+describe('token icon contrast', () => {
+  for (const type of DRAGON_TYPES) {
+    it(`clears 3:1 for the white ${type} icon`, () => {
+      const ratio = contrast('#ffffff', DRAGON_THEME[type].color)
+      expect(ratio, `${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3)
     })
   }
 })
