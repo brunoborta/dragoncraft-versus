@@ -29,4 +29,9 @@ export type Table = {
   opponentConnected: boolean
   /** 'Machine' or 'Opponent': what the final screen calls the other seat. */
   opponentLabel: string
+  /**
+   * The screen is still showing something (a turn banner, moves landing). The
+   * machine waits for it before it moves; online there is nothing to wait.
+   */
+  setScreenBusy?: (busy: boolean) => void
 }

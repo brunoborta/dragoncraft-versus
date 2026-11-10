@@ -252,6 +252,9 @@ Cada fase é um PR que funciona sozinho. Critério de aceite comum: testes verde
 | **F10 · Pontuar e moeda** | M10, M11. | F5 |
 | **F11 · Polimento** | M13 revisado, M14, M15, passe de performance num Android barato, peso total < 1.5 MB. | todas |
 | **F12 · Som (opcional)** | Compra, impacto, fogo, pontuação, turno. Com botão de mudo. | F6–F10 |
+| **F13 · Repensar** | Os itens da seção 8, depois de toda a pele e todo o movimento estarem no lugar. | F0–F12 |
+
+Andamento (2026-11-10): F0–F11 feitas (F1: arte escolhida em A/B, ver decisão 5). F13 em grande parte feita (8.1: itens 1 e 4 feitos, 2 e 3 esperando arte; 8.2: item 5 e 6 feitos). Falta F12 (som, opcional).
 
 ### 6.1 Lista de assets raster
 
@@ -298,3 +301,33 @@ Tomadas em 2026-11-07:
 4. **Ordem: pele estática primeiro** — F0 → F1 → F2 → F3 → F4, depois F5 em diante.
 
 Em aberto: **som** (F12) — decidir quando chegarmos lá.
+
+Tomadas em 2026-11-10:
+
+5. **Arte escolhida** (A/B de cada asset): fundo B (hora dourada), bolsa A, avatares B (ilustração chapada, os dois), pedra B (lajes), pergaminho A. **Folhagem de canto: descartada** — nenhuma das duas agradou; não existe mais no código nem nos assets.
+6. **A moeda** é uma imagem só, usada como está.
+
+## 8. Pendências (F13 e o que não pode se perder)
+
+Tudo o que foi notado durante F0–F6 e ficou para depois. Nada daqui se faz antes de F12, salvo o que for bloqueio.
+
+### 8.1 Repensar (F13)
+
+1. **[Feito 2026-11-10]** **Banner de turno contra a máquina.** A tela avisa a mesa quando ainda está mostrando algo; a máquina espera, e só então pensa (1,5s antes da primeira jogada, 0,7s entre jogadas) ou joga logo, conforme a opção local "The machine takes its time". O painel de decisão também espera: "Opponent is playing…" enquanto as jogadas dele aterrissam, "Drawing from the bag…" enquanto a sua peça sai. Texto original: Hoje a máquina joga assim que é a vez dela, então "Opponent's Turn" sobe enquanto as jogadas dela já correm (escurecidas) por baixo, e logo em seguida vem "Your Turn": com a IA, há sempre um banner na tela. Decisão a tomar: a máquina **espera o banner sair** antes de jogar (obrigatório), e ganha um **"pensamento" falso** — uma pausa de 1–2s com a ampulheta antes da primeira jogada e talvez entre jogadas. **Vira configuração:** jogar na hora ou com pensamento falso. Toque adianta tudo, como sempre.
+2. **[Ligado no código, falta a arte]** **Bolsa aberta.** Prompt em `2026-11-10-v3-art-prompts.md`, item 8; salvar `designs/art/bag-open.png` e rodar o script. Texto original: Falta uma imagem da bolsa com a boca aberta (e talvez uma sacudindo), para trocar no momento em que a peça sai (M2). Hoje a compra usa a bolsa fechada com transformações. Precisa de prompt (mesmo bloco de estilo da seção 6.2; "the same pouch, mouth open, golden light spilling out, seen slightly from above"), e o recorte/integração ficam comigo.
+3. **[Prompts escritos, item 9 e 10]** **Ícones gerados.** Os ícones de interface (cartas, estrela, log, undo, End turn, cadeado, fogo, ampulheta) e talvez os seis ícones das peças são desenhados em SVG e o Bruno não gostou. Avaliar gerar um conjunto; os das peças continuam dentro do componente SVG (acendem, partem ao meio nas duplas, empilham), só o desenho interno trocaria.
+4. **Configurações (⚙) e ajuda (?).** Feito em 2026-11-10: as opções da mesa (brilho da carta, reputação visível, composição da bolsa) são escolhidas numa tela depois da dificuldade ou depois de "Create"; contra a máquina dá para mudar durante o jogo, online são do anfitrião e ficam só para leitura para os dois (o servidor as recebe no `create` e as manda no `seated`). **Falta:** o pensamento falso da IA (item 1) e o som (F12) entrarem nessa tela, e o botão **?** — feito em 2026-11-10.
+
+### 8.2 Layout e acabamento
+
+5. **[Feito 2026-11-10: botões em linhas compartilhadas, linhas de efeito menores, padrão da carta mais baixo; o alvo de toque de 44px fica]** **Celular pequeno (360×640).** O painel de decisão com a escolha de ativar de uma peça dupla (dois botões de fogo com duas linhas + "Do not fire up") tem ~200px e não cabe: o painel rola, mas o End turn pode sair pela borda de baixo. Precisa da versão compacta prometida na seção 3.3 (cartas mais baixas, painel com botões em linha única, placas menores). A 390×844 tudo cabe.
+6. **[Feito]** **Padrão das cartas** um pouco pequeno em telas grandes (430×932). Ajuste de uma linha na altura do `.pattern`.
+7. **Contador de cartas** nas placas: decidido manter (seção 1.1); conferir se ainda vale depois do Fancy Mode.
+8. **Peso do bundle.** O JS foi de 65 KB para 118 KB gzip com o `motion`. Dentro do orçamento (1.5 MB total), mas vale conferir no passe de performance (F11) se o `motion/react-mini` basta.
+9. **Fancy Mode (3 cartas).** A mão já suporta 3; o motor não. Fora da v3.
+
+10a. **Desempenho medido só no computador.** Com a CPU 4× mais lenta (Chrome), a abertura do jogo fica em 60fps (p95 17ms, sem tarefas longas): o JavaScript não pesa. O que esse teste não mede é a pintura dos filtros de desfoque do SVG; o único contínuo (19 anéis pulsando com desfoque) foi tirado. Falta conferir num Android barato de verdade.
+
+### 8.3 Processo
+
+10. **Dois ambientes na mesma máquina.** Outra sessão (worktree `elm`) roda servidores de desenvolvimento e escreve em `/tmp`; screenshots devem sempre identificar o servidor pelo diretório (`lsof -p <pid>`, cwd) e usar pastas temporárias com nome aleatório.
