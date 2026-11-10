@@ -146,7 +146,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
 
     switch (message.type) {
       case 'create': {
-        const room = rooms.create(now())
+        const room = rooms.create(now(), message.options)
         if (!room) {
           log(`${client} could not open a room: busy (${rooms.size} live)`)
           send(client, errorMessage('busy'))
