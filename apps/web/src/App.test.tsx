@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App.js'
 
@@ -11,6 +12,7 @@ describe('App', () => {
     const rendered = render(<App seed={2} />)
     fireEvent.click(screen.getByText('Against the computer'))
     fireEvent.click(screen.getByText(level))
+    fireEvent.click(screen.getByText('Start game'))
     return rendered
   }
 
@@ -23,12 +25,13 @@ describe('App', () => {
     expect(text?.textContent).toMatch(/Bread|Crystal|Meat|Iron|Potion|Plant/)
   })
 
-  it('draws the held token translucent on the previewed space', () => {
+  it('hovers the held token over the previewed space', () => {
     const { container } = startGame()
     expect(container.querySelector('.token-preview')).toBeNull()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
-    const selectedCell = container.querySelector('.hex-cell[data-highlight="selected"]')
-    expect(selectedCell?.querySelector('.token-preview')).not.toBeNull()
+    // in the overlay, so the space above cannot paint over the hovering token
+    const preview = container.querySelector('.board-overlay .token-preview')
+    expect(preview?.getAttribute('data-hex')).toBe('2,-2')
   })
 
   it('marks every legal space', () => {
@@ -89,6 +92,7 @@ describe('App', () => {
     render(<App seed={2} debug />)
     fireEvent.click(screen.getByText('Against the computer'))
     fireEvent.click(screen.getByText('Easy'))
+    fireEvent.click(screen.getByText('Start game'))
 
     fireEvent.click(screen.getByText('Win now'))
     expect(screen.getByText('You win')).toBeDefined()
@@ -109,6 +113,7 @@ describe('App', () => {
       render(<App />)
       fireEvent.click(screen.getByText('Against the computer'))
       fireEvent.click(screen.getByText('Easy'))
+      fireEvent.click(screen.getByText('Start game'))
       expect(screen.getByText('Seed 500000')).toBeDefined()
     } finally {
       random.mockRestore()
@@ -127,7 +132,7 @@ describe('App', () => {
   it('shows the chosen opponent as a label, with nothing to change mid-game', () => {
     startGame('Medium')
     expect(screen.queryByLabelText('Choose your opponent')).toBeNull()
-    expect(screen.getByText('Opponent: Medium')).toBeDefined()
+    expect(screen.getByLabelText('Opponent').textContent).toContain('Medium')
     expect(screen.queryByRole('combobox')).toBeNull()
   })
 
@@ -229,6 +234,13 @@ describe('App', () => {
       return true
     }
 
+    // the crystal's choice is made on the tokens, in their own dialog
+    const discover = document.querySelector<HTMLButtonElement>('.discover-choice:not(:disabled)')
+    if (discover) {
+      fireEvent.click(discover)
+      return true
+    }
+
     const scoreButton = document.querySelector<HTMLButtonElement>('.card button')
     if (scoreButton) {
       fireEvent.click(scoreButton)
@@ -243,7 +255,13 @@ describe('App', () => {
 
     const offered = '.hex-cell[data-highlight="legal"]'
     const first = document.querySelector<SVGGElement>(offered)
-    if (!first) return false
+    if (!first) {
+      // nothing left to decide: End turn has its own place beside your bar
+      const endTurn = document.querySelector<HTMLButtonElement>('.end-turn[data-state="ready"]')
+      if (!endTurn) return false
+      fireEvent.click(endTurn)
+      return true
+    }
 
     // a placement confirms on a second tap of the same space; a two-hex move
     // leaves that space selected and wants a different one for the destination
@@ -255,6 +273,23 @@ describe('App', () => {
     }
     return true
   }
+
+  it('lets the coin choice be put aside to look at the board, and brings it back', () => {
+    startGame()
+    stackTwoOnInnerRing()
+    fireEvent.click(screen.getByText('Do not fire up'))
+    fireEvent.click(screen.getByText('Spend a coin'))
+    expect(screen.getByLabelText('Choose the cards to keep')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /Look at the board/ }))
+    expect(screen.queryByLabelText('Choose the cards to keep')).toBeNull()
+    // the board is there to look at, the only way on is back to the choice
+    expect(screen.getByLabelText('Game board')).toBeDefined()
+    expect(screen.getByText('Put two cards at the bottom of the deck')).toBeDefined()
+
+    fireEvent.click(screen.getByText('Back to your choice'))
+    expect(screen.getByLabelText('Choose the cards to keep')).toBeDefined()
+  })
 
   it('puts two cards back by picking the ones to keep in a dialog', () => {
     startGame()
@@ -314,6 +349,7 @@ describe('App', () => {
       // a new game is a new game: the seed it was pinned to does not come back
       fireEvent.click(screen.getByText('Against the computer'))
       fireEvent.click(screen.getByText('Easy'))
+      fireEvent.click(screen.getByText('Start game'))
       expect(screen.getByText('Seed 123456')).toBeDefined()
       expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
     } finally {
@@ -377,12 +413,13 @@ describe('App online', () => {
     render(<App seed={2} server="ws://test" connect={connect} />)
     fireEvent.click(screen.getByText('Against a player'))
     fireEvent.click(screen.getByText('Create'))
+    fireEvent.click(screen.getByText('Create game'))
 
     act(() => latest().onopen?.())
-    expect(latest().sent).toEqual([{ type: 'create' }])
+    expect(latest().sent).toEqual([{ type: 'create', options: DEFAULT_TABLE_OPTIONS }])
     expect(screen.getByText('Talking to the server…')).toBeDefined()
 
-    act(() => latest().receive({ type: 'seated', room: '042137', seat: 0, token: 't', role: 'player' }))
+    act(() => latest().receive({ type: 'seated', room: '042137', seat: 0, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
     act(() => latest().receive({ type: 'waiting' }))
     expect(screen.getByLabelText('Game PIN').textContent).toBe('042 137')
     expect(screen.getByText('Waiting for your friend…')).toBeDefined()
@@ -411,7 +448,7 @@ describe('App online', () => {
 
     const state = createGame(2)
     const seat = state.current
-    act(() => latest().receive({ type: 'seated', room: '042137', seat, token: 't', role: 'player' }))
+    act(() => latest().receive({ type: 'seated', room: '042137', seat, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
     act(() =>
       latest().receive({
         type: 'view',
@@ -422,7 +459,7 @@ describe('App online', () => {
     )
 
     expect(screen.getByText('PIN 042137')).toBeDefined()
-    expect(screen.getByText('Opponent: a player')).toBeDefined()
+    expect(screen.getByLabelText('Opponent').textContent).toContain('Friend')
     const legal = screen.getAllByRole('button').filter((el) => el.getAttribute('data-highlight') === 'legal')
     expect(legal).toHaveLength(19)
     // no undo across the wire
@@ -433,6 +470,29 @@ describe('App online', () => {
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     expect(latest().sent.at(-1)).toEqual({ type: 'action', action: { type: 'place', at: { q: 2, r: -2 } } })
     expect(screen.getByText('Opponent is thinking…')).toBeDefined()
+  })
+
+  it("plays a joined game with the host's options, shown but not changeable", async () => {
+    const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
+    const { connect, latest } = fakeConnect()
+    render(<App server="ws://test" connect={connect} />)
+    fireEvent.click(screen.getByText('Against a player'))
+    fireEvent.click(screen.getByText('Join'))
+    fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Join' }))
+    act(() => latest().onopen?.())
+
+    const hosts = { bagComposition: true, cardGlow: false, showReputation: false }
+    const state = createGame(2)
+    act(() => latest().receive({ type: 'seated', room: '042137', seat: 1, token: 't', role: 'player', options: hosts }))
+    act(() => latest().receive({ type: 'view', view: toPlayerView(state, 1), actions: legalActions(state), opponentConnected: true }))
+
+    // reputation hidden, as the host chose
+    expect(screen.queryByText(/reputation/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
+    expect(boxes.map((box) => box.checked)).toEqual([false, false, true])
+    expect(boxes.every((box) => box.disabled)).toBe(true)
   })
 
   it('goes back into the game in the fragment on reload', () => {
