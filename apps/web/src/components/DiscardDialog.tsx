@@ -1,5 +1,6 @@
 import type { ShopCard } from '@dcv/engine'
 import { CardView } from './CardView.js'
+import { PeekButton } from './PeekButton.js'
 
 /** A discard returns exactly two cards, so everything else in hand stays. */
 export function keepCount(hand: readonly ShopCard[]): number {
@@ -17,17 +18,23 @@ export function DiscardDialog({
   keeping,
   onToggle,
   onFinish,
+  onPeek,
 }: {
   hand: readonly ShopCard[]
   keeping: readonly string[]
   onToggle: (cardId: string) => void
   onFinish: () => void
+  /** Puts the choice aside to look at the board; the picks are kept. */
+  onPeek?: () => void
 }) {
   const wanted = keepCount(hand)
   const ready = keeping.length === wanted
 
   return (
     <div className="modal-backdrop">
+      {/* the dialog and its eye, which sits on the dialog's top edge, outside it */}
+      <div className="choice-frame">
+        {onPeek ? <PeekButton onPeek={onPeek} /> : null}
       <section
         className="modal discard-dialog"
         role="dialog"
@@ -57,6 +64,7 @@ export function DiscardDialog({
           Finish
         </button>
       </section>
+      </div>
     </div>
   )
 }
