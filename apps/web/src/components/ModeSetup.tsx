@@ -1,10 +1,14 @@
 import type { Difficulty } from '@dcv/ai'
+import { Brand } from './Brand.js'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { loadTableOptions, saveTableOptions, tableOptionsOf } from '../game/settings.js'
+import type { GameOptions, TableOptions } from '../game/settings.js'
+import { OptionsForm } from './OptionsForm.js'
 
 export type Start =
-  | { kind: 'computer'; level: Difficulty }
-  | { kind: 'create' }
+  | { kind: 'computer'; level: Difficulty; options: GameOptions }
+  | { kind: 'create'; options: TableOptions }
   | { kind: 'join'; pin: string }
 
 export const LEVELS: { value: Difficulty; label: string; blurb: string }[] = [
@@ -21,7 +25,7 @@ export const LEVEL_LABEL: Record<Difficulty, string> = {
 
 export const PIN_LENGTH = 6
 
-type Step = 'mode' | 'computer' | 'friend' | 'join'
+type Step = 'mode' | 'computer' | 'friend' | 'join' | 'options'
 
 /**
  * The front door, one question per screen: who you are playing, then the
@@ -34,6 +38,14 @@ type Step = 'mode' | 'computer' | 'friend' | 'join'
 export function ModeSetup({ online, onStart }: { online: boolean; onStart: (start: Start) => void }) {
   const [step, setStep] = useState<Step>('mode')
   const [pin, setPin] = useState('')
+  // the table's options, offered after the difficulty or after Create
+  const [options, setOptions] = useState<GameOptions>(loadTableOptions)
+  const [level, setLevel] = useState<Difficulty | null>(null)
+
+  function begin(): void {
+    saveTableOptions(options)
+    onStart(level ? { kind: 'computer', level, options } : { kind: 'create', options: tableOptionsOf(options) })
+  }
 
   const back = (to: Step) => (
     <button type="button" aria-label="Back" onClick={() => setStep(to)}>
@@ -47,12 +59,13 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop modal-backdrop-front">
+      <Brand />
       <section className="modal" role="dialog" aria-modal="true" aria-label="Choose your opponent">
         {step === 'mode' ? (
           <>
             <div className="modal-head">
-              <h2>Dragoncraft Versus</h2>
+              <h2>Who are you playing?</h2>
             </div>
             <button type="button" className="level-choice" onClick={() => setStep('computer')}>
               <span className="action-name">Against the computer</span>
@@ -84,7 +97,10 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
                 key={entry.value}
                 type="button"
                 className="level-choice"
-                onClick={() => onStart({ kind: 'computer', level: entry.value })}
+                onClick={() => {
+                  setLevel(entry.value)
+                  setStep('options')
+                }}
               >
                 <span className="action-name">{entry.label}</span>
                 <span className="action-effect">{entry.blurb}</span>
@@ -99,13 +115,43 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
               <h2>Against a player</h2>
               {back('mode')}
             </div>
-            <button type="button" className="level-choice" onClick={() => onStart({ kind: 'create' })}>
+            <button
+              type="button"
+              className="level-choice"
+              onClick={() => {
+                setLevel(null)
+                setStep('options')
+              }}
+            >
               <span className="action-name">Create</span>
               <span className="action-effect">Get a PIN to give your friend</span>
             </button>
             <button type="button" className="level-choice" onClick={() => setStep('join')}>
               <span className="action-name">Join</span>
               <span className="action-effect">Enter the PIN your friend gave you</span>
+            </button>
+          </>
+        ) : null}
+
+        {step === 'options' ? (
+          <>
+            <div className="modal-head">
+              <h2>{level ? 'How the table looks' : 'Your table'}</h2>
+              {back(level ? 'computer' : 'friend')}
+            </div>
+            <p className="modal-note">
+              {level
+                ? 'You can change these during the game too.'
+                : 'Your friend plays with the same ones, and nobody can change them once the game starts.'}
+            </p>
+            {/* online there is no machine: its option is left out */}
+            {level ? (
+              <OptionsForm options={options} onChange={setOptions} />
+            ) : (
+              <OptionsForm options={tableOptionsOf(options)} onChange={(next) => setOptions({ ...options, ...next })} />
+            )}
+            <button type="button" className="primary" onClick={begin}>
+              {level ? 'Start game' : 'Create game'}
             </button>
           </>
         ) : null}

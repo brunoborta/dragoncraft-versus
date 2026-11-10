@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Brand } from './Brand.js'
 
 /**
  * The creator's screen until the second player arrives: the PIN, big, to be
@@ -19,7 +20,8 @@ export function RoomLobby({ pin, onLeave }: { pin: string | null; onLeave: () =>
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop modal-backdrop-front">
+      <Brand />
       <section className="modal" role="dialog" aria-modal="true" aria-label="Waiting for a player">
         <div className="modal-head">
           <h2>{pin ? 'Game PIN' : 'Connecting…'}</h2>

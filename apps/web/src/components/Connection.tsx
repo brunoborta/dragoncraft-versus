@@ -1,4 +1,5 @@
 import type { TableStatus } from '../game/table.js'
+import { Brand } from './Brand.js'
 
 /**
  * A line under the board about the wire, shown only when there is something
@@ -25,7 +26,8 @@ export function Connection({ status, opponentConnected }: { status: TableStatus;
 /** `started` false is a join that never got in — a wrong PIN, a full game — not a game that ended. */
 export function Closed({ reason, started, onLeave }: { reason: string; started: boolean; onLeave: () => void }) {
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop modal-backdrop-front">
+      <Brand />
       <section className="modal" role="dialog" aria-modal="true" aria-label="Game closed">
         <div className="modal-head">
           <h2>{started ? 'This game is over' : 'Could not join'}</h2>

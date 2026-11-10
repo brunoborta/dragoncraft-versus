@@ -32,7 +32,9 @@ export function LogDialog({ view, onClose }: { view: PlayerView; onClose: () => 
               <ol className="log-turns">
                 {round.turns.map((turn) => (
                   <li key={turn.at}>
-                    <p className="log-who">{turn.who}</p>
+                    <p className="log-who" data-side={turn.who === 'You' ? 'you' : 'opponent'}>
+                      {turn.who}
+                    </p>
                     <ul>
                       {turn.lines.map((line, index) => (
                         <li key={`${turn.at}-${index}`}>{line}</li>
