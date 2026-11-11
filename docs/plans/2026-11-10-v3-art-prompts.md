@@ -87,24 +87,57 @@ Eu faço: recorte (bolsa, folhagem), máscara circular (avatares), emenda (textu
 
 Mesmo bloco de estilo de antes, mesmas regras de entrega (PNG grande, fundo liso, sem recortar). Salve em `designs/art/`.
 
-### 8 · Bolsa aberta — `bag-open.png` (prioridade alta)
+### 8 · Bolsa aberta — `bag-open.png` ~~(prioridade alta)~~ — **descartada em 2026-11-11**
 
-Entra no lugar da bolsa fechada enquanto a peça sai (M2). Já está ligada no código: basta salvar o arquivo e eu rodo o script; sem ele, o jogo usa a fechada.
+Foi gerada, integrada e tirada: na tela, trocar a bolsa no meio da compra não acrescentou nada. O jogo voltou a usar só a bolsa fechada (que continua sacudindo e brilhando). O PNG, o WebP e o código da troca saíram; o prompt fica aqui como registro.
 
 > The same drawstring pouch of deep emerald green velvet with the golden rope and golden leaf-and-vine embroidery, now with its mouth pulled open and the rope loosened. Warm golden light spills up out of the opening, with a few small floating sparkles above it. Front view, slightly from above so the opening is visible, centered, filling about 80% of the frame, the same size and angle as the closed pouch. Isolated on a plain flat solid light grey background, no cast shadow, no floor, no other objects.
 
 **Dica:** use a bolsa fechada escolhida (`bag.png`) como imagem de referência, para sair a mesma bolsa.
 
-### 9 · Ícones das peças (opcional, só se os desenhados não servirem)
+### 9 · Ícones das peças ~~(opcional)~~ — **entregues e no jogo**
 
 Os seis ícones ficam **brancos sobre a cor da peça**, então o que importa é a silhueta. Gere os seis na mesma imagem para saírem do mesmo traço; eu recorto e vetorizo.
 
 > A sheet of six simple flat icons in a 3 by 2 grid, each a single solid white silhouette with no outline, no shading and no texture, on a plain flat solid black background, evenly spaced with generous margins: a cluster of three crystal shards; a rounded loaf of bread with three score marks; a meat drumstick with its bone; a trapezoid metal ingot; a round-bottomed potion flask with a cork; a sprout with two leaves. Bold, chunky shapes that stay recognizable at 24 pixels, all with the same visual weight. No text, no letters, no numbers.
 
-Salvar como `icons-tokens.png`.
+Salvar como `icons-tokens.png`. Os seis saíram vetorizados para `apps/web/src/art/icon-paths.ts` por `apps/web/scripts/icons.mjs`.
 
-### 10 · Ícones da interface (opcional)
+### 10 · Ícones da interface ~~(opcional)~~ — **entregues e no jogo**
 
 > A sheet of eight simple flat icons in a 4 by 2 grid, each a single solid warm-gold silhouette (#f3dfa2) with no outline and no shading, on a plain flat solid black background, evenly spaced with generous margins: two playing cards fanned with a small star on the front one; a five-pointed star; a scroll with three lines of writing; a curved arrow turning back (undo); two right-pointing chevrons (end turn); a closed padlock; a flame; an hourglass; plus, if space allows, an open eye and a gear. Bold, chunky shapes that stay recognizable at 20 pixels, the same visual weight. No text, no letters, no numbers.
 
-Salvar como `icons-ui.png`.
+Salvar como `icons-ui.png`. Os dez saíram vetorizados pelo mesmo script; só o `?` continua desenhado à mão (não estava na folha).
+
+---
+
+## Terceira rodada — emblemas do fim de jogo — 2026-11-11 — **entregues e no jogo**
+
+O emblema que cai no topo da tela final. Um por resultado, e **cada um com um símbolo diferente**, para o resultado se ler antes do título ("You win" / "You lose" / "Shared victory"). Mesmo bloco de estilo, mesmas regras de entrega (PNG quadrado ≥1024, fundo liso, sem recortar). Salve em `designs/art/` e rode `node apps/web/scripts/art.mjs crests`.
+
+Já está ligado no código: cada arquivo que existir substitui a coroa desenhada daquele resultado; os que faltarem continuam desenhados (estrela dourada / estrela meio prata, meio ouro / estrela rachada). Aparece a ~150×150 px num celular, então o símbolo tem que ser legível pequeno: uma forma forte no centro, pouco detalhe miúdo.
+
+**Dica:** gere os três na mesma sessão, usando o primeiro escolhido como referência para os outros dois, para saírem com a mesma moldura e o mesmo tamanho.
+
+### 11 · Vitória — `crest-win.png`
+
+> A single victory emblem: a radiant polished-gold five-pointed star, slightly domed with a soft inner glow, set at the top of a lush wreath of bright emerald-green laurel leaves tied at the bottom with a small golden ribbon. Warm golden light radiates softly from the star. Triumphant, bright and celebratory. Front view, perfectly centered and symmetrical, filling about 80% of the frame. Isolated on a plain flat solid light grey background, no cast shadow, no floor, no other objects.
+
+### 12 · Empate — `crest-draw.png`
+
+> A single emblem for a tied game: a small polished brass balance scale with two identical round pans hanging perfectly level, set at the top of a laurel wreath whose left half is emerald-green leaves and whose right half is gold leaves, the two halves meeting evenly at the bottom under a small ribbon that is half green, half gold. Calm, even, balanced mood with a soft neutral glow, neither triumphant nor sad. Front view, perfectly centered and symmetrical, filling about 80% of the frame. Isolated on a plain flat solid light grey background, no cast shadow, no floor, no other objects.
+
+### 13 · Derrota — `crest-lose.png`
+
+> A single defeat emblem: a dull, tarnished bronze five-pointed star with a visible crack running through it and one small chipped point, no glow, set at the top of a drooping wreath of wilted laurel leaves in muted dusty wine-red and brown, a few leaves curled. Subdued, gentle and a little melancholic, but still handsome and well crafted, not grim or broken apart. Front view, perfectly centered and symmetrical, filling about 80% of the frame. Isolated on a plain flat solid light grey background, no cast shadow, no floor, no other objects.
+
+**Fundo:** o recorte tira todo cinza-claro neutro, inclusive o que aparece por dentro da coroa. Por isso nenhum dos três usa prata, branco ou cinza no emblema — o empate é verde e ouro, não prata e ouro.
+
+### O que o recorte aprendeu com estes três (2026-11-11)
+
+O brilho da estrela da vitória obrigou duas mudanças em `cutOut`, as duas valendo para qualquer arte nova:
+
+- **`glow`**: a luz que se dissolve no fundo agora some junto com ele, em vez de terminar na linha onde o preenchimento parou — um pixel é tão opaco quanto a sua cor está longe da cor do fundo. Só na faixa perto da borda: no meio do desenho, um branco quente é tinta, não luz derramada no fundo.
+- **Buraco claro ≠ buraco de fundo**: um vão fechado só é recortado se não for mais claro que o fundo. O núcleo branco da estrela é cinza-neutro como o fundo, mas é mais claro — e é tinta. Sem isso ficava um furo escuro no meio da estrela.
+
+As três saem com 30–42 KB cada, dentro do orçamento de 1.5 MB (F11).
