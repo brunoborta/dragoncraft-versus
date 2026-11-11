@@ -1,6 +1,6 @@
 # Dragoncraft Versus
 
-A hex board game for two, played on a phone. Draw a dragon from the bag, place
+A hex board game for two, played on a phone. Draw a token from the bag, place
 it, optionally fire up its ability, and try to match the patterns on the shop
 cards in your hand before the bag or the deck runs out.
 
@@ -8,24 +8,24 @@ cards in your hand before the bag or the deck runs out.
 
 ## The game in a minute
 
-Nineteen hexagonal spaces. Each turn you pull a dragon token at random and put
+Nineteen hexagonal spaces. Each turn you pull a token at random and put
 it anywhere with room — stacks go up to three, and only the top one counts.
 Then you may fire up what you just placed:
 
-| Dragon | What firing it up does |
+| Token | What firing it up does |
 |---|---|
-| Bread | Draw another dragon and place it |
+| Bread | Draw another token and place it |
 | Crystal | Draw 3, keep 1, place it without firing up |
 | Meat | Move one neighbour anywhere |
 | Iron | Move up to two neighbours one space each |
-| Potion | Swap any two dragons |
+| Potion | Swap any two tokens |
 | Plant | Use a neighbour's ability |
 
 The last two are where it gets interesting: a plant can fire another plant,
 and a bread can place another bread, so one turn can run a long way.
 
 Then you score. A shop card shows three icons in a shape, and it scores when
-that shape is on the board in any rotation. Dual-coloured dragons count as
+that shape is on the board in any rotation. Dual-coloured tokens count as
 either of their two types. Most reputation when the bag or the deck empties
 wins.
 
@@ -87,6 +87,21 @@ committed in two taps so a mis-tap never costs a move. It only ever offers what
 `legalActions` returned, so an illegal move is not something you can tap and be
 told off for — it is not there.
 
+Between the view and the screen sits a presentation layer. It compares the
+log of the previous view with the new one, turns the difference into a queue
+of moments — a draw, a placement, a fire-up, a move, a score — and plays each
+as a short animation. What is tappable and what a screen reader announces is
+always the current view; the animation is only how the screen gets there, so
+it works the same against the machine and online, and a tap skips ahead.
+
+The art is painted (background, bag, avatars, stone and parchment), and the
+icons — on the tokens and in the HUD — are generated sheets traced into SVG
+paths by `scripts/icons.mjs`, so they stay sharp at every size and take any
+colour. Before a game you choose the table's options: whether the card a
+space would complete lights up, whether reputation shows during play, whether
+tapping the bag lists what is left in it, and, against the machine, whether
+it pauses to think before its moves.
+
 ## Tests
 
 The suite leans where the bugs are, which is the engine.
@@ -144,7 +159,8 @@ as a secret, with `ALLOWED_ORIGINS` naming the site.
 Standard two-player mode, against the machine or against a friend over the
 internet with a PIN. Spectators, rematches in the same room and
 persistence across a server restart are not built yet; the protocol has
-room for them.
+room for them. Fancy Mode (a hand of three cards) is out of scope: the hand
+on screen already fits three, the engine deals two. There is no sound yet.
 
 The design documents in [`docs/`](docs/) are in Portuguese — the spec argues
 the decisions, the plan is the task-by-task build.

@@ -10,3 +10,4 @@ dist/
 # Prints de referência e rascunhos de sessão: ficam no disco, fora do repo
 references/
 .superpowers/
+.vite/
