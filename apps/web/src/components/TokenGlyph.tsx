@@ -55,22 +55,13 @@ function Disc({
   )
 }
 
-/** The illustrated icon, white, with a soft drop under it and its detail strokes. */
+/** The illustrated icon, white, with a soft drop under it. Its cut-outs show the token through. */
 function Icon({ type, size, x = 0 }: { type: DragonType; size: number; x?: number }) {
-  const { icon, dark } = DRAGON_THEME[type]
+  const { shape } = DRAGON_THEME[type].icon
   return (
     <g transform={`translate(${x} 0) scale(${size})`} className="token-icon">
-      <path d={icon.shape} transform="translate(0 0.07)" fill="rgb(0 0 0 / 0.3)" />
-      <path d={icon.shape} fill="#fff" />
-      <path
-        d={icon.detail}
-        fill="none"
-        stroke={dark}
-        strokeWidth={0.09}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.75}
-      />
+      <path d={shape} transform="translate(0 0.07)" fill="rgb(0 0 0 / 0.3)" fillRule="evenodd" />
+      <path d={shape} fill="#fff" fillRule="evenodd" />
     </g>
   )
 }

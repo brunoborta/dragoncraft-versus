@@ -19,8 +19,8 @@ describe('DRAGON_THEME', () => {
 
   it('keeps every icon inside the face of its token', () => {
     for (const type of DRAGON_TYPES) {
-      const { shape, detail } = DRAGON_THEME[type].icon
-      const numbers = `${shape} ${detail}`.match(/-?\d*\.?\d+/g)?.map(Number) ?? []
+      const { shape } = DRAGON_THEME[type].icon
+      const numbers = shape.match(/-?\d*\.?\d+/g)?.map(Number) ?? []
       for (const n of numbers) expect(Math.abs(n), type).toBeLessThanOrEqual(1)
     }
   })
