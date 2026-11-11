@@ -6,7 +6,7 @@ const FAN_STEP = 4
 
 /**
  * Your cards in a fan above your bar. Sized for two or three — the Fancy
- * dragon that allows a third does not exist in the engine yet, but the hand is
+ * token that allows a third does not exist in the engine yet, but the hand is
  * built so a third card fits without squeezing (plan 1.1, Konzepttafel).
  *
  * The hand stays on screen through every decision: the cards are what tell you

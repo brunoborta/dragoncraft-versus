@@ -19,14 +19,14 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         </div>
         <ol className="help-steps">
           <li>
-            <strong>Draw and place.</strong> Your turn starts with a dragon from the bag. Put it on any space — on top of
+            <strong>Draw and place.</strong> Your turn starts with a token from the bag. Put it on any space — on top of
             others too, up to three high. Only the top one of a stack counts.
           </li>
           <li>
-            <strong>Fire it up, if you like.</strong> The dragon you just placed may use its ability once.
+            <strong>Fire it up, if you like.</strong> The token you just placed may use its ability once.
           </li>
           <li>
-            <strong>Score.</strong> A card in your hand scores when its three dragons stand on the board in its shape, in
+            <strong>Score.</strong> A card in your hand scores when its three tokens stand on the board in its shape, in
             any rotation. Three of one kind is worth 3, a mix is worth 2. Your hand refills to two at the end of your turn.
           </li>
           <li>
@@ -34,12 +34,12 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
             Each coin you still hold at the end is worth 1.
           </li>
           <li>
-            <strong>The end.</strong> When the cards or the dragons run out, the other player gets one last chance to
+            <strong>The end.</strong> When the cards or the tokens run out, the other player gets one last chance to
             score. Most points wins; a tie goes to whoever scored more cards.
           </li>
         </ol>
-        <h3 className="help-subhead">The dragons</h3>
-        <ul className="help-dragons">
+        <h3 className="help-subhead">The tokens</h3>
+        <ul className="help-tokens">
           {DRAGON_TYPES.map((type) => (
             <li key={type}>
               <svg viewBox="-10 -10 20 22" aria-hidden="true">

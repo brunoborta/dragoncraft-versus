@@ -14,7 +14,7 @@ describe('CrystalDiscover', () => {
     const dialog = screen.getByRole('dialog', { name: 'Keep one of these' })
     const names = [...dialog.querySelectorAll('.discover-name')].map((el) => el.textContent)
     expect(names).toEqual(['Keep Bread', 'Keep Iron/Potion', 'Keep Plant'])
-    expect(dialog.textContent).toContain('Swap any two dragons')
+    expect(dialog.textContent).toContain('Swap any two tokens')
   })
 
   it('keeps the token tapped', () => {

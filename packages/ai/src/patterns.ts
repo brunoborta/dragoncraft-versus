@@ -13,7 +13,7 @@ import type { Board, DragonType, ShopCard, Token } from '@dcv/engine'
  * pays dozens of times per move.
  *
  * Nothing about that work depends on the position. Which spaces a card can
- * occupy, and which dragon each of those spaces then needs, is fixed the
+ * occupy, and which token each of those spaces then needs, is fixed the
  * moment the deck is defined. So it is all computed once, into flat arrays of
  * board indices, and a position becomes nineteen small integers. The check
  * that cost an allocation and a hash becomes an array read and a bitwise and.

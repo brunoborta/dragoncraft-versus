@@ -50,10 +50,10 @@ describe('the panel while the screen catches up', () => {
 })
 
 describe('help', () => {
-  it('lists all six dragons with what they do, and closes', () => {
+  it('lists all six tokens with what they do, and closes', () => {
     const onClose = vi.fn()
     render(<HelpDialog onClose={onClose} />)
-    expect(screen.getByRole('dialog', { name: 'How to play' }).querySelectorAll('.help-dragons li')).toHaveLength(6)
+    expect(screen.getByRole('dialog', { name: 'How to play' }).querySelectorAll('.help-tokens li')).toHaveLength(6)
     fireEvent.click(screen.getByLabelText('Close help'))
     expect(onClose).toHaveBeenCalledOnce()
   })

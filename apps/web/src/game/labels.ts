@@ -71,7 +71,7 @@ export function promptFor(view: PlayerView): string {
     case 'place':
       return 'Choose where to place the token'
     case 'mayFireUp':
-      return 'Fire up this dragon?'
+      return 'Fire up this token?'
     case 'crystalPick':
       return 'Keep one of these three'
     case 'meat':
@@ -79,7 +79,7 @@ export function promptFor(view: PlayerView): string {
     case 'iron':
       return `Shift a neighbour one space (${pending.movesLeft} left)`
     case 'potion':
-      return 'Swap any two dragons'
+      return 'Swap any two tokens'
     case 'plant':
       return 'Use a neighbouring ability'
     case 'coinDiscard':
