@@ -141,3 +141,23 @@ O brilho da estrela da vitória obrigou duas mudanças em `cutOut`, as duas vale
 - **Buraco claro ≠ buraco de fundo**: um vão fechado só é recortado se não for mais claro que o fundo. O núcleo branco da estrela é cinza-neutro como o fundo, mas é mais claro — e é tinta. Sem isso ficava um furo escuro no meio da estrela.
 
 As três saem com 30–42 KB cada, dentro do orçamento de 1.5 MB (F11).
+
+## Quarta rodada — a bandeja do token — 2026-11-11
+
+A peça onde o token sorteado espera até ser colocado: a sua, centrada embaixo do tabuleiro, e a do oponente, no canto de cima à esquerda. Hoje é uma elipse desenhada em CSS. As duas têm **o mesmo tamanho e a mesma forma**; só a cor diz de quem é — verde você, vinho o oponente (a regra de cor da seção 3.1 do plano).
+
+**Da mesma família que a bolsa e a moeda:** veludo esmeralda com bordado e cordão de ouro (a bolsa), ouro martelado com folhas em relevo (a moeda). A bandeja é uma almofada de veludo assentada num aro de ouro — o lugar onde se pousa uma peça preciosa. O topo da almofada fica liso, porque o token fica em pé ali e nada pode brigar com ele. Aparece a ~80 px de largura num celular: vale a silhueta, o aro e o cordão, não o bordado miúdo.
+
+Mesmo bloco de estilo, mesmas regras de entrega (PNG ≥1024 de largura, fundo liso, sem recortar). Salve em `designs/art/`. Ainda não está ligado no código: quando os arquivos chegarem, eu recorto, comprimo e troco a elipse pelas imagens.
+
+**Dica:** gere a sua com `bag.png` e `coin.png` como imagens de referência. Depois use a bandeja escolhida como referência para a do oponente, para sair com a mesma forma, o mesmo ângulo e o mesmo tamanho no quadro.
+
+### 14 · Bandeja sua — `tray-you.png`
+
+> A single small round cushion of deep emerald green velvet, plump and soft with a gentle dip in the middle, resting inside a low, wide ring of hammered polished gold. The gold ring has a raised relief of small gold leaves running around it, in the same style as an embossed gold coin, and a thick twisted golden rope is laid along the seam where the velvet meets the gold. The top of the cushion is smooth and plain, with no embroidery and nothing resting on it, a soft velvet sheen catching warm light. Seen from slightly above at about 25 degrees, so the whole piece reads as a wide oval roughly three times wider than it is tall. Rich, tactile, precious, like a jeweller's cushion for a single treasured game piece. Front view, perfectly centered and symmetrical, filling about 85% of the frame's width. Isolated on a plain flat solid light grey background, no cast shadow, no floor, no other objects.
+
+### 15 · Bandeja do oponente — `tray-opponent.png`
+
+> The same small round cushion in the same low hammered-gold ring, same shape, same angle and same size in the frame, but the velvet is a deep wine-red crimson instead of green. The same raised gold leaves around the ring, the same thick twisted golden rope along the seam, the same smooth, plain top with nothing resting on it and a soft velvet sheen catching warm light. Seen from slightly above at about 25 degrees, a wide oval roughly three times wider than it is tall. Front view, perfectly centered and symmetrical, filling about 85% of the frame's width. Isolated on a plain flat solid light grey background, no cast shadow, no floor, no other objects.
+
+**Fundo:** pelo que o recorte aprendeu na terceira rodada, nada de prata, branco ou cinza na bandeja — o recorte levaria junto. Ouro e veludo colorido saem limpos.

@@ -258,6 +258,21 @@ const ASSETS = {
     report('bag')
   },
 
+  async plates() {
+    // optional: the velvet cushion a drawn token waits on (prompts, round 4), yours
+    // and the opponent's. Shown about 80px wide, so 240 is 3x.
+    for (const side of ['you', 'opponent']) {
+      const name = `plate-${side}`
+      if (!existsSync(src(name))) {
+        console.log(`  (no designs/art/${name}.png yet)`)
+        continue
+      }
+      const img = cutOut(await raw(src(name)))
+      await fromRaw(img).trim({ threshold: 1 }).resize({ width: 240 }).webp({ quality: 84, alphaQuality: 90 }).toFile(out(name))
+      report(name)
+    }
+  },
+
   async crests() {
     // optional: the emblem over the end screen, one per result (prompts, round 3).
     // Shown about 150px wide, so 300 is 2x.

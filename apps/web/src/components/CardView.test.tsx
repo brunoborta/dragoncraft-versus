@@ -1,6 +1,6 @@
 import { DECK } from '@dcv/engine'
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { CardView } from './CardView.js'
 
 const card = (id: string) => {
@@ -27,11 +27,21 @@ describe('CardView', () => {
     expect(screen.getByText('3')).toBeDefined()
   })
 
-  it('offers a score button only when the card matches', () => {
+  it('is a control only when the card can be scored, with no Score button inside', () => {
     const { rerender } = render(<CardView card={card('tri-bread')} scoreable={false} onScore={() => {}} />)
-    expect(screen.queryByRole('button', { name: 'Score' })).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
     rerender(<CardView card={card('tri-bread')} scoreable onScore={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Score' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Score Three Bread in a triangle, 3 reputation' })).toBeDefined()
+    expect(screen.queryByText('Score')).toBeNull()
+  })
+
+  it('scores from a tap anywhere on the card, or from the keyboard', () => {
+    const onScore = vi.fn()
+    const { container } = render(<CardView card={card('tri-bread')} scoreable onScore={onScore} />)
+    fireEvent.click(container.querySelector('.pattern')!)
+    fireEvent.click(container.querySelector('.card-rep')!)
+    fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' })
+    expect(onScore).toHaveBeenCalledTimes(3)
   })
 
   it('draws one hex per pattern cell', () => {

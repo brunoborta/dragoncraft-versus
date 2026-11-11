@@ -391,6 +391,15 @@ body {
 .coin-img { object-fit: contain; }
 
 .board-area > .board { position: relative; z-index: 1; }
+/*
+ * The coin, your tray and the bag share one line under the board, sitting on
+ * the same floor. The row is only as tall as the tray: the coin and the bag
+ * stand on its bottom edge and rise into the empty corners the hexagon leaves,
+ * so they add no footer height (every pixel there comes out of the board).
+ */
+.tray-row { position: relative; z-index: 3; }
+/* the tray is only as wide as its cushion: a full-width box over the row took the coin's taps */
+.tray-row > .held-slot { width: max-content; margin-inline: auto; }
 .coin-purse, .bag { z-index: 2; }
 /* a spent coin leaves its place behind, so you can see how many are gone */
 .coin-slot { width: 22px; height: 22px; margin: 1px; border-radius: 50%; border: 1.5px dashed rgb(217 180 90 / 0.65); }
@@ -403,6 +412,8 @@ body {
   justify-items: center;
   width: 80px;
   min-height: 44px;
+  /* it is a <p> when it is only a picture: no paragraph margin lifting it off the line */
+  margin: 0;
   padding: 0;
   background: none;
   border: 0;
@@ -442,8 +453,7 @@ body {
 .held-slot { position: relative; display: grid; justify-items: center; z-index: 3; }
 .held-anchor {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: block;
   width: var(--slot-w);
   height: var(--slot-h);
   outline-offset: 4px;
@@ -464,11 +474,30 @@ body {
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.6), 0 3px 6px rgb(0 0 0 / 0.5), 0 0 0 1px #6b4e18;
 }
 .held-slot[data-empty] .held-plinth { opacity: 0.55; }
+/* the painted velvet cushion, when its art exists, in place of the drawn dish */
+.held-slot[data-side] .held-plinth[data-art] {
+  height: calc(var(--slot-w) * 0.36);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: transparent;
+  background-position: center bottom;
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.5));
+}
+.held-slot[data-empty] .held-plinth[data-art] { opacity: 0.75; }
+/*
+ * The token sits in the cushion's velvet, placed from the tray's bottom edge.
+ * Positioned, not laid out: a token taller than the tray rises above it
+ * instead of growing the tray downward and taking height from the board.
+ */
 .held-glyph {
-  position: relative;
+  position: absolute;
+  left: calc(50% - var(--token) / 2);
+  bottom: calc(var(--slot-w) * 0.12);
   width: var(--token);
   height: calc(var(--token) * 1.075);
-  margin-bottom: calc(var(--slot-w) * 0.12);
   filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.5));
   animation: held-bob 2.6s ease-in-out infinite;
 }
@@ -486,10 +515,11 @@ body {
 .held-glyph[data-away] { opacity: 0.3; filter: grayscale(0.4); animation: none; }
 
 /* yours: centred under the board */
-.held-slot[data-side='you'] { --slot-w: 78px; --slot-h: 58px; --token: 46px; }
+.held-slot { --slot-w: 96px; --slot-h: 64px; --token: 64px; }
 .held-slot[data-side='you'] .held-glyph { filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.5)) drop-shadow(0 0 10px rgb(255 216 106 / 0.45)); }
 /* theirs: under their portrait, in the board's empty top-left corner, wine-lit */
-.held-slot[data-side='opponent'] { position: absolute; left: 2px; top: 0; --slot-w: 60px; --slot-h: 48px; --token: 38px; }
+/* the same size as yours, at every screen size: one tray, two owners */
+.held-slot[data-side='opponent'] { position: absolute; left: 2px; top: 0; }
 .held-slot[data-side='opponent'] .held-plinth { border-color: #c98a5a; background: radial-gradient(ellipse at 50% 40%, #2a0c12 0%, #4a1822 55%, #7a3040 100%); }
 .held-slot[data-side='opponent'] .held-glyph { filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.5)) drop-shadow(0 0 10px rgb(224 96 122 / 0.55)); }
 
@@ -635,7 +665,9 @@ body {
 
 /* ---------- hand: parchment cards in a fan ---------- */
 
-.hand-cards { display: flex; justify-content: center; gap: 8px; padding-top: 2px; }
+:root { --card-h: 112px; }
+/* the hand keeps a card's height with no cards in it: scoring the last ones must not grow the board */
+.hand-cards { display: flex; justify-content: center; gap: 8px; padding-top: 2px; min-height: calc(var(--card-h) + 2px); }
 .fan-slot {
   flex: 0 1 156px;
   min-width: 0;
@@ -647,9 +679,10 @@ body {
 .card {
   position: relative;
   display: grid;
-  grid-template-rows: auto 44px;
+  grid-template-rows: minmax(0, 1fr);
+  height: var(--card-h);
   gap: 2px;
-  padding: 6px 8px 4px;
+  padding: 4px 6px;
   border-radius: 12px;
   color: var(--parchment-ink);
   background-color: var(--parchment);
@@ -658,28 +691,47 @@ body {
   border: 2px solid var(--brass-400);
   box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35), 0 4px 10px rgb(0 0 0 / 0.45);
 }
-.card .pattern { width: 100%; height: 52px; }
-.card-foot { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; }
-.card[data-scoreable='true'] .card-foot { justify-content: space-between; }
-.card-rep { display: inline-flex; align-items: center; gap: 2px; font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1; }
+/* the pattern takes the whole card */
+.card .pattern { display: block; width: 100%; height: 100%; min-height: 0; }
+/* the reputation sits on a star hung over the card's top-left corner, out of the pattern's way */
+.card-rep {
+  position: absolute;
+  top: -12px;
+  left: -10px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  color: #3b2508;
+}
 /* On parchment, flat brass would disappear. The star keeps its amber and takes
    a dark gold outline, which is what draws its shape here (4.7:1 on the card). */
-.card-rep .icon { width: 26px; height: 26px; color: #f3c64a; stroke: #8a5a12; stroke-width: 0.9; paint-order: stroke; stroke-linejoin: round; }
+.card-rep .icon {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: #f3c64a;
+  stroke: #8a5a12;
+  stroke-width: 0.9;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.45));
+}
+.card-rep > span { position: relative; padding-top: 3px; }
 /* a card that can be scored right now glows gold (M10 will make it pulse) */
 .card[data-scoreable='true'] {
   border-color: #ffd86a;
   box-shadow: 0 0 0 2px rgb(255 216 106 / 0.6), 0 0 16px rgb(255 200 80 / 0.7), 0 4px 10px rgb(0 0 0 / 0.45);
 }
-.card button {
-  min-height: 44px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid #8a6a26;
-  background: var(--completes);
-  color: var(--bg);
-  font: inherit;
-  font-weight: 700;
-}
+/* a scoreable card is pressed as a whole */
+.card[data-scoreable='true'][role='button'] { cursor: pointer; transition: transform var(--t-tap); }
+.card[data-scoreable='true'][role='button']:active { transform: scale(0.97); }
 
 .pattern-hex { fill: rgb(59 42 23 / 0.1); stroke: rgb(59 42 23 / 0.35); stroke-width: 0.6; }
 
@@ -740,11 +792,15 @@ body {
   .prompt-text { font-size: 15px; }
   .prompt-effect { font-size: 12px; }
   .bottom { gap: 6px; }
-  .card { padding: 4px 6px 2px; }
-  .card .pattern { height: 30px; }
-  .card { gap: 0; }
-  .card-rep { font-size: 20px; }
-  .card-rep .icon { width: 22px; height: 22px; }
+  :root { --card-h: 80px; }
+  .card { padding: 3px 6px; gap: 0; }
+  /* the footer keeps the height it had before the tokens grew: every pixel here comes out of the board */
+  /* the tray keeps its old 46px in the footer; the token, as big as on any phone,
+     stands out of it upward, into the room under the board, instead of taking height */
+  .held-slot { --slot-w: 96px; --slot-h: 46px; --token: 64px; }
+  /* theirs floats in the board's corner and takes no footer height: it keeps its full slot */
+  .held-slot[data-side='opponent'] { --slot-h: 64px; }
+  .card-rep { width: 32px; height: 32px; font-size: 14px; }
   .end-turn { min-height: 44px; min-width: 112px; font-size: 16px; }
   .bag-art { width: 52px; height: 52px; }
 }
@@ -755,12 +811,13 @@ body {
  * The stack inspector sits over the top of the footer, absolutely, so opening
  * it never changes the footer's height or rescales the board mid-gesture.
  */
+/* above the tray under the board (z 3), which comes later in the footer and would otherwise take its taps */
 .stack-detail {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 3;
+  z-index: 5;
   padding: 8px 12px 10px;
   border-radius: 14px;
   color: var(--parchment-ink);
@@ -1180,6 +1237,8 @@ body {
   transform: translateY(-8px);
   transition: transform var(--t-ui), box-shadow var(--t-ui);
 }
+/* risen, it passes over the tray under the board (z 3), dish and token, rather than under them */
+.fan-slot[data-completes] { position: relative; z-index: 4; }
 
 /* the three spaces of a scored pattern, lit one after the other */
 .score-ring {
@@ -1307,16 +1366,14 @@ body {
 .help-tokens li { display: flex; align-items: center; gap: 10px; }
 .help-tokens svg { width: 30px; height: 32px; flex: none; }
 
-/* card patterns grow with the card on bigger phones */
-@media (min-height: 900px) { .card .pattern { height: 64px; } }
+/* cards grow on bigger phones */
+@media (min-height: 900px) { :root { --card-h: 124px; } }
 
 /*
  * Small phones (plan 8.2, item 5): the board keeps its room. The cards give up
  * height, the tray under the board shrinks.
  */
 @media (max-height: 720px) {
-  .card .pattern { height: 26px; }
-  .held-slot[data-side='you'] { --slot-w: 66px; --slot-h: 46px; --token: 38px; }
   .prompt-head { min-height: 32px; }
   .undo-button { width: 40px; height: 40px; }
   .top-buttons .icon-button { width: 36px; height: 36px; }

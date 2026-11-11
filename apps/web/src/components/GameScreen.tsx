@@ -192,6 +192,9 @@ export function GameScreen({
 
   // "Fire up this token?" is asked on the board, around the token that just landed
   const firing = myTurn && !peeking && pending?.kind === 'mayFireUp' ? pending : null
+  // a fired-up ability picking the tokens it acts on
+  const choosingTargets =
+    pending?.kind === 'meat' || pending?.kind === 'iron' || pending?.kind === 'potion' || pending?.kind === 'plant'
   const firedToken = firing ? view.board[key(firing.at)]?.at(-1) : undefined
 
   /*
@@ -243,10 +246,15 @@ export function GameScreen({
     }
 
     setSelected(outcome.select)
-    // any tapped space that holds tokens shows what is stacked there
+    /*
+     * A tapped space that holds a stack shows what is buried there — but not
+     * while a fire-up is choosing its targets (meat, iron, potion, plant).
+     * Then a tap picks a token and nothing else; a panel opening over the
+     * footer would only get in the way.
+     */
     const stack = view.board[key(hex)] ?? []
     // one token hides nothing: the panel is for seeing what is buried
-    setInspecting(stack.length > 1 ? hex : null)
+    setInspecting(!choosingTargets && stack.length > 1 ? hex : null)
   }
 
   function undo(): void {
@@ -354,14 +362,6 @@ export function GameScreen({
         {firing && firedToken ? (
           <FireChoice key={key(firing.at)} at={firing.at} token={firedToken} actions={actions} onAct={handleAct} area={boardArea} />
         ) : null}
-        <CoinPurse
-          coins={view.you.coins}
-          canSpend={spendCoin !== undefined && !discarding}
-          onSpend={() => {
-            if (spendCoin) handleAct(spendCoin)
-          }}
-        />
-        <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={drawingFor !== null} />
       </div>
       <footer className="bottom">
         {inspecting ? (
@@ -372,8 +372,18 @@ export function GameScreen({
           />
         ) : null}
         {extras}
-        {/* your token's home, right under the board */}
-        <HeldSlot side="you" token={yourHeld} arriving={arrivingIn(view.seat)} away={preview !== undefined} />
+        {/* one line under the board: the coin, your token's home, the bag */}
+        <div className="tray-row">
+          <CoinPurse
+            coins={view.you.coins}
+            canSpend={spendCoin !== undefined && !discarding}
+            onSpend={() => {
+              if (spendCoin) handleAct(spendCoin)
+            }}
+          />
+          <HeldSlot side="you" token={yourHeld} arriving={arrivingIn(view.seat)} away={preview !== undefined} />
+          <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={drawingFor !== null} />
+        </div>
         <Hand view={view} actions={actions} onAct={handleAct} completing={completing} />
         {decision()}
         <PlayerBar

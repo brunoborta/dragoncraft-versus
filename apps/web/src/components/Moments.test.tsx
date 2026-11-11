@@ -87,6 +87,13 @@ describe('Board, under an event', () => {
     expect(theirs.querySelector('.landing-dim')).not.toBeNull()
   })
 
+  it('dims the other eighteen spaces, never a square around the board', () => {
+    const theirs = render(<Board board={meatOn00} event={place} viewer={0} highlights={{}} onSelectHex={() => {}} />).container
+    const dim = theirs.querySelector('.landing-dim')
+    expect(dim?.tagName.toLowerCase()).not.toBe('rect')
+    expect(theirs.querySelectorAll('.landing-dim polygon')).toHaveLength(18)
+  })
+
   it('keeps the landing after the placement is over, until its dust has settled', () => {
     vi.useFakeTimers()
     try {

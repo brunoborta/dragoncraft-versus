@@ -38,6 +38,7 @@ export function Hand({
             <div
               key={card.id}
               className="fan-slot"
+              data-completes={completing.has(card.id) || undefined}
               style={{ '--fan-angle': `${offset * FAN_STEP}deg`, '--fan-drop': `${Math.abs(offset) * 4}px` } as React.CSSProperties}
             >
               <CardView

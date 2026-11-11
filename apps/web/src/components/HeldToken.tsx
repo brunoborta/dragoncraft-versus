@@ -2,6 +2,7 @@ import { abilitiesOf, single } from '@dcv/engine'
 import type { DragonType, Token } from '@dcv/engine'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
+import { useArt } from '../art/ArtContext.js'
 import { DRAGON_THEME } from '../theme.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
@@ -115,6 +116,7 @@ export function HeldSlot({
 }) {
   const press = useLongPress()
   const [focused, setFocused] = useState(false)
+  const plate = useArt().plate[side]
   const label = token
     ? `${side === 'you' ? 'Your token' : "Opponent's token"}: ${tokenLabel(token)}. ${effectLines(token).join('. ')}`
     : side === 'you'
@@ -131,7 +133,12 @@ export function HeldSlot({
         onBlur={() => setFocused(false)}
         {...(token ? press.handlers : {})}
       >
-        <span className="held-plinth" aria-hidden="true" />
+        <span
+          className="held-plinth"
+          aria-hidden="true"
+          data-art={plate ? '' : undefined}
+          style={plate ? { backgroundImage: `url("${plate}")` } : undefined}
+        />
         {token ? (
           <svg
             // keyed on the token, so a new one arrives as a new element

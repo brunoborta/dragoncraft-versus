@@ -77,7 +77,7 @@ describe('colour contrast', () => {
    * defect was an omission, not a wrong value. These rules put a light label
    * on gold by declaring no `color` at all and inheriting the page's.
    */
-  const GOLD_BUTTONS = ['.card button', '.game-over button', '.discard-finish']
+  const GOLD_BUTTONS = ['.game-over button', '.discard-finish']
 
   for (const selector of GOLD_BUTTONS) {
     it(`gives ${selector} a label that can be read on gold`, () => {

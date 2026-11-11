@@ -18,7 +18,7 @@ import type { ArtSet } from './ArtContext.js'
  * Art that may not exist yet. A glob matches nothing rather than failing the
  * build, so the game runs without it and picks it up once it is processed.
  */
-const optional = import.meta.glob('../assets/art/crest-*.webp', {
+const optional = import.meta.glob(['../assets/art/crest-*.webp', '../assets/art/plate-*.webp'], {
   eager: true,
   query: '?url',
   import: 'default',
@@ -30,6 +30,7 @@ export const CHOSEN_ART: ArtSet = {
   bgOverlay,
   bag,
   crest: { win: maybe('crest-win'), lose: maybe('crest-lose'), draw: maybe('crest-draw') },
+  plate: { you: maybe('plate-you'), opponent: maybe('plate-opponent') },
   avatarYou,
   avatarOpponent,
   stone,

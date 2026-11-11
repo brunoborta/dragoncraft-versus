@@ -12,6 +12,8 @@ export type ArtSet = {
   bag: string
   /** The emblem over the end screen, one per result. Null until that art exists: then a drawn one. */
   crest: Record<GameResult, string | null>
+  /** The cushion a drawn token waits on, per side. Null until that art exists: then a drawn dish. */
+  plate: { you: string | null; opponent: string | null }
   avatarYou: string
   avatarOpponent: string
   stone: string

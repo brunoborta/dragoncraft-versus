@@ -1,8 +1,9 @@
+import { BOARD, hexEq, key } from '@dcv/engine'
 import type { Hex, Seat, ShopCard } from '@dcv/engine'
 import { motion } from 'motion/react'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { useArt } from '../art/ArtContext.js'
-import { BOARD_VIEWBOX, HEX_SIZE, hexCenter, hexOnScreen, hexPoints } from '../geometry.js'
+import { HEX_SIZE, hexCenter, hexOnScreen, hexPoints } from '../geometry.js'
 import type { PresentationEvent } from '../game/presentation.js'
 import { FLIGHT, HOLD } from '../game/presentation.js'
 import { useReducedMotion } from '../motion.js'
@@ -246,8 +247,6 @@ export function Vine({ from, to }: { from: Hex; to: Hex }) {
 
 /* ------------------------------------------------------- M4: landing ----- */
 
-const [VB_X, VB_Y, VB_W, VB_H] = BOARD_VIEWBOX.split(' ').map(Number)
-
 /** Milliseconds from the start of a placement to the moment the token hits the stone. */
 export function landingDelay(mine: boolean): number {
   // the drop squashes at 55% of its 400ms; theirs flies in from the slot first
@@ -294,13 +293,12 @@ export function Landing({ at, mine }: { at: Hex; mine: boolean }) {
   return (
     <g className="landing" data-side={mine ? 'you' : 'opponent'} style={style}>
       {mine ? null : (
-        <>
-          <mask id="dcv-landing-mask">
-            <rect x={VB_X} y={VB_Y} width={VB_W} height={VB_H} fill="#fff" />
-            <polygon points={hexPoints(at)} fill="#000" />
-          </mask>
-          <rect className="landing-dim" x={VB_X} y={VB_Y} width={VB_W} height={VB_H} mask="url(#dcv-landing-mask)" />
-        </>
+        // the other spaces of the board, and only those: a rectangle would darken a square around it
+        <g className="landing-dim">
+          {BOARD.filter((hex) => !hexEq(hex, at)).map((hex) => (
+            <polygon key={key(hex)} points={hexPoints(hex)} />
+          ))}
+        </g>
       )}
       <polygon className="landing-flash" points={hexPoints(at, STONE_SCALE)} />
       {/* the dust sits low, at the token's foot, and spreads */}
