@@ -61,3 +61,25 @@ export const BOARD_OUTLINE = (() => {
   for (let at = next.get(start); at && at !== start; at = next.get(at)) points.push(at)
   return `M ${points.join(' L ')} Z`
 })()
+
+/**
+ * Where a space's centre is on screen, in px relative to `box`, and how many px
+ * one board unit takes. The board scales with its row, so anything drawn over
+ * it in HTML — the fire-up choice, a token flying in — asks here rather than
+ * guessing. Null where nothing is laid out (under test).
+ */
+export function hexOnScreen(
+  board: SVGSVGElement | null | undefined,
+  box: Element | null | undefined,
+  hex: Hex,
+): { x: number; y: number; unit: number } | null {
+  const ctm = board?.getScreenCTM?.()
+  if (!ctm || !box) return null
+  const c = hexCenter(hex)
+  const r = box.getBoundingClientRect()
+  return {
+    x: ctm.a * c.x + ctm.c * c.y + ctm.e - r.left,
+    y: ctm.b * c.x + ctm.d * c.y + ctm.f - r.top,
+    unit: ctm.a,
+  }
+}

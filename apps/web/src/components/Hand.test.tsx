@@ -88,8 +88,9 @@ describe('TopBar', () => {
     expect(screen.getByText("Opponent's turn")).toBeDefined()
   })
 
-  it('shows the most recent log line', () => {
+  it('leaves the moves to their pictures and the log: no line of text under the plate', () => {
     render(<TopBar view={view} onOpenLog={() => {}} />)
-    expect(screen.getByText(/Drew/)).toBeDefined()
+    expect(screen.queryByText(/Drew/)).toBeNull()
+    expect(screen.queryByLabelText('Recent moves')).toBeNull()
   })
 })

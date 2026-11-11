@@ -17,7 +17,7 @@ vi.mock('../motion.js', () => ({
 }))
 
 const { usePresentation } = await import('./usePresentation.js')
-const { HOLD } = await import('./presentation.js')
+const { HOLD, eventDuration } = await import('./presentation.js')
 
 const base = toPlayerView(createGame(4), 0)
 const empty: PlayerView = { ...base, board: {}, log: [], pending: [] }
@@ -84,13 +84,49 @@ describe('usePresentation, animation on', () => {
     expect(result.current.board).toEqual({ [at00]: [single('meat')] })
     const placed = result.current.ids[at00]?.[0]
 
-    act(() => vi.advanceTimersByTime(HOLD.place + 1))
+    // theirs flies in from their slot before it drops
+    act(() => vi.advanceTimersByTime(eventDuration({ kind: 'place', seat: 1 }, 0, false) + 1))
     expect(result.current.event?.kind).toBe('move')
     expect(result.current.board).toEqual({ [at10]: [single('meat')] })
     expect(result.current.ids[at10]?.[0]).toBe(placed)
 
     act(() => vi.advanceTimersByTime(HOLD.move + 1))
     expect(result.current.playing).toBe(false)
+  })
+
+  it("puts the drawn token in the drawer's hand with the draw, and takes it away with the placement", () => {
+    const { result, rerender } = renderHook(({ view }) => usePresentation(view), { initialProps: { view: empty } })
+    expect(result.current.held).toBeNull()
+    rerender({ view: after([drawMeat, placeMeat], { [at00]: [single('meat')] }) })
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(result.current.event?.kind).toBe('draw')
+    expect(result.current.held).toEqual({ seat: 1, token: single('meat') })
+
+    act(() => vi.advanceTimersByTime(HOLD.drawTheirs + 1))
+    expect(result.current.event?.kind).toBe('place')
+    expect(result.current.held).toBeNull()
+  })
+
+  it("leaves the hand alone for a crystal's draws: they are the Discover's", () => {
+    const fire: LogEntry = { seat: 1, action: { type: 'fireUp', ability: 'crystal' } }
+    const draws: LogEntry[] = ['bread', 'iron', 'plant'].map((type) => ({
+      seat: 1,
+      action: { type: 'draw', token: single(type as 'bread') },
+    }))
+    const pick: LogEntry = { seat: 1, action: { type: 'crystalPick', index: 1 } }
+    const start = after([drawMeat, placeMeat], { [at00]: [single('meat')] })
+    const { result, rerender } = renderHook(({ view }) => usePresentation(view), { initialProps: { view: start } })
+    rerender({ view: after([drawMeat, placeMeat, fire, ...draws, pick], { [at00]: [single('meat')] }) })
+
+    // fire-up, three draws that take no time, then the pick: only the pick changes the hand
+    const seen: unknown[] = []
+    for (let i = 0; i < 8; i++) {
+      act(() => vi.advanceTimersByTime(HOLD.fireUp + 1))
+      seen.push(result.current.held)
+    }
+    expect(seen).not.toContainEqual({ seat: 1, token: single('bread') })
+    expect(result.current.held).toEqual({ seat: 1, token: single('iron') })
   })
 
   it('holds an event back while the gate says so, and asks again when woken', () => {
@@ -120,5 +156,7 @@ describe('usePresentation, animation on', () => {
     act(() => result.current.skip())
     expect(result.current.playing).toBe(false)
     expect(result.current.board).toEqual({ [at10]: [single('meat')] })
+    // and the hand is the view's: the token was placed
+    expect(result.current.held).toBeNull()
   })
 })

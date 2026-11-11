@@ -16,13 +16,23 @@ describe('App', () => {
     return rendered
   }
 
-  it('asks where to place the opening token, and says which token it is', () => {
+  it('asks where to place the opening token, and shows the token in your tray under the board', () => {
     const { container } = startGame()
-    const text = container.querySelector('.prompt-text')
-    expect(text?.textContent).toContain('Choose where to place the token')
-    // the token being placed has to be on screen, not only in the log
-    expect(text?.querySelectorAll('.token-chip svg')).toHaveLength(1)
-    expect(text?.textContent).toMatch(/Bread|Crystal|Meat|Iron|Potion|Plant/)
+    expect(container.querySelector('.prompt-text')?.textContent).toBe('Choose where to place the token')
+    // the token being placed has to be on screen, not only in the log: it sits in your tray
+    const tray = container.querySelector('.held-slot[data-side="you"]')
+    expect(tray?.querySelector('.held-glyph')).not.toBeNull()
+    expect(screen.getByRole('img', { name: /^Your token: (Bread|Crystal|Meat|Iron|Potion|Plant)/ })).toBeDefined()
+    // and the opponent's slot is there, empty, under their portrait
+    expect(container.querySelector('.held-slot[data-side="opponent"]')?.getAttribute('data-empty')).toBe('true')
+  })
+
+  it("leaves a ghost of the token in the tray while it hovers over a space, and empties it once placed", () => {
+    const { container } = startGame()
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    expect(container.querySelector('.held-slot[data-side="you"] .held-glyph')?.hasAttribute('data-away')).toBe(true)
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    expect(container.querySelector('.held-slot[data-side="you"]')?.getAttribute('data-empty')).toBe('true')
   })
 
   it('hovers the held token over the previewed space', () => {
@@ -49,7 +59,23 @@ describe('App', () => {
 
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     expect(screen.queryByLabelText('2,-2: empty')).toBeNull()
-    expect(screen.getByText('Fire up this dragon?')).toBeDefined()
+    expect(screen.getByText('Fire up this token?')).toBeDefined()
+  })
+
+  it('asks to fire up on the board, around the token: one fire and Skip, or two fires and Skip for a dual', () => {
+    const { container } = startGame()
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    fireEvent.click(screen.getByLabelText('2,-2: empty'))
+    const choice = container.querySelector('.board-area .fire-choice')
+    const fires = choice?.querySelectorAll('.fire-up') ?? []
+    expect(fires.length).toBeGreaterThan(0)
+    expect(choice?.getAttribute('data-shape')).toBe(fires.length > 1 ? 'Y' : 'I')
+    for (const fire of fires) expect(fire.getAttribute('aria-label')).toMatch(/^Fire up /)
+    // and nothing of it in the panel, which is only a reminder now
+    expect(container.querySelectorAll('.prompt button')).toHaveLength(0)
+
+    fireEvent.click(screen.getByText('Skip'))
+    expect(container.querySelector('.fire-choice')).toBeNull()
   })
 
   it('moves the preview when a different space is tapped', () => {
@@ -60,11 +86,11 @@ describe('App', () => {
     expect(screen.getByLabelText('0,2: empty').getAttribute('data-highlight')).toBe('selected')
   })
 
-  it('offers the non-spatial decisions as buttons', () => {
+  it('offers declining the fire-up as a button', () => {
     startGame()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
-    expect(screen.getByText('Do not fire up')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Skip' })).toBeDefined()
   })
 
   it('does not put spatial actions in the decision bar', () => {
@@ -86,9 +112,10 @@ describe('App', () => {
     startGame()
     expect(screen.queryByText('Win now')).toBeNull()
     expect(screen.queryByText('Lose now')).toBeNull()
+    expect(screen.queryByText('Draw now')).toBeNull()
   })
 
-  it('jumps to a finished game you won, and to one you lost', () => {
+  it('jumps to a finished game you won, one you lost, and one that ended level', () => {
     render(<App seed={2} debug />)
     fireEvent.click(screen.getByText('Against the computer'))
     fireEvent.click(screen.getByText('Easy'))
@@ -99,6 +126,9 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Lose now'))
     expect(screen.getByText('You lose')).toBeDefined()
+
+    fireEvent.click(screen.getByText('Draw now'))
+    expect(screen.getByText('Shared victory')).toBeDefined()
   })
 
   it('shows the seed of the game being played', () => {
@@ -139,7 +169,7 @@ describe('App', () => {
   it('opens the full log grouped into rounds, naming each side once per turn', () => {
     startGame()
     stackTwoOnInnerRing()
-    fireEvent.click(screen.getByText('Do not fire up'))
+    fireEvent.click(screen.getByText('Skip'))
     fireEvent.click(screen.getByText('Full log'))
 
     const dialog = screen.getByLabelText('Move log')
@@ -193,15 +223,15 @@ describe('App', () => {
     expect(screen.getByText('Your turn')).toBeDefined()
   })
 
-  it('closes the stack detail when the commit comes from the decision bar', () => {
+  it('closes the stack detail when the commit comes from the fire-up choice', () => {
     startGame()
     stackTwoOnInnerRing()
-    expect(screen.getByText('Fire up this dragon?')).toBeDefined()
+    expect(screen.getByText('Fire up this token?')).toBeDefined()
 
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
 
-    fireEvent.click(screen.getByText('Do not fire up'))
+    fireEvent.click(screen.getByText('Skip'))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 
@@ -211,7 +241,7 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
 
-    fireEvent.click(screen.getByText('Undo'))
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 
@@ -247,6 +277,13 @@ describe('App', () => {
       return true
     }
 
+    // "Fire up this token?" is asked on the board: fire, so the abilities get played too
+    const fire = document.querySelector<HTMLButtonElement>('.fire-choice .fire-up')
+    if (fire) {
+      fireEvent.click(fire)
+      return true
+    }
+
     const barButton = document.querySelector<HTMLButtonElement>('.prompt-actions button')
     if (barButton) {
       fireEvent.click(barButton)
@@ -277,7 +314,7 @@ describe('App', () => {
   it('lets the coin choice be put aside to look at the board, and brings it back', () => {
     startGame()
     stackTwoOnInnerRing()
-    fireEvent.click(screen.getByText('Do not fire up'))
+    fireEvent.click(screen.getByText('Skip'))
     fireEvent.click(screen.getByText('Spend a coin'))
     expect(screen.getByLabelText('Choose the cards to keep')).toBeDefined()
 
@@ -294,7 +331,7 @@ describe('App', () => {
   it('puts two cards back by picking the ones to keep in a dialog', () => {
     startGame()
     stackTwoOnInnerRing()
-    fireEvent.click(screen.getByText('Do not fire up'))
+    fireEvent.click(screen.getByText('Skip'))
     fireEvent.click(screen.getByText('Spend a coin'))
 
     const dialog = screen.getByLabelText('Choose the cards to keep')
@@ -463,7 +500,7 @@ describe('App online', () => {
     const legal = screen.getAllByRole('button').filter((el) => el.getAttribute('data-highlight') === 'legal')
     expect(legal).toHaveLength(19)
     // no undo across the wire
-    expect((screen.getByText('Undo') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(true)
 
     // two taps place, and the move goes to the server rather than into a local engine
     fireEvent.click(screen.getByLabelText('2,-2: empty'))

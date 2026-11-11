@@ -1,10 +1,10 @@
 import { BOARD, MAX_STACK, hexEq, key } from '@dcv/engine'
-import type { Board as BoardState, Hex, Token } from '@dcv/engine'
+import type { Board as BoardState, Hex, Seat, Token } from '@dcv/engine'
 import { useArt } from '../art/ArtContext.js'
 import { BOARD_OUTLINE, BOARD_VIEWBOX, HEX_SIZE, hexCenter, hexPoints } from '../geometry.js'
 import type { PresentationEvent } from '../game/presentation.js'
 import { HexCell, STONE_SCALE, TOKEN_RADIUS, type Highlight } from './HexCell.js'
-import { BoardMoment, arrivals } from './Moments.js'
+import { BoardMoment, Landing, arrivals, useLanding } from './Moments.js'
 import { DEF } from './SvgDefs.js'
 import { THICKNESS, TokenGlyph } from './TokenGlyph.js'
 
@@ -54,6 +54,7 @@ export function Board({
   glows = {},
   highlights,
   preview,
+  viewer,
   onSelectHex,
 }: {
   board: BoardState
@@ -69,11 +70,14 @@ export function Board({
   highlights: Record<string, Highlight>
   /** What the spec calls the preview: the held token, shown on the space it would land on. */
   preview?: { hex: Hex; token: Token }
+  /** The seat looking at the board: the opponent's tokens fly in from their slot, yours drop from the hover. */
+  viewer?: Seat
   onSelectHex: (hex: Hex) => void
 }) {
   const art = useArt()
   const stoneId = 'dcv-stone-tex'
-  const arriving = arrivals(event)
+  const arriving = arrivals(event, viewer)
+  const landing = useLanding(event, viewer)
   return (
     <svg
       className="board"
@@ -152,6 +156,7 @@ export function Board({
             />
           )
         })}
+        {landing ? <Landing key={landing.seq} at={landing.at} mine={landing.mine} /> : null}
         <BoardMoment event={event} />
         {BOARD.map((hex) => {
           const stack = board[key(hex)] ?? []

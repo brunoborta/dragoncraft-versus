@@ -9,6 +9,7 @@ import { ANIMATIONS_OFF, useReducedMotion } from '../motion.js'
 import { DEFAULT_TABLE_OPTIONS } from '../game/settings.js'
 import type { GameOptions, TableOptions } from '../game/settings.js'
 import { usePresentation } from '../game/usePresentation.js'
+import { HOLD } from '../game/presentation.js'
 import { Ambience } from './Ambience.js'
 import { Bag, BagDialog } from './Bag.js'
 import { Board } from './Board.js'
@@ -19,8 +20,9 @@ import { GameOver } from './GameOver.js'
 import { Hand } from './Hand.js'
 import type { Highlight } from './HexCell.js'
 import { LogDialog } from './LogDialog.js'
-import { CoinMoment, DrawMoment, ScoreMoment } from './Moments.js'
-import { UndoIcon } from './icons.js'
+import { CoinMoment, DrawFlight, PlaceFlight, ScoreMoment, landingDelay } from './Moments.js'
+import { FireChoice } from './FireChoice.js'
+import { HeldSlot } from './HeldToken.js'
 import { PlayerBar } from './PlayerBar.js'
 import { OpponentThinking, Prompt } from './Prompt.js'
 import { HelpDialog } from './HelpDialog.js'
@@ -138,7 +140,7 @@ export function GameScreen({
 
   /*
    * The token the open decision is about glows (M4, M5): gold with sparks while
-   * "Fire up this dragon?" is open, embers while its ability is resolving. The
+   * "Fire up this token?" is open, embers while its ability is resolving. The
    * potion's pending names no space, so it gets none.
    */
   const glows: Record<string, 'gold' | 'ember'> = {}
@@ -154,11 +156,12 @@ export function GameScreen({
   const event = presentation.event
   useEffect(() => {
     if (reduced || event?.kind !== 'place') return
+    // as the token hits: after its flight from the slot, when it is the opponent's
     boardArea.current?.animate(
       [{ transform: 'translateY(0)' }, { transform: 'translateY(2px)' }, { transform: 'translateY(-1px)' }, { transform: 'translateY(0)' }],
-      { duration: 220, delay: 160, easing: 'ease-out' },
+      { duration: 220, delay: landingDelay(event.seat === view.seat) - 60, easing: 'ease-out' },
     )
-  }, [event, reduced])
+  }, [event, reduced, view.seat])
 
   /*
    * M10: a plate's reputation stays behind the real figure while a scored card
@@ -174,6 +177,22 @@ export function GameScreen({
   // the spec's preview: the held token, hovering over the space it would land on
   const preview =
     selected && pending?.kind === 'place' ? { hex: selected, token: pending.token } : undefined
+
+  /*
+   * The token each side holds, as the screen shows it: yours in the tray under
+   * the board, the opponent's in the slot under their portrait. It reaches its
+   * home at the end of the draw's flight, so while that flight is on it waits.
+   */
+  const held = presentation.held
+  const yourHeld = held?.seat === view.seat ? held.token : null
+  const theirHeld = held?.seat === opponentSeat ? held.token : null
+  const drawingFor = event?.kind === 'draw' && !event.crystal ? event.seat : null
+  const arrivingIn = (seat: number) =>
+    drawingFor === seat && !reduced ? (seat === view.seat ? HOLD.draw : HOLD.drawTheirs) : 0
+
+  // "Fire up this token?" is asked on the board, around the token that just landed
+  const firing = myTurn && !peeking && pending?.kind === 'mayFireUp' ? pending : null
+  const firedToken = firing ? view.board[key(firing.at)]?.at(-1) : undefined
 
   /*
    * The card-glow option (plan 1.1, Konzepttafel): with a token hovering over
@@ -265,16 +284,10 @@ export function GameScreen({
         </section>
       )
     }
-    const undoButton = (
-      <button type="button" className="btn-undo" onClick={undo} disabled={!table.canUndo}>
-        <UndoIcon />
-        Undo
-      </button>
-    )
     if (!myTurn) {
       // the real turn may be yours already; this says what the screen is showing
       const mode = theirsLanding ? 'playing' : catchingUp && view.current === view.seat ? 'drawing' : 'thinking'
-      return <OpponentThinking mode={mode} aside={undoButton} />
+      return <OpponentThinking mode={mode} />
     }
     if (peeking) {
       // the board is being looked at; the only way on is back to the choice
@@ -289,7 +302,7 @@ export function GameScreen({
         </section>
       )
     }
-    return <Prompt view={view} actions={barActions} selected={selected} onAct={handleAct} aside={undoButton} />
+    return <Prompt view={view} actions={barActions} selected={selected} onAct={handleAct} />
   }
 
   const spendCoin = actions.find((action) => action.type === 'spendCoin')
@@ -333,8 +346,14 @@ export function GameScreen({
           glows={glows}
           highlights={highlights}
           preview={preview}
+          viewer={view.seat}
           onSelectHex={myTurn ? selectHex : () => {}}
         />
+        {/* under their portrait, in the corner the hexagon leaves empty */}
+        <HeldSlot side="opponent" token={theirHeld} arriving={arrivingIn(opponentSeat)} />
+        {firing && firedToken ? (
+          <FireChoice key={key(firing.at)} at={firing.at} token={firedToken} actions={actions} onAct={handleAct} area={boardArea} />
+        ) : null}
         <CoinPurse
           coins={view.you.coins}
           canSpend={spendCoin !== undefined && !discarding}
@@ -342,8 +361,7 @@ export function GameScreen({
             if (spendCoin) handleAct(spendCoin)
           }}
         />
-        <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={event?.kind === 'draw' && !event.crystal} />
-        {event?.kind === 'draw' && !event.crystal ? <DrawMoment key={event.seq} event={event} seat={view.seat} /> : null}
+        <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={drawingFor !== null} />
       </div>
       <footer className="bottom">
         {inspecting ? (
@@ -354,11 +372,20 @@ export function GameScreen({
           />
         ) : null}
         {extras}
-        {decision()}
+        {/* your token's home, right under the board */}
+        <HeldSlot side="you" token={yourHeld} arriving={arrivingIn(view.seat)} away={preview !== undefined} />
         <Hand view={view} actions={actions} onAct={handleAct} completing={completing} />
+        {decision()}
         <PlayerBar
           showReputation={options.showReputation}
-          reputationShown={bankedReputation(view.you) - unlanded(view.seat)} view={view} actions={actions} myTurn={myTurn && !ended} onAct={handleAct} />
+          reputationShown={bankedReputation(view.you) - unlanded(view.seat)}
+          view={view}
+          actions={actions}
+          myTurn={myTurn && !ended}
+          onAct={handleAct}
+          canUndo={table.canUndo}
+          onUndo={undo}
+        />
       </footer>
       {/* M11: your coin first spins away, then the two cards arrive */}
       {discarding && !peeking && !presentation.remaining.some((queued) => queued.kind === 'coin') ? (
@@ -378,6 +405,13 @@ export function GameScreen({
       {bagOpen ? <BagDialog bag={view.bag} onClose={() => setBagOpen(false)} /> : null}
       {discovering && !peeking && pending?.kind === 'crystalPick' ? (
         <CrystalDiscover tokens={pending.tokens} actions={actions} onAct={handleAct} onPeek={() => setPeeking(true)} />
+      ) : null}
+      {/* the flights between the bag, the hands and the board cross rows, so they are drawn over the whole screen */}
+      {event?.kind === 'draw' && !event.crystal ? (
+        <DrawFlight key={event.seq} event={event} seat={view.seat} within={screenRef.current} />
+      ) : null}
+      {event?.kind === 'place' && event.seat !== view.seat ? (
+        <PlaceFlight key={event.seq} event={event} within={screenRef.current} />
       ) : null}
       {event?.kind === 'score' ? <ScoreMoment key={event.seq} event={event} seat={view.seat} within={screenRef.current} /> : null}
       {event?.kind === 'coin' ? <CoinMoment key={event.seq} event={event} seat={view.seat} within={screenRef.current} /> : null}

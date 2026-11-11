@@ -4,8 +4,11 @@ import type { LogEntry } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
 import {
   EMPTY_MEMORY,
+  FLIGHT,
   HOLD,
+  THEIRS,
   eventDuration,
+  heldFromView,
   idsOf,
   markCrystalDraws,
   memoryFromView,
@@ -191,9 +194,17 @@ describe('eventDuration', () => {
   })
 
   it("plays the opponent's moments a little quicker (M13)", () => {
-    for (const kind of ['place', 'move', 'swap', 'score', 'coin'] as const) {
+    for (const kind of ['move', 'swap', 'score', 'coin'] as const) {
       expect(eventDuration({ kind, seat: 1 }, 0, false)).toBeLessThan(eventDuration({ kind, seat: 0 }, 0, false))
     }
+  })
+
+  it("gives the opponent's placement its flight from their slot on top of the drop", () => {
+    const yours = eventDuration({ kind: 'place', seat: 0 }, 0, false)
+    const theirs = eventDuration({ kind: 'place', seat: 1 }, 0, false)
+    expect(theirs).toBe(FLIGHT + Math.round(HOLD.place * THEIRS))
+    expect(theirs).toBeGreaterThan(yours)
+    expect(eventDuration({ kind: 'place', seat: 1 }, 0, true)).toBe(HOLD.reduced)
   })
 })
 
@@ -290,5 +301,26 @@ describe('what the script tells the choreography', () => {
     )
     markCrystalDraws(events, 2)
     expect(events.map((e) => e.kind === 'draw' && e.crystal)).toEqual([false, true, true])
+  })
+})
+
+describe('the token in hand', () => {
+  it('is what the open placement names, and whose turn it is', () => {
+    const view = toPlayerView(createGame(3), 0)
+    const top = view.pending[view.pending.length - 1]
+    expect(top?.kind).toBe('place')
+    expect(heldFromView(view)).toEqual({ seat: view.current, token: top?.kind === 'place' ? top.token : null })
+    expect(heldFromView({ ...view, pending: [] })).toBeNull()
+  })
+
+  it('is carried by every event: drawn into the hand, out of it on the placement', () => {
+    const entries: LogEntry[] = [
+      { seat: 1, action: { type: 'draw', token: single('meat') } },
+      { seat: 1, action: { type: 'place', at: { q: 0, r: 0 } } },
+      { seat: 1, action: { type: 'endTurn' } },
+    ]
+    let n = 0
+    const { events } = script({}, entries, { held: null, draws: [], placedAt: null, plantAt: null }, () => `t${++n}`)
+    expect(events.map((event) => event.held)).toEqual([single('meat'), null, null])
   })
 })

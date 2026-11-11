@@ -21,8 +21,12 @@ export type PresentedBoard = Record<string, PresentedToken[]>
  * it, so playing the queue is just walking these snapshots, and an animation
  * knows both ends of its movement.
  */
-/** `seq` is the entry's position in the log: the one stable identity an event has. */
-export type PresentationEvent = { seat: Seat; entry: LogEntry; seq: number; board: PresentedBoard } & (
+/**
+ * `seq` is the entry's position in the log: the one stable identity an event has.
+ * `held` is the token the acting seat holds once the event is done — what its
+ * tray or slot shows from then on; absent where the script did not say.
+ */
+export type PresentationEvent = { seat: Seat; entry: LogEntry; seq: number; board: PresentedBoard; held?: Token | null } & (
   /** `crystal`: one of the three a crystal drew — shown by the Discover, not by the bag. */
   | { kind: 'draw'; token: Token; crystal: boolean }
   | { kind: 'place'; at: Hex; id: string; token: Token }
@@ -265,6 +269,8 @@ export function script(
       default:
         events.push({ ...base, kind: 'other', board })
     }
+    // every entry pushes exactly one event: tell it what is in hand now
+    events[events.length - 1].held = held
   }
 
   return { events, board, memory: { held, draws, placedAt, plantAt } }
@@ -286,6 +292,25 @@ export function markCrystalDraws(events: PresentationEvent[], count: number): vo
     }
   }
 }
+
+/**
+ * The token in someone's hand: in your tray under the board, or in the
+ * opponent's slot under their portrait. What the view says, before any event
+ * has played or after the screen snaps to it.
+ */
+export type Held = { seat: Seat; token: Token }
+
+export function heldFromView(view: Pick<PlayerView, 'pending' | 'current'>): Held | null {
+  const top = view.pending[view.pending.length - 1]
+  return top?.kind === 'place' ? { seat: view.current, token: top.token } : null
+}
+
+/**
+ * How long the opponent's token takes to fly from their slot to the space it
+ * lands on, before it drops. Yours needs no flight: it is already hovering over
+ * the space from your first tap.
+ */
+export const FLIGHT = 480
 
 /** The slots of the choreography, in milliseconds: how long each moment holds the screen. */
 export const HOLD = {
@@ -322,7 +347,8 @@ export function eventDuration(
       if (event.crystal) return 0
       return reduced ? HOLD.reduced * 2 : mine ? HOLD.draw : HOLD.drawTheirs
     case 'place':
-      return reduced ? HOLD.reduced : theirs(HOLD.place)
+      // theirs flies in from the slot first, then lands like yours, a little quicker
+      return reduced ? HOLD.reduced : mine ? HOLD.place : FLIGHT + theirs(HOLD.place)
     case 'move':
       return reduced ? HOLD.reduced : theirs(HOLD.move)
     case 'swap':

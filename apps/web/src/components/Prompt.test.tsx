@@ -18,64 +18,25 @@ function staged(pending: Pending, hand: ShopCard[] = base.you.hand): PlayerView 
 }
 
 describe('Prompt', () => {
-  it('leaves End turn and Spend a coin to their own fixed controls', () => {
+  it('leaves End turn, Spend a coin and the fire-up to their own places', () => {
     const view = staged({ kind: 'mayFireUp', at: { q: 0, r: 0 } })
-    const actions: Action[] = [{ type: 'skipFireUp' }, { type: 'spendCoin' }, { type: 'endTurn' }]
+    const actions: Action[] = [
+      { type: 'fireUp', ability: 'meat' },
+      { type: 'skipFireUp' },
+      { type: 'spendCoin' },
+      { type: 'endTurn' },
+    ]
     const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
-    const labels = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.textContent)
-    expect(labels).toEqual(['Do not fire up'])
+    expect(container.querySelectorAll('button')).toHaveLength(0)
+    expect(container.querySelector('.prompt-text')?.textContent).toBe('Fire up this token?')
   })
 
-  it('makes firing up burn and every other answer parchment', () => {
-    const view = staged({ kind: 'mayFireUp', at: { q: 0, r: 0 } })
-    const actions: Action[] = [{ type: 'fireUp', ability: 'meat' }, { type: 'skipFireUp' }]
-    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
-    const classes = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.className)
-    expect(classes).toEqual(['btn-fire', 'btn-secondary'])
-  })
-
-  it('puts whatever it is given beside the question: the Undo button', () => {
-    const view = staged({ kind: 'place', token: single('meat'), fireUpAllowed: true })
-    render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} aside={<button type="button">Undo</button>} />)
-    expect(screen.getByText('Undo').closest('.prompt-head')).not.toBeNull()
-  })
-
-  it('names the token being placed, glyph and word both', () => {
-    const view = staged({ kind: 'place', token: single('meat'), fireUpAllowed: true })
-    const { container } = render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} />)
-    const text = container.querySelector('.prompt-text')
-    expect(text?.textContent).toContain('Choose where to place the token')
-    expect(text?.textContent).toContain('Meat')
-    expect(text?.querySelectorAll('.token-chip svg')).toHaveLength(1)
-  })
-
-  it('says what the token being placed would do if fired up', () => {
-    const view = staged({ kind: 'place', token: single('crystal'), fireUpAllowed: true })
-    const { container } = render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} />)
-    expect(container.querySelector('.prompt-text')?.textContent).toContain(
-      'Draw 3, keep 1, place it without firing up',
-    )
-  })
-
-  it('says what each of a dual token two abilities would do, naming both', () => {
+  it('is one line while placing: the question, without the token or what it does', () => {
     const view = staged({ kind: 'place', token: dual('meat', 'plant'), fireUpAllowed: true })
     const { container } = render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} />)
-    const effects = [...container.querySelectorAll('.prompt-effect')].map((el) => el.textContent)
-    expect(effects).toEqual([
-      'Meat: Move one neighbour anywhere',
-      "Plant: Use a neighbour's ability",
-    ])
-  })
-
-  it('says what a fire-up button would do, under its name', () => {
-    const view = staged({ kind: 'mayFireUp', at: { q: 0, r: 0 } })
-    const actions: Action[] = [{ type: 'fireUp', ability: 'iron' }, { type: 'skipFireUp' }]
-    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
-    const first = container.querySelector('.prompt-actions button')
-    expect(first?.querySelector('.action-name')?.textContent).toBe('Fire up Iron')
-    expect(first?.querySelector('.action-effect')?.textContent).toBe(
-      'Move up to two neighbours one space each',
-    )
+    expect(container.querySelector('.prompt-text')?.textContent).toBe('Choose where to place the token')
+    expect(container.querySelector('.token-chip')).toBeNull()
+    expect(container.textContent).not.toContain('Move one neighbour anywhere')
   })
 
   it('names no hex coordinate on a plant target button', () => {

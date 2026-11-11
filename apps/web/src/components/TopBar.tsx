@@ -1,17 +1,8 @@
 import { bankedReputation } from '@dcv/engine'
 import type { PlayerView } from '@dcv/engine'
-import { describeLogEntry } from '../game/log.js'
 import { useCountUp } from '../game/useCountUp.js'
 import { Avatar } from './Avatar.js'
 import { CardIcon, CoinIcon, GearIcon, HelpIcon, LogIcon, StarIcon } from './icons.js'
-
-/**
- * One line, at a fixed height. The top bar is an `auto` row in the app grid,
- * so a log that grows shrinks the board and moves every hex centre — the same
- * reflow that once turned the two-tap confirm into a mis-tap. Anything longer
- * belongs in the dialog behind the log button.
- */
-const LOG_LINES = 1
 
 /** Whose move it is, said out loud: the pending stack is shared. */
 function turnLine(view: PlayerView): string {
@@ -48,10 +39,14 @@ export function Stat({
 }
 
 /**
- * Everything above the board: the opponent's plate, with the log and settings
- * buttons beside it, and the latest move under it. No title — the game's name
- * belongs to the screens before the game. Nothing in here changes height
- * during a game.
+ * Everything above the board: the opponent's plate, with the log, help and
+ * settings buttons beside it. No title — the game's name belongs to the
+ * screens before the game. Nothing in here changes height during a game.
+ *
+ * No line of the latest move under it any more: "Opponent: Drew Meat" in a
+ * corner was text nobody read. What they drew now sits in their slot under the
+ * portrait, and flies from there to the board; a screen reader hears each move
+ * from the presentation's announcement; the whole log is behind its button.
  *
  * The turn is not a line of text any more: the turn banner is an overlay, and
  * between banners the turn is told by the End turn button, the glow on your
@@ -84,7 +79,6 @@ export function TopBar({
   /** The seed against the machine, the room code online: what names this game. */
   detail?: string
 }) {
-  const recent = view.log.slice(-LOG_LINES).reverse()
   const theirTurn = view.phase !== 'ended' && view.current !== view.seat
 
   return (
@@ -136,11 +130,6 @@ export function TopBar({
           ) : null}
         </div>
       </div>
-      <ol className="log" aria-label="Recent moves">
-        {recent.map((entry, index) => (
-          <li key={view.log.length - index}>{describeLogEntry(entry, view.seat)}</li>
-        ))}
-      </ol>
     </header>
   )
 }

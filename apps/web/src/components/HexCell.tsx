@@ -3,6 +3,7 @@ import type { Hex, Token } from '@dcv/engine'
 import { useState } from 'react'
 import type { Arrival } from './Moments.js'
 import { HEX_SIZE, hexCenter, hexPoints } from '../geometry.js'
+import { FLIGHT } from '../game/presentation.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
 export type Highlight = 'legal' | 'selected'
@@ -79,7 +80,10 @@ export function HexCell({
  * the event that said so ends before the animation needs to, and the
  * animation must not change under it.
  *
- * - `drop`: placed from the hand, falls in and squashes (M4), with a ring of dust.
+ * - `drop`: placed from the hand, falls in and squashes (M4); the board's
+ *   landing moment draws the dust.
+ * - `fly`: the opponent's, the same drop once its flight from their slot is
+ *   over (`FLIGHT`).
  * - `slide`/`swap`: moved or swapped; hidden while its traveller crosses the
  *   board, then shown where it landed (M7, M8).
  * - none: a crossfade (anything the queue did not stage, and reduced motion).
@@ -97,8 +101,12 @@ function ArrivingToken({
 }) {
   const [how] = useState(arrival ?? 'fade')
   return (
-    <g className="token-arrive" data-arrival={how} transform={`translate(${x} ${y})`}>
-      {how === 'drop' ? <circle className="dust-ring" r={TOKEN_RADIUS} /> : null}
+    <g
+      className="token-arrive"
+      data-arrival={how}
+      transform={`translate(${x} ${y})`}
+      style={how === 'fly' ? ({ '--fly-ms': `${FLIGHT}ms` } as React.CSSProperties) : undefined}
+    >
       <g className="token-arrive-body">{children}</g>
     </g>
   )

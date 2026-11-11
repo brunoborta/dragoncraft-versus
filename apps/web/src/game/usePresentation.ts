@@ -4,6 +4,7 @@ import { ANIMATIONS_OFF, useReducedMotion } from '../motion.js'
 import { describeLogEntry } from './log.js'
 import {
   eventDuration,
+  heldFromView,
   idsOf,
   markCrystalDraws,
   memoryFromView,
@@ -13,7 +14,7 @@ import {
   script,
   toBoard,
 } from './presentation.js'
-import type { PresentationEvent, PresentedBoard, ScriptMemory } from './presentation.js'
+import type { Held, PresentationEvent, PresentedBoard, ScriptMemory } from './presentation.js'
 
 export type Presentation = {
   /** The board to draw: the real one, or a step behind it while the queue plays. */
@@ -30,10 +31,17 @@ export type Presentation = {
   skip: () => void
   /** The latest of the opponent's moves, worded for a screen reader. */
   announcement: string
+  /**
+   * The token in hand as the screen shows it, and whose: it reaches the tray
+   * or slot with the draw that brought it and leaves with the placement — a
+   * step behind the view, like the board.
+   */
+  held: Held | null
 }
 
 type State = {
   shown: PresentedBoard
+  held: Held | null
   queue: PresentationEvent[]
   event: PresentationEvent | null
   announcement: string
@@ -71,8 +79,13 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
     consumed.current = { log: view.log, board: presentBoard(view.board, nextId), memory: memoryFromView(view) }
   }
 
+  // skip snaps the hand to the view as well, and runs outside the effect that sees it
+  const latest = useRef(view)
+  latest.current = view
+
   const [state, setState] = useState<State>(() => ({
     shown: consumed.current!.board,
+    held: heldFromView(view),
     queue: [],
     event: null,
     announcement: '',
@@ -85,7 +98,7 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
     const snap = () => {
       const board = presentBoard(view.board, nextId)
       consumed.current = { log: view.log, board, memory: memoryFromView(view) }
-      setState({ shown: board, queue: [], event: null, announcement: '' })
+      setState({ shown: board, held: heldFromView(view), queue: [], event: null, announcement: '' })
     }
 
     if (added === null) return snap()
@@ -110,7 +123,13 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
 
     setState((current) => {
       if (ANIMATIONS_OFF) {
-        return { shown: played.board, queue: [], event: null, announcement: announcement || current.announcement }
+        return {
+          shown: played.board,
+          held: heldFromView(view),
+          queue: [],
+          event: null,
+          announcement: announcement || current.announcement,
+        }
       }
       return { ...current, queue: [...current.queue, ...played.events], announcement: announcement || current.announcement }
     })
@@ -127,7 +146,11 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
       if (!next || gate.current?.(next)) return
       setState((current) => {
         const [first, ...rest] = current.queue
-        return first ? { ...current, shown: first.board, event: first, queue: rest } : current
+        if (!first) return current
+        // a crystal's draws belong to its Discover: the hand does not change until the pick
+        const changesHand = first.held !== undefined && !(first.kind === 'draw' && first.crystal)
+        const held = changesHand ? (first.held ? { seat: first.seat, token: first.held } : null) : current.held
+        return { ...current, shown: first.board, held, event: first, queue: rest }
       })
       return
     }
@@ -141,7 +164,7 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
   const skip = useCallback(() => {
     setState((current) => {
       if (current.queue.length === 0 && !current.event) return current
-      return { ...current, shown: consumed.current!.board, queue: [], event: null }
+      return { ...current, shown: consumed.current!.board, held: heldFromView(latest.current), queue: [], event: null }
     })
   }, [])
 
@@ -153,5 +176,6 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
     playing: state.queue.length > 0 || state.event !== null,
     skip,
     announcement: state.announcement,
+    held: state.held,
   }
 }

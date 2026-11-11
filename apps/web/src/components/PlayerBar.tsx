@@ -1,7 +1,7 @@
 import { bankedReputation } from '@dcv/engine'
 import type { Action, PlayerView } from '@dcv/engine'
 import { Avatar } from './Avatar.js'
-import { CardIcon, ChevronsIcon, CoinIcon, LockIcon, StarIcon } from './icons.js'
+import { CardIcon, ChevronsIcon, CoinIcon, LockIcon, StarIcon, UndoIcon } from './icons.js'
 import { Stat } from './TopBar.js'
 
 /**
@@ -32,8 +32,10 @@ export function endTurnState(myTurn: boolean, actions: readonly Action[]): EndTu
 
 /**
  * Your side of the table, at the bottom and quieter than the opponent's plate
- * (plan 3.3): portrait, cards, coins, reputation — and the End turn button,
- * which is always on screen, in the place a thumb finds without looking.
+ * (plan 3.3): portrait, cards, coins, reputation — then Undo and the End turn
+ * button, both always on screen, in the place a thumb finds without looking.
+ * Undo used to ride in the decision panel, whose content changes with every
+ * decision; here it never moves.
  */
 export function PlayerBar({
   view,
@@ -42,6 +44,8 @@ export function PlayerBar({
   onAct,
   showReputation = true,
   reputationShown,
+  canUndo = false,
+  onUndo,
 }: {
   view: PlayerView
   actions: readonly Action[]
@@ -51,6 +55,9 @@ export function PlayerBar({
   showReputation?: boolean
   /** Your reputation as the screen should show it: behind the real one while your scored card flies (M10). */
   reputationShown?: number
+  /** One action back, within your own turn and never across a draw. */
+  canUndo?: boolean
+  onUndo?: () => void
 }) {
   const state = endTurnState(myTurn, actions)
   const endTurn = actions.find((action) => action.type === 'endTurn')
@@ -60,7 +67,8 @@ export function PlayerBar({
     <section className="player-bar" aria-label="You">
       <div className="plate" data-side="you">
         <Avatar side="you" active={myTurn} />
-        <span className="plate-name">You</span>
+        {/* your portrait, at the bottom, is you: the word gives its room to Undo */}
+        <span className="plate-name sr-only">You</span>
         <span className="plate-stats">
           <Stat icon={<CardIcon />} value={view.you.hand.length} phrase={`${view.you.hand.length} cards`} />
           <Stat icon={<CoinIcon />} value={view.you.coins} phrase={`${view.you.coins} coins`} />
@@ -69,6 +77,11 @@ export function PlayerBar({
           ) : null}
         </span>
       </div>
+      {onUndo ? (
+        <button type="button" className="icon-button undo-button" onClick={onUndo} disabled={!canUndo} aria-label="Undo">
+          <UndoIcon />
+        </button>
+      ) : null}
       <button
         type="button"
         className="end-turn"
