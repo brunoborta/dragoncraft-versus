@@ -32,6 +32,12 @@ describe('findGame', () => {
     expect(winner(found?.state!)).toBe(1)
   })
 
+  it('finds a finished game that ended level', () => {
+    const found = findGame('draw', 0, 1)
+    expect(found).not.toBeNull()
+    expect(winner(found?.state!)).toBe('draw')
+  })
+
   it('replays to the same game from the seed it reports', () => {
     // the state handed over is one the game really produces, not a built one
     const found = findGame('win', 0, 1)

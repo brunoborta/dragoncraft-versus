@@ -136,6 +136,9 @@ function LocalApp({
       <button type="button" onClick={() => jumpTo('lose')}>
         Lose now
       </button>
+      <button type="button" onClick={() => jumpTo('draw')}>
+        Draw now
+      </button>
     </div>
   ) : null
 

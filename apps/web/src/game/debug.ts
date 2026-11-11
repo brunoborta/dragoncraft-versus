@@ -26,7 +26,7 @@ export function playOut(seed: number): GameState {
   return state
 }
 
-export type Outcome = 'win' | 'lose'
+export type Outcome = 'win' | 'lose' | 'draw'
 
 const MAX_SEEDS = 200
 
@@ -36,7 +36,10 @@ const MAX_SEEDS = 200
  * screen the game cannot produce, which proves nothing about the ending —
  * and the ending is the thing being looked at.
  *
- * Roughly half of games go each way, so this lands in a couple of tries.
+ * Roughly half of games go each way, so a win or a loss lands in a couple of
+ * tries. A shared victory needs the same final score and the same number of
+ * cards scored on both sides: about one game in twenty, so it takes a few
+ * dozen — still well inside the cap, and fast, since a play-out is milliseconds.
  */
 export function findGame(
   outcome: Outcome,
@@ -49,7 +52,8 @@ export function findGame(
     if (state.phase !== 'ended') continue
 
     const result = winner(state)
-    const matches = outcome === 'win' ? result === seat : result !== seat && result !== 'draw'
+    const matches =
+      outcome === 'win' ? result === seat : outcome === 'draw' ? result === 'draw' : result !== seat && result !== 'draw'
     if (matches) return { seed, state }
   }
 

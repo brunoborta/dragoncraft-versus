@@ -1,16 +1,49 @@
 import { finalScore, winnerOfView } from '@dcv/engine'
 import type { PlayerView } from '@dcv/engine'
 import { motion } from 'motion/react'
+import { useArt } from '../art/ArtContext.js'
+import type { GameResult as Result } from '../art/ArtContext.js'
 import { useCountUp } from '../game/useCountUp.js'
 import { useReducedMotion } from '../motion.js'
 import { Avatar } from './Avatar.js'
 
-type Result = 'win' | 'lose' | 'draw'
-
 const HEADLINE: Record<Result, string> = { win: 'You win', lose: 'You lose', draw: 'Shared victory' }
 
-/** A laurel crest: gold for a win or a shared victory, wine for a loss. */
+const STAR = 'M0 -26 l6.5 13.2 14.5 2.1-10.5 10.2 2.5 14.5L0 7.2l-13 6.8 2.5-14.5L-21 -10.7l14.5-2.1z'
+
+/**
+ * The emblem in the laurels, its own for each result so it reads before the
+ * headline: a gold star for a win, the star split gold and silver for a draw,
+ * a dull cracked star for a loss.
+ */
+function Emblem({ result }: { result: Result }) {
+  if (result === 'draw') {
+    return (
+      <g className="crest-emblem">
+        <clipPath id="crest-left">
+          <rect x="-30" y="-30" width="30" height="50" />
+        </clipPath>
+        <path className="crest-star" d={STAR} />
+        <path className="crest-star crest-star-silver" d={STAR} clipPath="url(#crest-left)" />
+        <line className="crest-split" x1="0" y1="-26" x2="0" y2="7.2" />
+      </g>
+    )
+  }
+  return (
+    <g className="crest-emblem">
+      <path className="crest-star" d={STAR} />
+      {result === 'lose' ? <path className="crest-crack" d="M1 -20 L-3 -10 L3 -4 L-2 6" /> : null}
+    </g>
+  )
+}
+
+/**
+ * A laurel crest: green for a win or a draw, wine for a loss. Painted art for
+ * the result replaces it when it exists.
+ */
 function Crest({ result }: { result: Result }) {
+  const art = useArt().crest[result]
+  if (art) return <img className="crest crest-art" data-result={result} src={art} alt="" aria-hidden="true" draggable={false} />
   const leaf = 'M0 0 C 6 -5.5 14 -5.5 17 0 C 14 5.5 6 5.5 0 0 Z'
   const leaves = Array.from({ length: 6 }, (_, i) => i)
   return (
@@ -31,10 +64,7 @@ function Crest({ result }: { result: Result }) {
           })}
         </g>
       ))}
-      <path
-        className="crest-star"
-        d="M0 -26 l6.5 13.2 14.5 2.1-10.5 10.2 2.5 14.5L0 7.2l-13 6.8 2.5-14.5L-21 -10.7l14.5-2.1z"
-      />
+      <Emblem result={result} />
     </svg>
   )
 }
@@ -93,7 +123,7 @@ export function GameOver({
           <FinalTotal value={finalScore(view.you)} delay={700} />
         </div>
         <div className="final-score" data-side="opponent">
-          <Avatar side="opponent" active={result === 'lose'} />
+          <Avatar side="opponent" active={result !== 'win'} />
           <dt>{opponentLabel}</dt>
           <FinalTotal value={finalScore(view.opponent)} delay={700} />
         </div>

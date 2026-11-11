@@ -2,6 +2,8 @@ import { createInitialState, DECK, toPlayerView } from '@dcv/engine'
 import type { PlayerView } from '@dcv/engine'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { ArtProvider } from '../art/ArtContext.js'
+import { CHOSEN_ART } from '../art/chosen.js'
 import { GameOver } from './GameOver.js'
 
 const card = (id: string) => {
@@ -35,9 +37,39 @@ describe('GameOver', () => {
     expect(screen.getByText('You lose')).toBeDefined()
   })
 
-  it('announces a shared victory', () => {
-    render(<GameOver opponentLabel="Machine" restartLabel="New game" view={finished(['tri-bread'], ['tri-plant'])} onRestart={() => {}} />)
+  it('announces a shared victory, under a crest of its own', () => {
+    const { container } = render(
+      <GameOver opponentLabel="Machine" restartLabel="New game" view={finished(['tri-bread'], ['tri-plant'])} onRestart={() => {}} />,
+    )
     expect(screen.getByText('Shared victory')).toBeDefined()
+    expect(container.querySelector('.crest')?.getAttribute('data-result')).toBe('draw')
+  })
+
+  it('shows the painted crest for the result', () => {
+    const { container } = render(
+      <GameOver opponentLabel="Machine" restartLabel="New game" view={finished([], ['tri-bread'])} onRestart={() => {}} />,
+    )
+    expect(container.querySelector('img.crest')?.getAttribute('src')).toBe(CHOSEN_ART.crest.lose)
+  })
+
+  /** The art is optional: without it the crest is drawn, and each result still has its own emblem. */
+  it('draws a crest, with its own emblem, when the art is missing', () => {
+    const art = { ...CHOSEN_ART, crest: { win: null, lose: null, draw: null } }
+    const draw = render(
+      <ArtProvider art={art}>
+        <GameOver opponentLabel="Machine" restartLabel="New game" view={finished(['tri-bread'], ['tri-plant'])} onRestart={() => {}} />
+      </ArtProvider>,
+    )
+    expect(draw.container.querySelector('.crest-star-silver')).not.toBeNull()
+    expect(draw.container.querySelector('.crest-crack')).toBeNull()
+
+    const lost = render(
+      <ArtProvider art={art}>
+        <GameOver opponentLabel="Machine" restartLabel="New game" view={finished([], ['tri-bread'])} onRestart={() => {}} />
+      </ArtProvider>,
+    )
+    expect(lost.container.querySelector('.crest-crack')).not.toBeNull()
+    expect(lost.container.querySelector('.crest-star-silver')).toBeNull()
   })
 
   it('offers a new game', () => {
