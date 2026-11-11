@@ -37,8 +37,7 @@ export function Bag({
   const art = useArt()
   const inside = (
     <>
-      {/* the open bag while a token comes out, once that art exists */}
-      <img className="bag-art" src={drawing && art.bagOpen ? art.bagOpen : art.bag} alt="" draggable={false} />
+      <img className="bag-art" src={art.bag} alt="" draggable={false} />
       <span className="bag-count" aria-hidden="true">
         Bag {bag.length}
       </span>

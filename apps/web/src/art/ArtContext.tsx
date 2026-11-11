@@ -2,19 +2,23 @@ import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 import { CHOSEN_ART } from './chosen.js'
 
+export type GameResult = 'win' | 'lose' | 'draw'
+
 /** Everything raster the game draws, as URLs. */
 export type ArtSet = {
   bg: string
   /** The same painting, small and blurred, behind dialogs. */
   bgOverlay: string
   bag: string
-  /** The bag with its mouth open, shown while a token comes out. Null until the art exists. */
-  bagOpen: string | null
+  /** The emblem over the end screen, one per result. Null until that art exists: then a drawn one. */
+  crest: Record<GameResult, string | null>
   avatarYou: string
   avatarOpponent: string
   stone: string
   parchment: string
   coin: string
+  /** Gold dust kicked up where a token lands. */
+  puff: string
 }
 
 const ArtContext = createContext<ArtSet>(CHOSEN_ART)

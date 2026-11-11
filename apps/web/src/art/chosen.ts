@@ -9,6 +9,7 @@ import bag from '../assets/art/bag.webp'
 import bg from '../assets/art/bg-game.webp'
 import bgOverlay from '../assets/art/bg-overlay.webp'
 import coin from '../assets/art/coin.webp'
+import puff from '../assets/art/dust-puff.webp'
 import parchment from '../assets/art/tex-parchment.webp'
 import stone from '../assets/art/tex-stone.webp'
 import type { ArtSet } from './ArtContext.js'
@@ -17,16 +18,22 @@ import type { ArtSet } from './ArtContext.js'
  * Art that may not exist yet. A glob matches nothing rather than failing the
  * build, so the game runs without it and picks it up once it is processed.
  */
-const optional = import.meta.glob('../assets/art/bag-open.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
+const optional = import.meta.glob('../assets/art/crest-*.webp', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+const maybe = (name: string) => optional[`../assets/art/${name}.webp`] ?? null
 
 export const CHOSEN_ART: ArtSet = {
   bg,
   bgOverlay,
   bag,
-  bagOpen: optional['../assets/art/bag-open.webp'] ?? null,
+  crest: { win: maybe('crest-win'), lose: maybe('crest-lose'), draw: maybe('crest-draw') },
   avatarYou,
   avatarOpponent,
   stone,
   parchment,
   coin,
+  puff,
 }

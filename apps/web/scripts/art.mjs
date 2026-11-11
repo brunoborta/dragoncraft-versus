@@ -40,8 +40,17 @@ function fromRaw({ data, width, height }) {
  * the corner colour, or a light neutral grey (a shadow on grey is still grey;
  * the subjects here are all saturated: velvet, gold). The edge is eroded by a
  * pixel, so no light halo is left around a dark subject, then softened.
+ *
+ * `holes`, when set, also clears background the flood cannot reach — the grey
+ * seen through a loop of rope — wherever a patch of it is at least that many
+ * pixels, so a small highlight on the subject is left alone.
+ *
+ * `glow`, when set, lets light that fades into the background fade out with it
+ * instead of ending on the line where the flood stopped: a kept pixel is as
+ * opaque as its colour is far from the background's. Only for a subject that
+ * really does glow — on a hard-edged one it would eat the paler highlights.
  */
-function cutOut(img, { tolerance = 42, minLight = 120, maxChroma = 22 } = {}) {
+function cutOut(img, { tolerance = 42, minLight = 120, maxChroma = 22, holes = 0, glow = false } = {}) {
   const { data, width, height } = img
   const at = (x, y) => (y * width + x) * 4
   const corners = [
@@ -81,14 +90,81 @@ function cutOut(img, { tolerance = 42, minLight = 120, maxChroma = 22 } = {}) {
     seed(0, y)
     seed(width - 1, y)
   }
-  while (head < tail) {
-    const p = queue[head++]
-    const x = p % width
-    const y = (p - x) / width
-    if (x > 0) seed(x - 1, y)
-    if (x < width - 1) seed(x + 1, y)
-    if (y > 0) seed(x, y - 1)
-    if (y < height - 1) seed(x, y + 1)
+  const flood = () => {
+    while (head < tail) {
+      const p = queue[head++]
+      const x = p % width
+      const y = (p - x) / width
+      if (x > 0) seed(x - 1, y)
+      if (x < width - 1) seed(x + 1, y)
+      if (y > 0) seed(x, y - 1)
+      if (y < height - 1) seed(x, y + 1)
+    }
+  }
+  flood()
+  if (holes) {
+    /*
+     * Each enclosed patch is flooded on its own and cut only if it really is
+     * the background behind the subject: big enough to be a gap rather than a
+     * highlight, and no brighter than the background is. A white-hot core —
+     * the light at the heart of the star — has no colour either, but it is
+     * lighter than the grey, and it is paint.
+     */
+    const bgLight = (bg[0] + bg[1] + bg[2]) / 3
+    for (let p = 0; p < width * height; p++) {
+      if (background[p] || !looksLikeBackground(p * 4)) continue
+      const from = tail
+      seed(p % width, Math.floor(p / width))
+      flood()
+      let light = 0
+      for (let i = from; i < tail; i++) {
+        const j = queue[i] * 4
+        light += (data[j] + data[j + 1] + data[j + 2]) / 3
+      }
+      const brighter = light / (tail - from) > bgLight + 16
+      if (tail - from < holes || brighter) for (let i = from; i < tail; i++) background[queue[i]] = 2
+    }
+    for (let p = 0; p < width * height; p++) if (background[p] === 2) background[p] = 0
+  }
+
+  /**
+   * How far each pixel is from the background, in pixels, up to `reach`; -1
+   * beyond it. Only the band near the edge fades out in `glow` mode: deep
+   * inside the subject a white-hot highlight is paint, not light spilling onto
+   * the background, and must stay solid.
+   */
+  let nearEdge = null
+  if (glow) {
+    const reach = Math.round(Math.min(width, height) * 0.08)
+    nearEdge = new Int32Array(width * height).fill(-1)
+    const ring = new Int32Array(width * height)
+    let ringHead = 0
+    let ringTail = 0
+    for (let p = 0; p < width * height; p++) {
+      if (background[p]) {
+        nearEdge[p] = 0
+        ring[ringTail++] = p
+      }
+    }
+    while (ringHead < ringTail) {
+      const p = ring[ringHead++]
+      const step = nearEdge[p] + 1
+      if (step > reach) continue
+      const x = p % width
+      const y = (p - x) / width
+      const push = (xx, yy) => {
+        if (xx < 0 || yy < 0 || xx >= width || yy >= height) return
+        const n = yy * width + xx
+        if (nearEdge[n] < 0) {
+          nearEdge[n] = step
+          ring[ringTail++] = n
+        }
+      }
+      push(x - 1, y)
+      push(x + 1, y)
+      push(x, y - 1)
+      push(x, y + 1)
+    }
   }
 
   const keep = new Uint8Array(width * height)
@@ -113,7 +189,15 @@ function cutOut(img, { tolerance = 42, minLight = 120, maxChroma = 22 } = {}) {
           n++
         }
       }
-      result[at(x, y) + 3] = Math.round(sum / n)
+      let alpha = sum / n
+      if (glow && alpha > 0 && nearEdge[y * width + x] >= 0) {
+        const i = at(x, y)
+        const distance = Math.hypot(data[i] - bg[0], data[i + 1] - bg[1], data[i + 2] - bg[2])
+        // the same colour as the background is fully clear; twice the tolerance away is solid
+        const t = Math.min(1, Math.max(0, (distance - tolerance * 0.5) / (tolerance * 1.5)))
+        alpha = Math.min(alpha, 255 * t)
+      }
+      result[at(x, y) + 3] = Math.round(alpha)
     }
   }
   return { data: result, width, height }
@@ -174,12 +258,44 @@ const ASSETS = {
     report('bag')
   },
 
-  async bagOpen() {
-    // optional (plan 8.1, item 2): the same pouch, mouth open, for the draw
-    if (!existsSync(src('bag-open'))) return console.log('  (no designs/art/bag-open.png yet)')
-    const img = cutOut(await raw(src('bag-open')))
-    await fromRaw(img).trim({ threshold: 1 }).resize({ width: 256, height: 256, fit: 'inside' }).webp({ quality: 82, alphaQuality: 90 }).toFile(out('bag-open'))
-    report('bag-open')
+  async crests() {
+    // optional: the emblem over the end screen, one per result (prompts, round 3).
+    // Shown about 150px wide, so 300 is 2x.
+    for (const result of ['win', 'lose', 'draw']) {
+      const name = `crest-${result}`
+      if (!existsSync(src(name))) {
+        console.log(`  (no designs/art/${name}.png yet)`)
+        continue
+      }
+      const img = cutOut(await raw(src(name)), { holes: 400, glow: true })
+      await fromRaw(img).trim({ threshold: 1 }).resize({ width: 300, height: 300, fit: 'inside' }).webp({ quality: 84, alphaQuality: 90 }).toFile(out(name))
+      report(name)
+    }
+  },
+
+  async puff() {
+    // The dust a landing token kicks up. Painted as light on black, so the
+    // black becomes transparency: each pixel is as opaque as it is bright, and
+    // its colour is divided back out so the dust stays gold over pale stone
+    // instead of turning to grey. Shown about 110px wide; 320 is 2x and some.
+    const { data, width, height } = await raw(src('dust-puff'))
+    const out_ = Buffer.alloc(data.length)
+    for (let i = 0; i < data.length; i += 4) {
+      const a = Math.max(data[i], data[i + 1], data[i + 2])
+      // the faint haze of the black itself is noise, not dust
+      const alpha = Math.max(0, Math.min(255, Math.round(((a - 14) / (255 - 14)) * 255 * 1.25)))
+      const k = a > 0 ? 255 / a : 0
+      out_[i] = Math.min(255, Math.round(data[i] * k))
+      out_[i + 1] = Math.min(255, Math.round(data[i + 1] * k))
+      out_[i + 2] = Math.min(255, Math.round(data[i + 2] * k))
+      out_[i + 3] = alpha
+    }
+    await fromRaw({ data: out_, width, height })
+      .trim({ threshold: 1 })
+      .resize({ width: 320, fit: 'inside' })
+      .webp({ quality: 80, alphaQuality: 80 })
+      .toFile(out('dust-puff'))
+    report('dust-puff')
   },
 
   async coin() {
