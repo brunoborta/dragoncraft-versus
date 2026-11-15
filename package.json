@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @dcv/web",
+    "dev:online": "npm run dev -w @dcv/server & VITE_SERVER_URL=http://localhost:8080 npm run dev -w @dcv/web",
     "build": "npm run build -w @dcv/web",
     "test": "vitest run",
     "test:watch": "vitest",

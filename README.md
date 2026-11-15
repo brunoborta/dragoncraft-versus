@@ -145,9 +145,21 @@ same player and is handed the whole view again. A room nobody is connected
 to for half an hour is dropped.
 
 ```bash
+npm run dev:online                     # both: the server on :8080 and the site with the online option
+```
+
+or each on its own:
+
+```bash
 npm run dev -w @dcv/server             # ws://localhost:8080, any origin
 VITE_SERVER_URL=http://localhost:8080 npm run dev   # the site, with the online option
 ```
+
+A plain `npm run dev` leaves the online option out. To play from two phones,
+open the site at the computer's LAN address (the `Network:` line Vite
+prints); a `localhost` server is then looked for at that same address, since
+the phone's own localhost has nothing on it. Both phones need to be on the same
+Wi-Fi as the computer.
 
 The site is built without an online option unless `VITE_SERVER_URL` is set;
 the Pages workflow reads it from the repository variable `SERVER_URL`. The
