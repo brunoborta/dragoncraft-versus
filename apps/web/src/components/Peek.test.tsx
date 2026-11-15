@@ -1,11 +1,10 @@
-import { DECK, createGame, single, toPlayerView } from '@dcv/engine'
+import { createGame, single, toPlayerView } from '@dcv/engine'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_TABLE_OPTIONS } from '../game/settings.js'
 import { SettingsDialog } from './SettingsDialog.js'
 import { Bag } from './Bag.js'
 import { CrystalDiscover } from './CrystalDiscover.js'
-import { DiscardDialog } from './DiscardDialog.js'
 import { TopBar } from './TopBar.js'
 
 const view = toPlayerView(createGame(1), 0)
@@ -14,13 +13,6 @@ describe('the eye: looking at the board behind a choice', () => {
   it('is offered on the crystal choice, and puts it aside', () => {
     const onPeek = vi.fn()
     render(<CrystalDiscover tokens={[single('meat')]} actions={[{ type: 'crystalPick', index: 0 }]} onAct={() => {}} onPeek={onPeek} />)
-    fireEvent.click(screen.getByRole('button', { name: /Look at the board/ }))
-    expect(onPeek).toHaveBeenCalledOnce()
-  })
-
-  it('is offered on the coin choice too', () => {
-    const onPeek = vi.fn()
-    render(<DiscardDialog hand={DECK.slice(0, 4)} keeping={[]} onToggle={() => {}} onFinish={() => {}} onPeek={onPeek} />)
     fireEvent.click(screen.getByRole('button', { name: /Look at the board/ }))
     expect(onPeek).toHaveBeenCalledOnce()
   })

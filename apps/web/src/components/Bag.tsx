@@ -1,6 +1,7 @@
 import { tokenId } from '@dcv/engine'
 import type { Token } from '@dcv/engine'
 import { useArt } from '../art/ArtContext.js'
+import { CardIcon } from './icons.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
 /** How many of each token are left, in the bag's own canonical order. */
@@ -55,6 +56,20 @@ export function Bag({
     <button type="button" className="bag" data-drawing={drawing || undefined} onClick={onOpen} aria-label={label}>
       {inside}
     </button>
+  )
+}
+
+/**
+ * How many cards are left in the deck. Like the bag it is a race against the
+ * end: the game is over once either runs out, so the figure sits right above
+ * the bag. Only the count is public — never which cards.
+ */
+export function DeckCount({ count }: { count: number }) {
+  return (
+    <p className="deck-count" role="img" aria-label={`Deck, ${count} cards left`}>
+      <CardIcon />
+      <span aria-hidden="true">{count}</span>
+    </p>
   )
 }
 

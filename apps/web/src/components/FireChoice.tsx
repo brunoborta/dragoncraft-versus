@@ -1,4 +1,4 @@
-import { single } from '@dcv/engine'
+import { hexEq, single } from '@dcv/engine'
 import type { Action, DragonType, Hex, Token } from '@dcv/engine'
 import { useLayoutEffect, useState } from 'react'
 import type { RefObject } from 'react'
@@ -6,14 +6,17 @@ import { hexOnScreen } from '../geometry.js'
 import { describeAction } from '../game/labels.js'
 import { AbilityInfo, useLongPress } from './HeldToken.js'
 import { TOKEN_RADIUS } from './HexCell.js'
-import { FlameIcon } from './icons.js'
+import { CrossIcon, FlameIcon } from './icons.js'
 import { TokenGlyph } from './TokenGlyph.js'
 
-type FireUp = Extract<Action, { type: 'fireUp' }>
+/** A way to fire a token: its own fire-up, or a plant borrowing one of a neighbour's abilities. */
+type FireUp = Extract<Action, { type: 'fireUp' } | { type: 'plantTarget' }>
 
 /** Size of a fire button and the gap kept between it and the token, in px. */
 const BUTTON = 56
 const GAP = 10
+/** The round Skip under the token. */
+const SKIP = 44
 
 /**
  * One way to fire the token up: the ability's own token, crowned with flame.
@@ -56,7 +59,9 @@ function FireButton({
 
 /**
  * "Fire up this token?", asked on the board, around the token that just
- * landed (plan: the token has a home). A single token is an I: the fire above
+ * landed (plan: the token has a home) — and the same question over a plant's
+ * neighbour, once it is tapped: which of its abilities to borrow. A plant must
+ * borrow, so that one has no Skip; tapping the neighbour again lets it go. A single token is an I: the fire above
  * it, Skip below. A dual is a Y: one fire per half, up and out on the side of
  * the half it fires, Skip below — the halves' colours already say which is
  * which. On the top row there is no room above, so the shape turns over.
@@ -79,7 +84,10 @@ export function FireChoice({
   /** The board's row: the choice is drawn inside it, over the board. */
   area: RefObject<HTMLElement>
 }) {
-  const fires = actions.filter((action): action is FireUp => action.type === 'fireUp')
+  const fires = actions.filter(
+    (action): action is FireUp => action.type === 'fireUp' || (action.type === 'plantTarget' && hexEq(action.at, at)),
+  )
+  const kind = fires.some((action) => action.type === 'plantTarget') ? 'plant' : 'fireUp'
   const skip = actions.find((action) => action.type === 'skipFireUp')
 
   // the halves of a dual are left and right: each fire goes out on its own half's side
@@ -113,11 +121,12 @@ export function FireChoice({
     // and rise a little less than an I's stem, so they read as arms
     y: dual ? fireY - up * BUTTON * 0.12 : fireY,
   }))
-  const skipAt = { x: clampX(x), y: y - up * (r + GAP + 17) }
+  const skipAt = { x: clampX(x), y: y - up * (r + GAP + SKIP / 2) }
 
   return (
     <div
       className="fire-choice"
+      data-kind={kind}
       data-shape={dual ? 'Y' : 'I'}
       data-flipped={flipped || undefined}
       data-measured={where ? 'true' : undefined}
@@ -127,8 +136,8 @@ export function FireChoice({
       ))}
       {skip ? (
         <div className="fire-slot" style={{ left: skipAt.x, top: skipAt.y }}>
-          <button type="button" className="fire-skip" onClick={() => onAct(skip)}>
-            Skip
+          <button type="button" className="fire-skip" aria-label="Skip" title="Skip" onClick={() => onAct(skip)}>
+            <CrossIcon />
           </button>
         </div>
       ) : null}

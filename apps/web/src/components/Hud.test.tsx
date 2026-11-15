@@ -1,7 +1,7 @@
 import { dual, single } from '@dcv/engine'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { Bag, BagDialog, bagComposition } from './Bag.js'
+import { Bag, BagDialog, DeckCount, bagComposition } from './Bag.js'
 import { CoinPurse } from './CoinPurse.js'
 
 describe('CoinPurse', () => {
@@ -47,5 +47,13 @@ describe('Bag', () => {
     const dialog = screen.getByRole('dialog', { name: 'What is left in the bag' })
     const rows = [...dialog.querySelectorAll('.bag-list li')].map((li) => li.textContent)
     expect(rows).toEqual(['Bread× 2', 'Crystal× 1', 'Iron/Potion× 1'])
+  })
+})
+
+describe('DeckCount', () => {
+  it('says how many cards are left in the deck, and nothing of which', () => {
+    const { container } = render(<DeckCount count={17} />)
+    expect(screen.getByRole('img', { name: 'Deck, 17 cards left' })).toBeDefined()
+    expect(container.textContent).toBe('17')
   })
 })

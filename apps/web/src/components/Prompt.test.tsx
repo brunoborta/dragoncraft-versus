@@ -26,37 +26,36 @@ describe('Prompt', () => {
       { type: 'spendCoin' },
       { type: 'endTurn' },
     ]
-    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
+    const { container } = render(<Prompt view={view} actions={actions} onAct={() => {}} />)
     expect(container.querySelectorAll('button')).toHaveLength(0)
     expect(container.querySelector('.prompt-text')?.textContent).toBe('Fire up this token?')
   })
 
   it('is one line while placing: the question, without the token or what it does', () => {
     const view = staged({ kind: 'place', token: dual('meat', 'plant'), fireUpAllowed: true })
-    const { container } = render(<Prompt view={view} actions={[]} selected={null} onAct={() => {}} />)
+    const { container } = render(<Prompt view={view} actions={[]} onAct={() => {}} />)
     expect(container.querySelector('.prompt-text')?.textContent).toBe('Choose where to place the token')
     expect(container.querySelector('.token-chip')).toBeNull()
     expect(container.textContent).not.toContain('Move one neighbour anywhere')
   })
 
-  it('names no hex coordinate on a plant target button', () => {
+  it("leaves a plant's borrowing to the fires over the neighbour", () => {
     const at = { q: 1, r: 0 }
     const view = staged({ kind: 'plant', at: { q: 0, r: 0 }, activated: [{ q: 0, r: 0 }] })
     const actions: Action[] = [
       { type: 'plantTarget', at, ability: 'potion' },
       { type: 'plantTarget', at, ability: 'plant' },
     ]
-    const { container } = render(<Prompt view={view} actions={actions} selected={at} onAct={() => {}} />)
-    const labels = [...container.querySelectorAll('.prompt-actions .action-name')].map((el) => el.textContent)
-    expect(labels).toEqual(['Use Potion', 'Use Plant'])
-    expect(container.textContent).not.toMatch(/\d,-?\d/)
+    const { container } = render(<Prompt view={view} actions={actions} onAct={() => {}} />)
+    expect(container.querySelectorAll('button')).toHaveLength(0)
+    expect(container.querySelector('.prompt-text')?.textContent).toBe('Use a neighbouring ability')
   })
 
   it('names each of the three tokens crystal drew instead of numbering them', () => {
     const tokens = [single('bread'), dual('iron', 'potion'), single('plant')]
     const view = staged({ kind: 'crystalPick', tokens })
     const actions: Action[] = tokens.map((_, index) => ({ type: 'crystalPick', index }))
-    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
+    const { container } = render(<Prompt view={view} actions={actions} onAct={() => {}} />)
 
     // the glyph's symbol sits inside the button too, hence the loose match
     const labels = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.textContent)
@@ -73,15 +72,20 @@ describe('Prompt', () => {
     const view = staged({ kind: 'coinDiscard' }, hand)
     // the bar is handed the confirming action only once two cards are marked
     const actions: Action[] = [{ type: 'coinDiscard', cardIds: [hand[0].id, hand[1].id] }]
-    const { container } = render(<Prompt view={view} actions={actions} selected={null} onAct={() => {}} />)
+    const { container } = render(<Prompt view={view} actions={actions} onAct={() => {}} />)
 
     const labels = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.textContent)
-    expect(labels).toEqual(['Put these two back'])
+    expect(labels).toEqual(['Keep these'])
     expect(container.textContent).not.toContain(cardName(hand[0]))
   })
 })
 
 describe('OpponentThinking', () => {
+  it('says when the opponent spent a coin and is choosing cards', () => {
+    render(<OpponentThinking mode="choosingCards" />)
+    expect(screen.getByText('Opponent spent a coin and is choosing cards…')).toBeDefined()
+  })
+
   it('holds the decision slot with no instruction and no buttons', () => {
     const { container } = render(<OpponentThinking />)
     expect(screen.getByText('Opponent is thinking…')).toBeDefined()

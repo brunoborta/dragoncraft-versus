@@ -76,6 +76,15 @@ export function EyeIcon(props: IconProps) {
   return <TracedIcon name="eye" {...props} />
 }
 
+/** Not on the sheet: a plain cross, drawn here — no, decline, let it be. */
+export function CrossIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M6 6 18 18M18 6 6 18" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" />
+    </Svg>
+  )
+}
+
 export function GearIcon(props: IconProps) {
   return <TracedIcon name="gear" {...props} />
 }

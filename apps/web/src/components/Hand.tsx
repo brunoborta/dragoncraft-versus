@@ -17,19 +17,29 @@ export function Hand({
   actions,
   onAct,
   completing = new Set(),
+  picking,
+  highlightScoreable = true,
 }: {
   view: PlayerView
   actions: readonly Action[]
   onAct: (action: Action) => void
   /** Cards the hovering token would complete: they glow and rise (the card-glow option). */
   completing?: ReadonlySet<string>
+  /**
+   * After a coin: the cards are the choice, here in the hand. A tap marks a
+   * card to keep; the bar confirms once all but two are marked, and those two
+   * go back under the deck.
+   */
+  picking?: { picked: readonly string[]; onToggle: (cardId: string) => void }
+  /** The card-glow option: a card you can score now stands out. Off, it still scores on a tap. */
+  highlightScoreable?: boolean
 }) {
   const scoring = actions.filter((action) => action.type === 'scoreCard')
   const cards = view.you.hand
   const middle = (cards.length - 1) / 2
 
   return (
-    <section className="hand" aria-label="Your hand" data-count={cards.length}>
+    <section className="hand" aria-label="Your hand" data-count={cards.length} data-picking={picking ? 'true' : undefined}>
       <div className="hand-cards">
         {cards.map((card, index) => {
           const action = scoring.find((candidate) => candidate.cardId === card.id)
@@ -44,8 +54,11 @@ export function Hand({
               <CardView
                 card={card}
                 scoreable={action !== undefined}
+                highlight={highlightScoreable}
                 completes={completing.has(card.id)}
                 onScore={action ? () => onAct(action) : undefined}
+                picked={picking?.picked.includes(card.id)}
+                onPick={picking ? () => picking.onToggle(card.id) : undefined}
               />
             </div>
           )

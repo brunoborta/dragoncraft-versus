@@ -83,6 +83,6 @@ export function promptFor(view: PlayerView): string {
     case 'plant':
       return 'Use a neighbouring ability'
     case 'coinDiscard':
-      return 'Put two cards at the bottom of the deck'
+      return 'Choose the cards to keep'
   }
 }

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App.js'
@@ -74,7 +74,7 @@ describe('App', () => {
     // and nothing of it in the panel, which is only a reminder now
     expect(container.querySelectorAll('.prompt button')).toHaveLength(0)
 
-    fireEvent.click(screen.getByText('Skip'))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
     expect(container.querySelector('.fire-choice')).toBeNull()
   })
 
@@ -169,7 +169,7 @@ describe('App', () => {
   it('opens the full log grouped into rounds, naming each side once per turn', () => {
     startGame()
     stackTwoOnInnerRing()
-    fireEvent.click(screen.getByText('Skip'))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
     fireEvent.click(screen.getByText('Full log'))
 
     const dialog = screen.getByLabelText('Move log')
@@ -192,56 +192,39 @@ describe('App', () => {
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 
-  it('opens a stack once a space buries something', () => {
+  it('keeps a buried stack shut while placing or firing up: what is under it is not yours to see', () => {
     startGame()
     stackTwoOnInnerRing()
+    expect(screen.getByText('Fire up this token?')).toBeDefined()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
-    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
+    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 
-  it('shows the stack bottom to top without naming a coordinate on screen', () => {
+  it('offers Undo once something is done this turn, and takes it back one step at a time', () => {
     startGame()
+    const undo = () => screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement
+    // the turn opens on a draw: there is nothing of yours to take back yet
+    expect(undo().disabled).toBe(true)
+
     stackTwoOnInnerRing()
-    fireEvent.click(screen.getByLabelText(/^1,0: /))
-    const panel = screen.getByLabelText('Stack at 1,0')
-    expect(panel.textContent).toContain('Bottom to top')
-    expect(panel.textContent).not.toMatch(/\d,-?\d/)
+    expect(screen.getByText('Fire up this token?')).toBeDefined()
+    expect(undo().disabled).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(screen.getByText('Score what you can, then end your turn')).toBeDefined()
+    expect(undo().disabled).toBe(false)
+
+    fireEvent.click(undo())
+    expect(screen.getByText('Fire up this token?')).toBeDefined()
+    fireEvent.click(undo())
+    expect(screen.getByText('Choose where to place the token')).toBeDefined()
+    // and back at the draw it stops: the token in hand stays the one drawn
+    expect(undo().disabled).toBe(true)
   })
 
   it('shows nothing for an empty space', () => {
     startGame()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
-  })
-
-  it('closes the stack detail from its own button, leaving the game untouched', () => {
-    startGame()
-    stackTwoOnInnerRing()
-    fireEvent.click(screen.getByLabelText(/^1,0: /))
-    fireEvent.click(screen.getByLabelText('Close stack'))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
-    expect(screen.getByText('Your turn')).toBeDefined()
-  })
-
-  it('closes the stack detail when the commit comes from the fire-up choice', () => {
-    startGame()
-    stackTwoOnInnerRing()
-    expect(screen.getByText('Fire up this token?')).toBeDefined()
-
-    fireEvent.click(screen.getByLabelText(/^1,0: /))
-    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
-
-    fireEvent.click(screen.getByText('Skip'))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
-  })
-
-  it('closes the stack detail when the turn is undone', () => {
-    startGame()
-    stackTwoOnInnerRing()
-    fireEvent.click(screen.getByLabelText(/^1,0: /))
-    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
   })
 
@@ -251,15 +234,14 @@ describe('App', () => {
    * is on turn and the test should let its timer run.
    */
   function takeAnyTurnAction(): boolean {
-    // a coin discard takes over the screen: pick the keepers, then finish
-    const dialog = document.querySelector('.discard-dialog')
-    if (dialog) {
-      const finish = dialog.querySelector<HTMLButtonElement>('.discard-finish')
-      if (finish && !finish.disabled) {
-        fireEvent.click(finish)
+    // a coin discard is picked on the hand: mark the keepers, then confirm on the bar
+    if (document.querySelector('.hand[data-picking]')) {
+      const confirm = document.querySelector<HTMLButtonElement>('.prompt-actions button')
+      if (confirm) {
+        fireEvent.click(confirm)
         return true
       }
-      const unpicked = dialog.querySelector<HTMLElement>('.card[data-picked="false"]')
+      const unpicked = document.querySelector<HTMLElement>('.hand .card[data-picked="false"]')
       if (unpicked) fireEvent.click(unpicked)
       return true
     }
@@ -300,62 +282,76 @@ describe('App', () => {
       return true
     }
 
-    // a placement confirms on a second tap of the same space; a two-hex move
-    // leaves that space selected and wants a different one for the destination
+    // the first tap chooses. A plant's neighbour then puts its fires over it,
+    // which the next round taps; a move wants a destination; a placement
+    // confirms on a second tap of the same space
     fireEvent.click(first)
-    fireEvent.click(first)
-    if (first.getAttribute('data-highlight') === 'selected') {
-      const destination = document.querySelector<SVGGElement>(offered)
-      if (destination) fireEvent.click(destination)
+    if (document.querySelector('.fire-choice')) return true
+    // a placement hovers the token over the space: tapping it again puts it down
+    if (document.querySelector('.token-preview')) {
+      fireEvent.click(first)
+      return true
     }
+    // a move or a swap wants its other end
+    const destination = document.querySelector<SVGGElement>(offered)
+    if (destination) fireEvent.click(destination)
     return true
   }
 
-  it('lets the coin choice be put aside to look at the board, and brings it back', () => {
+  it('keeps the cards marked in the hand and puts the other two back, with no dialog', () => {
     startGame()
     stackTwoOnInnerRing()
-    fireEvent.click(screen.getByText('Skip'))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
     fireEvent.click(screen.getByText('Spend a coin'))
-    expect(screen.getByLabelText('Choose the cards to keep')).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /Look at the board/ }))
-    expect(screen.queryByLabelText('Choose the cards to keep')).toBeNull()
-    // the board is there to look at, the only way on is back to the choice
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // the board stays there to look at while choosing
     expect(screen.getByLabelText('Game board')).toBeDefined()
-    expect(screen.getByText('Put two cards at the bottom of the deck')).toBeDefined()
+    expect(screen.getByText('Choose the cards to keep')).toBeDefined()
 
-    fireEvent.click(screen.getByText('Back to your choice'))
-    expect(screen.getByLabelText('Choose the cards to keep')).toBeDefined()
+    const hand = screen.getByLabelText('Your hand')
+    const cards = [...hand.querySelectorAll<HTMLElement>('.card')]
+    expect(cards).toHaveLength(4)
+    const names = cards.map((card) => card.querySelector('.card-name')?.textContent)
+
+    // nothing to confirm until two are kept
+    fireEvent.click(cards[1])
+    expect(screen.queryByRole('button', { name: 'Keep these' })).toBeNull()
+    fireEvent.click(cards[3])
+
+    // a third keeper is refused: exactly two go back
+    fireEvent.click(cards[0])
+    expect(cards[0].getAttribute('data-picked')).toBe('false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep these' }))
+    const left = [...document.querySelectorAll('.hand .card-name')].map((el) => el.textContent)
+    expect(left).toEqual([names[1], names[3]])
+    expect(document.querySelector('.hand[data-picking]')).toBeNull()
   })
 
-  it('puts two cards back by picking the ones to keep in a dialog', () => {
+  it('takes a mark back when the card is tapped again', () => {
     startGame()
     stackTwoOnInnerRing()
-    fireEvent.click(screen.getByText('Skip'))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
     fireEvent.click(screen.getByText('Spend a coin'))
-
-    const dialog = screen.getByLabelText('Choose the cards to keep')
-    const cards = [...dialog.querySelectorAll<HTMLElement>('.card')]
-    expect(cards).toHaveLength(4)
-    expect(screen.getByText(/^Keep 2\./)).toBeDefined()
-
-    const finish = screen.getByText('Finish') as HTMLButtonElement
-    expect(finish.disabled).toBe(true)
-
-    const names = cards.map((card) => card.querySelector('.card-name')?.textContent)
+    const cards = [...screen.getByLabelText('Your hand').querySelectorAll<HTMLElement>('.card')]
     fireEvent.click(cards[0])
-    fireEvent.click(cards[1])
-    expect(finish.disabled).toBe(false)
+    expect(cards[0].getAttribute('data-picked')).toBe('true')
+    fireEvent.click(cards[0])
+    expect(cards[0].getAttribute('data-picked')).toBe('false')
+  })
 
-    // a third pick is refused: exactly two stay
-    fireEvent.click(cards[2])
-    expect(cards[2].getAttribute('data-picked')).toBe('false')
-
-    fireEvent.click(finish)
-    expect(screen.queryByLabelText('Choose the cards to keep')).toBeNull()
-
-    const left = [...document.querySelectorAll('.hand .card-name')].map((el) => el.textContent)
-    expect(left).toEqual([names[0], names[1]])
+  it('opens a stack over the board while the cards are chosen, leaving the hand uncovered', () => {
+    startGame()
+    stackTwoOnInnerRing()
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    fireEvent.click(screen.getByText('Spend a coin'))
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    const panel = screen.getByLabelText('Stack at 1,0')
+    expect(panel.closest('.board-area')).not.toBeNull()
+    expect(panel.closest('footer')).toBeNull()
+    // and the choice is still there to make
+    expect(document.querySelector('.hand[data-picking]')).not.toBeNull()
   })
 
   it('plays a whole game and asks for an opponent again on a new one', () => {
@@ -524,8 +520,9 @@ describe('App online', () => {
     act(() => latest().receive({ type: 'seated', room: '042137', seat: 1, token: 't', role: 'player', options: hosts }))
     act(() => latest().receive({ type: 'view', view: toPlayerView(state, 1), actions: legalActions(state), opponentConnected: true }))
 
-    // reputation hidden, as the host chose
-    expect(screen.queryByText(/reputation/)).toBeNull()
+    // the opponent's reputation hidden, as the host chose; your own still shows
+    expect(screen.getAllByText(/reputation/)).toHaveLength(1)
+    expect(within(screen.getByRole('region', { name: 'You' })).getByText(/reputation/)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
     expect(boxes.map((box) => box.checked)).toEqual([false, false, true])

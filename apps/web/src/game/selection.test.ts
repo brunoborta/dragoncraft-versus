@@ -48,6 +48,10 @@ describe('two-hex actions', () => {
   it('acts when the destination is tapped', () => {
     expect(resolveTap(actions, B, C)).toEqual({ action: actions[1], select: null })
   })
+
+  it('puts the token back down when it is tapped again', () => {
+    expect(resolveTap(actions, B, B)).toEqual({ select: null })
+  })
 })
 
 describe('potion swaps, which have no direction', () => {
@@ -64,16 +68,24 @@ describe('potion swaps, which have no direction', () => {
 })
 
 describe('plant targets', () => {
-  it('acts on the second tap when the neighbour offers one ability', () => {
+  it('only chooses the neighbour: the fire over it is what borrows', () => {
     const actions: Action[] = [{ type: 'plantTarget', at: B, ability: 'meat' }]
-    expect(resolveTap(actions, B, B)).toEqual({ action: actions[0], select: null })
+    expect(resolveTap(actions, null, B)).toEqual({ select: B })
   })
 
-  it('keeps the selection when the neighbour is a dual, so the bar can ask which', () => {
+  it('lets the neighbour go when it is tapped again', () => {
     const actions: Action[] = [
       { type: 'plantTarget', at: B, ability: 'potion' },
       { type: 'plantTarget', at: B, ability: 'plant' },
     ]
-    expect(resolveTap(actions, B, B)).toEqual({ select: B })
+    expect(resolveTap(actions, B, B)).toEqual({ select: null })
+  })
+
+  it('moves to another neighbour when one is tapped', () => {
+    const actions: Action[] = [
+      { type: 'plantTarget', at: B, ability: 'meat' },
+      { type: 'plantTarget', at: C, ability: 'iron' },
+    ]
+    expect(resolveTap(actions, B, C)).toEqual({ select: C })
   })
 })

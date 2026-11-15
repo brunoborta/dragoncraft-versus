@@ -9,13 +9,13 @@ const OPTIONS: { name: keyof GameOptions; label: string; note: string; machine?:
   },
   {
     name: 'cardGlow',
-    label: 'Light up the card a space completes',
-    note: 'While a token hovers over a space, a card in your hand it would complete glows. The printed game leaves that for you to spot.',
+    label: 'Light up the cards you can complete',
+    note: 'While a token hovers over a space, a card it would complete glows; once a card can be scored, it rises with a Score tab. The printed game leaves both for you to spot.',
   },
   {
     name: 'showReputation',
-    label: 'Show reputation during the game',
-    note: 'Both players’ reputation on their plates. Off, it is only revealed at the end.',
+    label: 'Show the opponent’s reputation during the game',
+    note: 'Their reputation on their plate. Off, it stays a secret until the end; your own always shows.',
   },
   {
     name: 'bagComposition',

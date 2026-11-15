@@ -1,4 +1,4 @@
-import { bankedReputation, key, wouldComplete } from '@dcv/engine'
+import { bankedReputation, hexEq, key, wouldComplete } from '@dcv/engine'
 import type { Action, Hex, PlayerView } from '@dcv/engine'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -11,13 +11,13 @@ import type { GameOptions, TableOptions } from '../game/settings.js'
 import { usePresentation } from '../game/usePresentation.js'
 import { HOLD } from '../game/presentation.js'
 import { Ambience } from './Ambience.js'
-import { Bag, BagDialog } from './Bag.js'
+import { Bag, BagDialog, DeckCount } from './Bag.js'
 import { Board } from './Board.js'
 import { CoinPurse } from './CoinPurse.js'
 import { CrystalDiscover } from './CrystalDiscover.js'
-import { DiscardDialog, keepCount } from './DiscardDialog.js'
 import { GameOver } from './GameOver.js'
 import { Hand } from './Hand.js'
+import { keepCount } from './CardView.js'
 import type { Highlight } from './HexCell.js'
 import { LogDialog } from './LogDialog.js'
 import { CoinMoment, DrawFlight, PlaceFlight, ScoreMoment, landingDelay } from './Moments.js'
@@ -30,6 +30,9 @@ import { SettingsDialog } from './SettingsDialog.js'
 import { StackDetail } from './StackDetail.js'
 import { TurnBanner, useTurnBanner } from './TurnBanner.js'
 import { TopBar } from './TopBar.js'
+
+/** What a tap can land on and mean something: the rest of the screen is "beside the board". */
+const ANSWERS_A_TAP = '.hex-cell, button, [role="button"], .fire-choice, .stack-detail, .modal'
 
 /**
  * A game in progress, drawn from a `Table` and nothing else. Whether the
@@ -79,9 +82,12 @@ export function GameScreen({
   const [peeking, setPeeking] = useState(false)
   // the end screen opens over the board; this puts it away to look at the board
   const [viewingBoard, setViewingBoard] = useState(false)
+  // the cards marked to stay in hand after a coin: the rest, always two, go back under the deck
   const [keeping, setKeeping] = useState<string[]>([])
 
   const ended = view.phase === 'ended'
+  // a new turn starts with every stack shut: what was looked at belonged to the last one
+  useEffect(() => setInspecting(null), [view.current])
   /*
    * The board as it is being shown: the real one, or a step behind it while
    * moves play. The turn banner and the queue take turns: the banner waits for
@@ -125,12 +131,26 @@ export function GameScreen({
   const targets = boardTargets(actions, selected)
   const pending = view.pending[view.pending.length - 1]
 
-  // a coin discard is answered in its own dialog, on the cards themselves, so
-  // the bar behind it offers nothing
+  /*
+   * A coin discard is answered on the cards in your hand: you mark the ones
+   * you keep, and the two left unmarked go back under the deck. The bar
+   * carries only the confirmation, once exactly that many are marked. M11: the
+   * cards are picked only after the coin has landed and the two new ones have
+   * arrived.
+   */
   const discarding = myTurn && pending?.kind === 'coinDiscard'
-  // and so is the crystal's choice, on the tokens themselves (the Discover)
+  const coinLanding = presentation.remaining.some((queued) => queued.kind === 'coin')
+  const keepWanted = keepCount(view.you.hand)
+  const returned = view.you.hand.filter((card) => !keeping.includes(card.id)).map((card) => card.id)
+  const returnAction = actions.find(
+    (candidate) =>
+      candidate.type === 'coinDiscard' &&
+      keeping.length === keepWanted &&
+      candidate.cardIds.every((id) => returned.includes(id)),
+  )
+  // the crystal's choice is made on the tokens themselves (the Discover), so the bar offers nothing
   const discovering = myTurn && pending?.kind === 'crystalPick'
-  const barActions = discarding || discovering ? [] : actions
+  const barActions = discarding ? (returnAction ? [returnAction] : []) : discovering ? [] : actions
 
   // the board marks what is legal, and nothing else: the printed game does not
   // point out where a card would complete, so neither does this one
@@ -192,9 +212,22 @@ export function GameScreen({
 
   // "Fire up this token?" is asked on the board, around the token that just landed
   const firing = myTurn && !peeking && pending?.kind === 'mayFireUp' ? pending : null
-  // a fired-up ability picking the tokens it acts on
-  const choosingTargets =
-    pending?.kind === 'meat' || pending?.kind === 'iron' || pending?.kind === 'potion' || pending?.kind === 'plant'
+  // a fired-up ability lifting tokens off the board: the meat and the iron move one, the potion swaps two
+  const movingTokens = pending?.kind === 'meat' || pending?.kind === 'iron' || pending?.kind === 'potion'
+  /*
+   * Nothing open is answered on the board: the turn is played out (score, end
+   * turn), or a coin's cards are being chosen — where what lies under a stack
+   * can decide which card is worth keeping.
+   */
+  const freeLook = pending === undefined || pending.kind === 'coinDiscard'
+  /*
+   * A plant's chosen neighbour gets the fire-up treatment over it: a fire per
+   * ability it could lend, the same I or Y as "Fire up this token?".
+   */
+  const borrowing =
+    myTurn && !peeking && pending?.kind === 'plant' && selected
+      ? { at: selected, token: view.board[key(selected)]?.at(-1) }
+      : null
   const firedToken = firing ? view.board[key(firing.at)]?.at(-1) : undefined
 
   /*
@@ -219,22 +252,17 @@ export function GameScreen({
   }
 
   function toggleKeep(cardId: string): void {
-    const wanted = keepCount(view.you.hand)
     setKeeping((current) => {
       if (current.includes(cardId)) return current.filter((id) => id !== cardId)
-      // one too many does nothing: release one before picking another
-      return current.length < wanted ? [...current, cardId] : current
+      // one too many does nothing: exactly two go back, so unmark one first
+      return current.length < keepWanted ? [...current, cardId] : current
     })
   }
 
-  /** Whatever was not picked is what goes back — always exactly two cards. */
-  function finishDiscard(): void {
-    const returned = view.you.hand.filter((card) => !keeping.includes(card.id)).map((card) => card.id)
-    const action = actions.find(
-      (candidate) =>
-        candidate.type === 'coinDiscard' && candidate.cardIds.every((id) => returned.includes(id)),
-    )
-    if (action) handleAct(action)
+  /** A stack, opened or shut by a tap: only a space with something buried has anything to show. */
+  function lookAt(hex: Hex): void {
+    const open = inspecting !== null && hexEq(inspecting, hex)
+    setInspecting(!open && (view.board[key(hex)] ?? []).length > 1 ? hex : null)
   }
 
   function selectHex(hex: Hex): void {
@@ -247,14 +275,20 @@ export function GameScreen({
 
     setSelected(outcome.select)
     /*
-     * A tapped space that holds a stack shows what is buried there — but not
-     * while a fire-up is choosing its targets (meat, iron, potion, plant).
-     * Then a tap picks a token and nothing else; a panel opening over the
-     * footer would only get in the way.
+     * What a tap on a stack shows depends on what the board is being used for.
+     * Placing a token is choosing a space, and a plant borrows only what is on
+     * top: the panel stays shut. Moving a token — the meat, the iron, the
+     * potion — lifts the top one off, and what it uncovers is the point of the
+     * move, so picking it up opens the stack. With nothing left to decide on
+     * the board, a tap is only a look (`lookAt`).
      */
-    const stack = view.board[key(hex)] ?? []
+    if (freeLook) {
+      lookAt(hex)
+      return
+    }
+    const pickingUp = movingTokens && outcome.select !== null && hexEq(outcome.select, hex)
     // one token hides nothing: the panel is for seeing what is buried
-    setInspecting(!choosingTargets && stack.length > 1 ? hex : null)
+    setInspecting(pickingUp && (view.board[key(hex)] ?? []).length > 1 ? hex : null)
   }
 
   function undo(): void {
@@ -294,7 +328,14 @@ export function GameScreen({
     }
     if (!myTurn) {
       // the real turn may be yours already; this says what the screen is showing
-      const mode = theirsLanding ? 'playing' : catchingUp && view.current === view.seat ? 'drawing' : 'thinking'
+      const theirCoin = view.current !== view.seat && pending?.kind === 'coinDiscard'
+      const mode = theirsLanding
+        ? 'playing'
+        : catchingUp && view.current === view.seat
+          ? 'drawing'
+          : theirCoin
+            ? 'choosingCards'
+            : 'thinking'
       return <OpponentThinking mode={mode} />
     }
     if (peeking) {
@@ -310,7 +351,11 @@ export function GameScreen({
         </section>
       )
     }
-    return <Prompt view={view} actions={barActions} selected={selected} onAct={handleAct} />
+    return <Prompt view={view} actions={barActions} onAct={handleAct} />
+  }
+
+  function stackDetail(hex: Hex, over?: 'board') {
+    return <StackDetail hex={hex} stack={view.board[key(hex)] ?? []} onClose={() => setInspecting(null)} over={over} />
   }
 
   const spendCoin = actions.find((action) => action.type === 'spendCoin')
@@ -325,6 +370,10 @@ export function GameScreen({
       onPointerDownCapture={() => {
         if (presentation.playing) presentation.skip()
         if (turnBanner.banner) turnBanner.dismiss()
+      }}
+      // a tap beside the board, where nothing answers it, lets go of a picked-up token or a chosen space
+      onClick={(event) => {
+        if (selected && !(event.target as Element).closest(ANSWERS_A_TAP)) setSelected(null)
       }}
     >
       <p className="sr-only" aria-live="polite">
@@ -355,22 +404,28 @@ export function GameScreen({
           highlights={highlights}
           preview={preview}
           viewer={view.seat}
-          onSelectHex={myTurn ? selectHex : () => {}}
+          onSelectHex={myTurn && !peeking ? selectHex : lookAt}
         />
+        {/* while the hand is the choice, the stack opens over the board instead of over the cards */}
+        {inspecting && discarding ? stackDetail(inspecting, 'board') : null}
         {/* under their portrait, in the corner the hexagon leaves empty */}
         <HeldSlot side="opponent" token={theirHeld} arriving={arrivingIn(opponentSeat)} />
         {firing && firedToken ? (
           <FireChoice key={key(firing.at)} at={firing.at} token={firedToken} actions={actions} onAct={handleAct} area={boardArea} />
         ) : null}
-      </div>
-      <footer className="bottom">
-        {inspecting ? (
-          <StackDetail
-            hex={inspecting}
-            stack={view.board[key(inspecting)] ?? []}
-            onClose={() => setInspecting(null)}
+        {borrowing?.token ? (
+          <FireChoice
+            key={`plant-${key(borrowing.at)}`}
+            at={borrowing.at}
+            token={borrowing.token}
+            actions={actions}
+            onAct={handleAct}
+            area={boardArea}
           />
         ) : null}
+      </div>
+      <footer className="bottom">
+        {inspecting && !discarding ? stackDetail(inspecting) : null}
         {extras}
         {/* one line under the board: the coin, your token's home, the bag */}
         <div className="tray-row">
@@ -382,12 +437,22 @@ export function GameScreen({
             }}
           />
           <HeldSlot side="you" token={yourHeld} arriving={arrivingIn(view.seat)} away={preview !== undefined} />
-          <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={drawingFor !== null} />
+          {/* the two things that run out and end the game: the bag, the deck under it */}
+          <div className="bag-corner">
+            <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={drawingFor !== null} />
+            <DeckCount count={view.deckCount} />
+          </div>
         </div>
-        <Hand view={view} actions={actions} onAct={handleAct} completing={completing} />
+        <Hand
+          view={view}
+          actions={actions}
+          onAct={handleAct}
+          completing={completing}
+          highlightScoreable={options.cardGlow}
+          picking={discarding && !coinLanding ? { picked: keeping, onToggle: toggleKeep } : undefined}
+        />
         {decision()}
         <PlayerBar
-          showReputation={options.showReputation}
           reputationShown={bankedReputation(view.you) - unlanded(view.seat)}
           view={view}
           actions={actions}
@@ -397,16 +462,6 @@ export function GameScreen({
           onUndo={undo}
         />
       </footer>
-      {/* M11: your coin first spins away, then the two cards arrive */}
-      {discarding && !peeking && !presentation.remaining.some((queued) => queued.kind === 'coin') ? (
-        <DiscardDialog
-          hand={view.you.hand}
-          keeping={keeping}
-          onToggle={toggleKeep}
-          onFinish={finishDiscard}
-          onPeek={() => setPeeking(true)}
-        />
-      ) : null}
       {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
       {settingsOpen ? (
         <SettingsDialog options={options} onChange={onOptionsChange} onClose={() => setSettingsOpen(false)} />

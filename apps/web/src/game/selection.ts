@@ -49,7 +49,8 @@ export function boardTargets(actions: readonly Action[], first: Hex | null): Hex
 
 /**
  * What a tap does. Every commitment takes two taps: one to say where, one to
- * confirm — a mis-tap on a phone should never cost a placement.
+ * confirm — a mis-tap on a phone should never cost a placement. For a plant
+ * the second tap is on the fire the board puts over the chosen neighbour.
  */
 export function resolveTap(
   actions: readonly Action[],
@@ -62,11 +63,20 @@ export function resolveTap(
       const match = twoHex.find((pair) => hexEq(pair.from, first) && hexEq(pair.to, hex))
       if (match) return { action: match.action, select: null }
     }
+    // the picked-up token tapped again is put back down
+    if (first && hexEq(first, hex)) return { select: null }
     return { select: twoHex.some((pair) => hexEq(pair.from, hex)) ? hex : null }
   }
 
   const here = singles(actions).filter((entry) => hexEq(entry.at, hex))
   if (here.length === 0) return { select: null }
+  /*
+   * A plant's neighbour is only chosen here: the board then puts a fire per
+   * ability over it, and the fire is what borrows. Tapped again, it lets go.
+   */
+  if (here.every((entry) => entry.action.type === 'plantTarget')) {
+    return { select: first && hexEq(first, hex) ? null : hex }
+  }
   if (first && hexEq(first, hex) && here.length === 1) return { action: here[0].action, select: null }
   return { select: hex }
 }

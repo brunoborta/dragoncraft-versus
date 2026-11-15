@@ -42,7 +42,6 @@ export function PlayerBar({
   actions,
   myTurn,
   onAct,
-  showReputation = true,
   reputationShown,
   canUndo = false,
   onUndo,
@@ -51,8 +50,6 @@ export function PlayerBar({
   actions: readonly Action[]
   myTurn: boolean
   onAct: (action: Action) => void
-  /** The table option: off, reputation stays hidden until the end. */
-  showReputation?: boolean
   /** Your reputation as the screen should show it: behind the real one while your scored card flies (M10). */
   reputationShown?: number
   /** One action back, within your own turn and never across a draw. */
@@ -72,9 +69,8 @@ export function PlayerBar({
         <span className="plate-stats">
           <Stat icon={<CardIcon />} value={view.you.hand.length} phrase={`${view.you.hand.length} cards`} />
           <Stat icon={<CoinIcon />} value={view.you.coins} phrase={`${view.you.coins} coins`} />
-          {showReputation ? (
-            <Stat icon={<StarIcon />} value={reputationShown ?? reputation} phrase={`${reputation} reputation`} countUp={0} />
-          ) : null}
+          {/* always yours to see: the reputation option hides only the opponent's */}
+          <Stat icon={<StarIcon />} value={reputationShown ?? reputation} phrase={`${reputation} reputation`} countUp={0} />
         </span>
       </div>
       {onUndo ? (

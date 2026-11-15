@@ -98,7 +98,7 @@ The art is painted (background, bag, avatars, stone and parchment), and the
 icons — on the tokens and in the HUD — are generated sheets traced into SVG
 paths by `scripts/icons.mjs`, so they stay sharp at every size and take any
 colour. Before a game you choose the table's options: whether the card a
-space would complete lights up, whether reputation shows during play, whether
+space would complete lights up, whether the opponent's reputation shows during play (your own always does), whether
 tapping the bag lists what is left in it, and, against the machine, whether
 it pauses to think before its moves.
 

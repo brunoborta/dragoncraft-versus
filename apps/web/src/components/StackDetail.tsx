@@ -16,13 +16,16 @@ export function StackDetail({
   hex,
   stack,
   onClose,
+  over,
 }: {
   hex: Hex
   stack: Token[]
   onClose: () => void
+  /** Over the board rather than the footer: while the cards in hand are the choice, they stay uncovered. */
+  over?: 'board'
 }) {
   return (
-    <section className="stack-detail" aria-label={`Stack at ${key(hex)}`}>
+    <section className="stack-detail" data-over={over} aria-label={`Stack at ${key(hex)}`}>
       <div className="stack-detail-head">
         <p className="stack-detail-title">Bottom to top</p>
         <button type="button" onClick={onClose} aria-label="Close stack">

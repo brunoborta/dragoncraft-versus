@@ -1,5 +1,5 @@
-import { abilitiesOf, actionKey, hexEq } from '@dcv/engine'
-import type { Action, Hex, PlayerView, Token } from '@dcv/engine'
+import { abilitiesOf, actionKey } from '@dcv/engine'
+import type { Action, PlayerView, Token } from '@dcv/engine'
 import type { ReactNode } from 'react'
 import { describeAction, promptFor } from '../game/labels.js'
 import { DRAGON_THEME } from '../theme.js'
@@ -7,7 +7,8 @@ import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
 /**
  * Answered somewhere other than this panel: on the board (placing, moving,
- * swapping, and firing up — around the token that just landed), on the cards
+ * swapping, firing up — around the token that just landed — and a plant's
+ * borrowing, over the neighbour it borrows from), on the cards
  * (scoring), or by a control with a fixed place of its own — End turn beside
  * your bar, the coins in the corner of the board. Those two are offered at
  * many points of a turn, so they cannot live in a panel whose content changes
@@ -20,6 +21,7 @@ const HANDLED_ELSEWHERE = new Set([
   'meatMove',
   'ironMove',
   'potionSwap',
+  'plantTarget',
   'scoreCard',
   'endTurn',
   'spendCoin',
@@ -60,6 +62,7 @@ const WAITING_TEXT = {
   thinking: 'Opponent is thinking…',
   playing: 'Opponent is playing…',
   drawing: 'Drawing from the bag…',
+  choosingCards: 'Opponent spent a coin and is choosing cards…',
 } as const
 
 /**
@@ -83,21 +86,16 @@ export function OpponentThinking({ mode = 'thinking' }: { mode?: keyof typeof WA
 export function Prompt({
   view,
   actions,
-  selected,
   onAct,
 }: {
   view: PlayerView
   actions: readonly Action[]
-  selected: Hex | null
   onAct: (action: Action) => void
 }) {
   const pending = view.pending[view.pending.length - 1]
 
   const buttons = actions.filter((action) => {
-    if (HANDLED_ELSEWHERE.has(action.type)) return false
-    // a dual neighbour needs the bar to ask which of its two abilities to use
-    if (action.type === 'plantTarget') return selected !== null && hexEq(action.at, selected)
-    return true
+    return !HANDLED_ELSEWHERE.has(action.type)
   })
 
   /**
@@ -105,6 +103,8 @@ export function Prompt({
    * pending, which it does not see. So that label is built here.
    */
   function label(action: Action): ReactNode {
+    // the cards marked are the ones that stay: the label says so, not which two go
+    if (action.type === 'coinDiscard') return 'Keep these'
     if (action.type === 'crystalPick' && pending?.kind === 'crystalPick') {
       const token = pending.tokens[action.index]
       if (token) {
@@ -115,17 +115,13 @@ export function Prompt({
         )
       }
     }
-    if (action.type === 'plantTarget') {
-      // a dual neighbour: which of its two to borrow; hold its token to see what each does
-      return <span className="action-name">{describeAction(action)}</span>
-    }
     return describeAction(action)
   }
 
   /*
    * A reminder, one line: the question, and a button only for the few answers
-   * that have nowhere else to go (stop moving, which of a dual neighbour's two
-   * to borrow). The token itself is in your tray, and what it does is a hold
+   * that have nowhere else to go (stop moving, keeping the marked cards after
+   * a coin). The token itself is in your tray, and what it does is a hold
    * away; the rules are behind the ? button.
    */
   return (

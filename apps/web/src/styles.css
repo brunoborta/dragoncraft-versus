@@ -415,14 +415,36 @@ body {
 .tray-row { position: relative; z-index: 3; }
 /* the tray is only as wide as its cushion: a full-width box over the row took the coin's taps */
 .tray-row > .held-slot { width: max-content; margin-inline: auto; }
-.coin-purse, .bag { z-index: 2; }
+.coin-purse, .bag-corner { z-index: 2; }
 /* a spent coin leaves its place behind, so you can see how many are gone */
 .coin-slot { width: 22px; height: 22px; margin: 1px; border-radius: 50%; border: 1.5px dashed rgb(217 180 90 / 0.65); }
 
-.bag {
+/* the bag, and under it, with a little room, the deck's count: both rise into the board's right corner */
+.bag-corner {
   position: absolute;
   right: 0;
   bottom: 0;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 80px;
+}
+.deck-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--forest-900);
+  border: 1px solid var(--brass-400);
+  color: var(--brass-200);
+  font-size: 13px;
+  font-weight: 700;
+}
+.deck-count .icon { width: 16px; height: 16px; }
+.bag {
+  position: relative;
   display: grid;
   justify-items: center;
   width: 80px;
@@ -575,6 +597,8 @@ body {
   /* once the token has landed and its dust has risen */
   animation: fire-in 260ms cubic-bezier(0.2, 0.8, 0.3, 1.35) 520ms both;
 }
+/* over a plant's neighbour nothing has just landed: the fires come straight up */
+.fire-choice[data-kind='plant'] .fire-slot { animation-delay: 0ms; }
 @keyframes fire-in { from { opacity: 0; scale: 0.6; } to { opacity: 1; scale: 1; } }
 /* nothing laid out to measure: the answers sit in a row in the middle of the board */
 .fire-choice:not([data-measured]) { display: flex; align-items: center; justify-content: center; gap: 14px; }
@@ -606,17 +630,18 @@ body {
 .fire-up-flame.icon { position: absolute; top: -20px; left: 50%; width: 28px; height: 28px; translate: -50% 0; filter: drop-shadow(0 0 4px rgb(255 140 40 / 0.9)); }
 
 .fire-skip {
-  min-height: 40px;
-  padding: 0 20px;
-  border-radius: 999px;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 700;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
   color: var(--parchment-ink);
   background: linear-gradient(180deg, #fbf5e4, var(--parchment));
   border: 2px solid var(--brass-400);
   box-shadow: 0 3px 8px rgb(0 0 0 / 0.5);
 }
+.fire-skip .icon { width: 22px; height: 22px; }
 .fire-skip:active { scale: 0.96; }
 
 .bag-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
@@ -690,6 +715,9 @@ body {
   transform-origin: 50% 140%;
 }
 .hand[data-count='3'] .fan-slot { flex-basis: 120px; }
+/* after a coin the hand holds two more for a moment: four or five, still side by side */
+.hand[data-count='4'] .fan-slot { flex-basis: 96px; }
+.hand[data-count='5'] .fan-slot { flex-basis: 76px; }
 
 .card {
   position: relative;
@@ -867,6 +895,8 @@ body {
   border: 2px solid var(--brass-400);
   box-shadow: 0 8px 22px rgb(0 0 0 / 0.55);
 }
+/* during a coin's choice the hand is the control: the stack opens over the top of the board instead */
+.stack-detail[data-over='board'] { top: 8px; left: 8px; right: 8px; }
 .stack-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .stack-detail-head button {
   min-width: 44px;
@@ -1016,7 +1046,7 @@ body {
 .log-who { margin: 0; font-weight: 700; font-size: 14px; }
 .log-turns ul { margin: 0; padding-left: 14px; color: #b9c5bd; font-size: 13px; }
 
-/* ----- choose the cards to keep (the coin): a 2 x 2 grid (plan 1.1, Guia item 6) ----- */
+/* ----- after a coin: mark the cards in your hand you keep; the unmarked two go under the deck ----- */
 .card[data-picked] { cursor: pointer; transition: transform var(--t-tap), opacity var(--t-ui); }
 .card[data-picked='false'] { opacity: 0.6; }
 .card[data-picked='true'] {
@@ -1025,21 +1055,6 @@ body {
   opacity: 1;
   transform: translateY(-3px);
 }
-.discard-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.discard-finish {
-  min-height: 48px;
-  width: 100%;
-  border: 1px solid #8a6a26;
-  border-radius: 12px;
-  background: var(--completes);
-  /* gold is a light fill: an inherited light label lands at 1.62:1 on it */
-  color: var(--bg);
-  font: inherit;
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-}
-.discard-finish:disabled { opacity: 0.4; }
 
 /* ----- the crystal's Discover: big tokens fanned over the board ----- */
 /* lighter than other dialogs: where the kept token can go is the question */
@@ -1332,17 +1347,11 @@ body {
 .coin-flying { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.5)); }
 .coin-moment { perspective: 400px; }
 
-/* the two new cards slide into the "keep two" dialog, one after the other */
-.discard-cards .card { animation: card-in 380ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
-.discard-cards .card:nth-child(2) { animation-delay: 60ms; }
-.discard-cards .card:nth-child(3) { animation-delay: 160ms; }
-.discard-cards .card:nth-child(4) { animation-delay: 240ms; }
-@keyframes card-in { from { opacity: 0; transform: translateY(24px) scale(0.92); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .card[data-scoreable='true'], .discard-cards .card, .score-star { animation: none; }
+  .card[data-ready], .score-star { animation: none; }
   .score-star { opacity: 0; }
-  .card[data-completes] { transform: none; }
+  .card[data-completes], .card[data-ready] { transform: none; }
   .score-ring { animation: token-fade 200ms ease-out both; opacity: 1; }
 }
 
