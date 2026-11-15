@@ -194,9 +194,13 @@ describe('eventDuration', () => {
   })
 
   it("plays the opponent's moments a little quicker (M13)", () => {
-    for (const kind of ['move', 'swap', 'score', 'coin'] as const) {
+    for (const kind of ['move', 'swap', 'score'] as const) {
       expect(eventDuration({ kind, seat: 1 }, 0, false)).toBeLessThan(eventDuration({ kind, seat: 0 }, 0, false))
     }
+  })
+
+  it("gives the opponent's coin as long as yours: it is easy to miss, and it changes their hand", () => {
+    expect(eventDuration({ kind: 'coin', seat: 1 }, 0, false)).toBe(eventDuration({ kind: 'coin', seat: 0 }, 0, false))
   })
 
   it("gives the opponent's placement its flight from their slot on top of the drop", () => {

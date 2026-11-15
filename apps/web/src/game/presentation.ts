@@ -322,7 +322,7 @@ export const HOLD = {
   fireUp: 650,
   vine: 850,
   score: 1400,
-  coin: 800,
+  coin: 1200,
   reduced: 160,
 } as const
 
@@ -359,7 +359,8 @@ export function eventDuration(
     case 'score':
       return reduced ? HOLD.reduced * 3 : theirs(HOLD.score)
     case 'coin':
-      return reduced ? HOLD.reduced * 2 : theirs(HOLD.coin)
+      // the same length for both sides: the opponent's coin is easy to miss, and it changes their hand
+      return reduced ? HOLD.reduced * 2 : HOLD.coin
     default:
       return 0
   }

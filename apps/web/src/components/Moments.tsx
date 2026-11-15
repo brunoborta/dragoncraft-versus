@@ -498,9 +498,10 @@ function CardFace({ card }: { card: ShopCard }) {
 /* ---------------------------------------------------------- M11: coin ----- */
 
 /**
- * A coin spent (M11): it leaves the purse (or the opponent's plate) spinning,
- * rises and fades — on its way to buy two cards. For you, the cards then slide
- * into the "keep two" dialog, which waits for this to finish.
+ * A coin spent (M11): it leaves the purse (or the opponent's plate) spinning
+ * and flies to the middle of the board, where it grows, turns and fades — the
+ * same for whoever spent it, so neither side misses it. For you, the two cards
+ * it buys then arrive in your hand, which cannot be marked until this ends.
  */
 export function CoinMoment({
   event,
@@ -514,14 +515,17 @@ export function CoinMoment({
   const art = useArt()
   const reduced = useReducedMotion()
   const mine = event.seat === seat
-  const [from, setFrom] = useState<{ x: number; y: number } | null>(null)
+  const [path, setPath] = useState<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null)
 
   useLayoutEffect(() => {
-    setFrom(centreOf(mine ? '.coin-purse' : '.top-row .plate-stats', within))
+    const from = centreOf(mine ? '.coin-purse' : '.top-row .plate-stats', within)
+    const to = centreOf('.board-area svg.board', within) ?? centreOf('.board-area', within)
+    setPath(from && to ? { from, to } : null)
   }, [within, mine])
 
-  if (!from) return null
-  const hold = (mine ? HOLD.coin : HOLD.coin * 0.8) / 1000
+  if (!path) return null
+  const { from, to } = path
+  const hold = HOLD.coin / 1000
   return (
     <div className="coin-moment" aria-hidden="true">
       <motion.img
@@ -529,17 +533,18 @@ export function CoinMoment({
         src={art.coin}
         alt=""
         style={{ left: 0, top: 0 }}
-        initial={{ x: from.x, y: from.y, scale: 0.6, rotateY: 0, opacity: 0 }}
+        initial={{ x: reduced ? to.x : from.x, y: reduced ? to.y : from.y, scale: 0.6, rotateY: 0, opacity: 0 }}
         animate={
           reduced
-            ? { opacity: [0, 1, 0], transition: { duration: hold } }
+            ? { opacity: [0, 1, 0], scale: 1.8, transition: { duration: hold } }
             : {
-                x: [from.x, from.x + (mine ? 20 : 0), from.x + (mine ? 60 : 0)],
-                y: [from.y, from.y - 90, from.y - 180],
-                scale: [0.8, 1.6, 1],
-                rotateY: [0, 540, 1080],
-                opacity: [1, 1, 0],
-                transition: { duration: hold, times: [0, 0.55, 1], ease: 'easeOut' },
+                // out of its place, across to the middle of the board, a turn there, and gone
+                x: [from.x, to.x, to.x, to.x],
+                y: [from.y, to.y, to.y, to.y],
+                scale: [0.8, 2, 2.3, 1.6],
+                rotateY: [0, 540, 900, 1080],
+                opacity: [1, 1, 1, 0],
+                transition: { duration: hold, times: [0, 0.45, 0.75, 1], ease: 'easeInOut' },
               }
         }
       />
