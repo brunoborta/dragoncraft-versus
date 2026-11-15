@@ -135,6 +135,8 @@ body {
 /* anything the queue did not stage, and reduced motion: a crossfade */
 .token-arrive[data-arrival='fade'] { animation: token-fade var(--t-ui) ease-out; }
 @keyframes token-fade { from { opacity: 0; } to { opacity: 1; } }
+/* uncovered by a move: it was there all along */
+.token-arrive[data-arrival='uncover'] { animation: none; }
 
 /* M4: the token drops from above (bigger = nearer), squashes on impact, settles */
 .token-arrive[data-arrival='drop'] .token-arrive-body {
@@ -196,6 +198,19 @@ body {
 .token-arrive[data-arrival='slide'] .token-arrive-body { animation: token-land 400ms step-end both; }
 .token-arrive[data-arrival='swap'] .token-arrive-body { animation: token-land 540ms step-end both; }
 @keyframes token-land { 0%, 99% { opacity: 0; } 100% { opacity: 1; } }
+
+/*
+ * What the space showed before the arriving token got there — the old top
+ * with its face — stays until the moment the new one appears, then goes: a
+ * stack under a token on its way is never seen flat and blank.
+ */
+.token-arrive[data-arrival='slide'] .token-arrive-before { animation: token-leave 400ms step-end both; }
+.token-arrive[data-arrival='swap'] .token-arrive-before { animation: token-leave 540ms step-end both; }
+/* the drop is seen from its first frame, the flight only once it lands */
+.token-arrive[data-arrival='drop'] .token-arrive-before { animation: token-leave 80ms step-end both; }
+.token-arrive[data-arrival='fly'] .token-arrive-before { animation: token-leave calc(var(--fly-ms, 480ms) + 80ms) step-end both; }
+.token-arrive[data-arrival='fade'] .token-arrive-before { display: none; }
+@keyframes token-leave { 0%, 99% { opacity: 1; } 100% { opacity: 0; } }
 
 .traveller { pointer-events: none; }
 
@@ -1215,7 +1230,8 @@ body {
   .landing-puff, .landing-flash, .landing-dim { animation: none; opacity: 0; }
   .hex-ring[data-highlight='legal'], .token-preview .token, .token-glow, .bag[data-drawing] .bag-art { animation: none; }
   .token-glow { opacity: 0.9; }
-  .token-arrive[data-arrival] .token-arrive-body { animation: token-fade var(--t-ui) ease-out; }
+  .token-arrive[data-arrival]:not([data-arrival='uncover']) .token-arrive-body { animation: token-fade var(--t-ui) ease-out; }
+  .token-arrive-before { display: none; }
   .flame-tongue, .flame-ring, .vine-leaf { animation: none; opacity: 0; }
   .vine-stem { animation: none; stroke-dasharray: none; }
   .stack-badge { animation: none; }

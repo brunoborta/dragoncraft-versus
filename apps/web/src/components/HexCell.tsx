@@ -46,6 +46,8 @@ export function HexCell({
   onSelect: (hex: Hex) => void
 }) {
   const top = stack[stack.length - 1]
+  // the token under the top: what the space showed before the top arrived
+  const under = stack[stack.length - 2]
   const center = hexCenter(hex)
   const label = top ? `${key(hex)}: ${tokenLabel(top)}, stack of ${stack.length}` : `${key(hex)}: empty`
 
@@ -67,7 +69,20 @@ export function HexCell({
       <polygon points={hexPoints(hex, STONE_SCALE)} className="hex-shade" />
       {top ? (
         <ArrivingToken key={topId ?? 'top'} arrival={arrival} x={center.x} y={center.y}>
-          <TokenGlyph token={top} buried={stack.slice(0, -1)} radius={TOKEN_RADIUS} />
+          {/*
+            Until the arriving token lands, the space looks as it did before:
+            whatever was on top then keeps its face. A token moved off a stack
+            never takes the stack along, and one landing on a stack never
+            leaves it flat and blank while it is on its way.
+          */}
+          {under && arrival && arrival !== 'uncover' ? (
+            <g className="token-arrive-before">
+              <TokenGlyph token={under} buried={stack.slice(0, -2)} radius={TOKEN_RADIUS} />
+            </g>
+          ) : null}
+          <g className="token-arrive-body">
+            <TokenGlyph token={top} buried={stack.slice(0, -1)} radius={TOKEN_RADIUS} />
+          </g>
         </ArrivingToken>
       ) : null}
     </g>
@@ -85,7 +100,10 @@ export function HexCell({
  * - `fly`: the opponent's, the same drop once its flight from their slot is
  *   over (`FLIGHT`).
  * - `slide`/`swap`: moved or swapped; hidden while its traveller crosses the
- *   board, then shown where it landed (M7, M8).
+ *   board, then shown where it landed (M7, M8). Until then the space shows
+ *   its `.token-arrive-before`: the stack as it was, the old top with its face.
+ * - `uncover`: a move took the token above it away; it was there all along,
+ *   so it simply stays.
  * - none: a crossfade (anything the queue did not stage, and reduced motion).
  */
 function ArrivingToken({
@@ -107,7 +125,7 @@ function ArrivingToken({
       transform={`translate(${x} ${y})`}
       style={how === 'fly' ? ({ '--fly-ms': `${FLIGHT}ms` } as React.CSSProperties) : undefined}
     >
-      <g className="token-arrive-body">{children}</g>
+      {children}
     </g>
   )
 }

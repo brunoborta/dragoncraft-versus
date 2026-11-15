@@ -383,12 +383,13 @@ export function BoardMoment({ event }: { event: PresentationEvent | null }) {
  * `fly` is the opponent's: it waits for the token flying in from their slot,
  * then drops like yours.
  */
-export type Arrival = 'drop' | 'fly' | 'slide' | 'swap'
+export type Arrival = 'drop' | 'fly' | 'slide' | 'swap' | 'uncover'
 
 /**
  * The arrival of each space's top token under the current event: the placed
  * token drops in (after its flight, if it is the opponent's), a moved token
- * appears when its traveller lands, swapped tokens the same.
+ * appears when its traveller lands, swapped tokens the same, and the token a
+ * move leaves on top of its old stack simply stays (`uncover`).
  */
 export function arrivals(event: PresentationEvent | null, viewer?: Seat): Record<string, Arrival> {
   if (!event) return {}
@@ -397,7 +398,8 @@ export function arrivals(event: PresentationEvent | null, viewer?: Seat): Record
     case 'place':
       return { [k(event.at)]: viewer === undefined || event.seat === viewer ? 'drop' : 'fly' }
     case 'move':
-      return { [k(event.to)]: 'slide' }
+      // the token left on top where it came from was there all along: it is uncovered, not arriving
+      return { [k(event.to)]: 'slide', [k(event.from)]: 'uncover' }
     case 'swap':
       return { [k(event.a)]: 'swap', [k(event.b)]: 'swap' }
     default:

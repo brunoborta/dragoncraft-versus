@@ -34,7 +34,8 @@ describe('arrivals', () => {
 
   it('drops a placed token, slides a moved one, and marks both ends of a swap', () => {
     expect(arrivals(place)).toEqual({ '0,0': 'drop' })
-    expect(arrivals(move)).toEqual({ '1,0': 'slide' })
+    // what a move leaves behind on its old space was there all along: uncovered, not arriving
+    expect(arrivals(move)).toEqual({ '1,0': 'slide', '0,0': 'uncover' })
     expect(arrivals(swap)).toEqual({ '0,0': 'swap', '1,0': 'swap' })
     expect(arrivals(fire)).toEqual({})
     expect(arrivals(null)).toEqual({})
@@ -118,19 +119,63 @@ describe('Board, under an event', () => {
     expect(container.querySelector('.board-overlay .landing-puff')).not.toBeNull()
   })
 
-  it('lets a token with no staged arrival fade in', () => {
-    const board = { [key(at(0, 0))]: [single('meat')] }
-    render(<Board board={board} highlights={{}} onSelectHex={() => {}} />)
-    const cell = screen.getByLabelText('0,0: Meat, stack of 1')
-    expect(cell.querySelector('.token-arrive')?.getAttribute('data-arrival')).toBe('fade')
-    expect(document.querySelector('.landing')).toBeNull()
-  })
+  describe('a token moved off the top of a stack', () => {
+    // meat had iron and bread under it at 0,0; it moved alone to 1,0, onto a plant
+    const stackMove: PresentationEvent = {
+      ...base,
+      kind: 'move',
+      from: at(0, 0),
+      to: at(1, 0),
+      id: 'm',
+      by: 'meat',
+      board: {
+        '0,0': [{ token: single('iron'), id: 'i' }, { token: single('bread'), id: 'b' }],
+        '1,0': [{ token: single('plant'), id: 'p' }, { token: single('meat'), id: 'm' }],
+      },
+    }
+    const after = {
+      '0,0': [single('iron'), single('bread')],
+      '1,0': [single('plant'), single('meat')],
+    }
+    const ids = { '0,0': ['i', 'b'], '1,0': ['p', 'm'] }
+    const draw = () =>
+      render(<Board board={after} ids={ids} event={stackMove} viewer={1} highlights={{}} onSelectHex={() => {}} />).container
 
-  it('draws a gold glow around the token the fire-up decision is about, and embers around a resolving one', () => {
-    const { container } = render(
-      <Board board={{}} glows={{ '0,0': 'gold', '1,0': 'ember' }} highlights={{}} onSelectHex={() => {}} />,
-    )
-    const glows = [...container.querySelectorAll('.token-glow')].map((g) => g.getAttribute('data-glow'))
-    expect(glows).toEqual(['gold', 'ember'])
+    it('sends only the top token across, never the stack it came from', () => {
+      const c = draw()
+      const travellers = c.querySelectorAll('.traveller')
+      expect(travellers).toHaveLength(1)
+      // one face, and no buried edges under it
+      expect(travellers[0].querySelector('.token')?.hasAttribute('data-buried')).toBe(false)
+    })
+
+    it('leaves what was under it standing still: the uncovered token does not fade or slide in', () => {
+      draw()
+      const from = screen.getByLabelText('0,0: Bread, stack of 2')
+      expect(from.querySelector('.token-arrive')?.getAttribute('data-arrival')).toBe('uncover')
+      // nothing to wait for, so nothing is shown in the meantime
+      expect(from.querySelector('.token-arrive-before')).toBeNull()
+      expect(from.querySelector('.token-arrive-body .token')?.getAttribute('data-buried')).toBe('1')
+    })
+
+    it('keeps the stack it lands on as it was, face and all, until the traveller lands', () => {
+      draw()
+      const to = screen.getByLabelText('1,0: Meat, stack of 2')
+      expect(to.querySelector('.token-arrive')?.getAttribute('data-arrival')).toBe('slide')
+      // meanwhile: the plant that was on top, drawn whole — a face, not a bare edge
+      const before = to.querySelector('.token-arrive-before .token')
+      expect(before).not.toBeNull()
+      expect(before?.hasAttribute('data-buried')).toBe(false)
+      expect(before?.querySelector('.token-icon')).not.toBeNull()
+      // and the stack as it will be, waiting to show
+      expect(to.querySelector('.token-arrive-body .token')?.getAttribute('data-buried')).toBe('1')
+    })
+
+    it('shows nothing in the meantime on a space that was empty', () => {
+      const ids2 = { '1,0': ['m'] }
+      const lone: PresentationEvent = { ...stackMove, board: { '1,0': [{ token: single('meat'), id: 'm' }] } }
+      render(<Board board={{ '1,0': [single('meat')] }} ids={ids2} event={lone} viewer={1} highlights={{}} onSelectHex={() => {}} />)
+      expect(screen.getByLabelText('1,0: Meat, stack of 1').querySelector('.token-arrive-before')).toBeNull()
+    })
   })
 })
