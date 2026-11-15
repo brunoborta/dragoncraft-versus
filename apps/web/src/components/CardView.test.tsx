@@ -32,7 +32,8 @@ describe('CardView', () => {
     expect(screen.queryByRole('button')).toBeNull()
     rerender(<CardView card={card('tri-bread')} scoreable onScore={() => {}} />)
     expect(screen.getByRole('button', { name: 'Score Three Bread in a triangle, 3 reputation' })).toBeDefined()
-    expect(screen.queryByText('Score')).toBeNull()
+    // the whole card is the one control: the Score tab on it is a label, not a second button
+    expect(screen.getAllByRole('button')).toHaveLength(1)
   })
 
   it('scores from a tap anywhere on the card, or from the keyboard', () => {
@@ -47,5 +48,25 @@ describe('CardView', () => {
   it('draws one hex per pattern cell', () => {
     const { container } = render(<CardView card={card('tri-bread')} scoreable={false} />)
     expect(container.querySelectorAll('.pattern-hex')).toHaveLength(3)
+  })
+
+  it('stands out when it can be scored: risen, with a Score tab', () => {
+    const { container } = render(<CardView card={card('tri-bread')} scoreable onScore={() => {}} />)
+    expect(container.querySelector('.card')?.hasAttribute('data-ready')).toBe(true)
+    expect(container.querySelector('.card-ready')?.textContent).toBe('Score')
+  })
+
+  it('still scores, but does not stand out, with the card-glow option off', () => {
+    const onScore = vi.fn()
+    const { container } = render(<CardView card={card('tri-bread')} scoreable highlight={false} onScore={onScore} />)
+    expect(container.querySelector('.card')?.hasAttribute('data-ready')).toBe(false)
+    expect(container.querySelector('.card-ready')).toBeNull()
+    fireEvent.click(container.querySelector('.card') as HTMLElement)
+    expect(onScore).toHaveBeenCalledOnce()
+  })
+
+  it('does not stand out when it cannot be scored', () => {
+    const { container } = render(<CardView card={card('tri-bread')} scoreable={false} />)
+    expect(container.querySelector('.card-ready')).toBeNull()
   })
 })

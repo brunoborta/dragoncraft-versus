@@ -16,11 +16,17 @@ import { PatternGlyph } from './PatternGlyph.js'
  * a taller hand would shrink the board and move every hex under a
  * half-finished two-tap gesture.
  */
+/** A coin's discard returns exactly two cards, so everything else in hand stays. */
+export function keepCount(hand: readonly ShopCard[]): number {
+  return Math.max(0, hand.length - 2)
+}
+
 export function CardView({
   card,
   scoreable,
   completes = false,
   onScore,
+  highlight = true,
   picked,
   onPick,
 }: {
@@ -30,19 +36,27 @@ export function CardView({
   completes?: boolean
   /** Scores the card; the whole card is the control while it is scoreable. */
   onScore?: () => void
-  /** Chosen to stay in hand. Only meaningful inside the discard dialog. */
+  /**
+   * Whether a scoreable card shows it: rises, pulses gold, carries a Score tab.
+   * Off with the card-glow option — the card still scores on a tap, but
+   * spotting it is left to the player, as in the printed game.
+   */
+  highlight?: boolean
+  /** Marked to stay in hand, after a coin. Only meaningful while picking. */
   picked?: boolean
-  /** Present only in the discard dialog, where the whole card is the control. */
+  /** Present only while a coin's discard is being picked: the whole card is the control. */
   onPick?: () => void
 }) {
   const pickable = onPick !== undefined
-  // in the discard dialog a tap picks; in the hand, a tap on a card that can be scored scores it
+  // while a coin's discard is picked a tap marks the card; otherwise a tap on a card that can be scored scores it
   const press = pickable ? onPick : scoreable ? onScore : undefined
+  const ready = scoreable && highlight && !pickable
 
   return (
     <article
       className="card"
       data-scoreable={scoreable}
+      data-ready={ready || undefined}
       data-completes={completes || undefined}
       data-picked={pickable ? (picked ? 'true' : 'false') : undefined}
       {...(press
@@ -67,6 +81,11 @@ export function CardView({
         <span>{card.reputation}</span>
       </span>
       <PatternGlyph pattern={card.pattern} />
+      {ready ? (
+        <span className="card-ready" aria-hidden="true">
+          Score
+        </span>
+      ) : null}
       <p className="card-name sr-only">{cardName(card)}</p>
     </article>
   )

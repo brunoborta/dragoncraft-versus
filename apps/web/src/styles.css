@@ -739,10 +739,35 @@ body {
   filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.45));
 }
 .card-rep > span { position: relative; padding-top: 3px; }
-/* a card that can be scored right now glows gold (M10 will make it pulse) */
-.card[data-scoreable='true'] {
-  border-color: #ffd86a;
-  box-shadow: 0 0 0 2px rgb(255 216 106 / 0.6), 0 0 16px rgb(255 200 80 / 0.7), 0 4px 10px rgb(0 0 0 / 0.45);
+/*
+ * A card that can be scored right now (with the card-glow option on): it rises
+ * out of the fan, its border turns thick gold, and a Score tab sits on its top
+ * edge — it has to be seen at a glance at the end of a turn, not searched for.
+ */
+.card[data-ready] {
+  border: 3px solid #ffd86a;
+  transform: translateY(-12px);
+  transition: transform var(--t-ui);
+}
+.card[data-ready]:active { transform: translateY(-12px) scale(0.97); }
+.fan-slot:has(.card[data-ready]) { position: relative; z-index: 4; }
+.card-ready {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe69a, var(--completes));
+  border: 1px solid #8a6a26;
+  color: var(--bg);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+  pointer-events: none;
 }
 /* a scoreable card is pressed as a whole */
 .card[data-scoreable='true'][role='button'] { cursor: pointer; transition: transform var(--t-tap); }
@@ -1239,11 +1264,11 @@ body {
 
 /* ---------- scoring and the coin (v3, F10) ---------- */
 
-/* M10: a card that can be scored now: its gold border breathes */
-.card[data-scoreable='true'] { animation: scoreable-pulse 1.5s ease-in-out infinite; }
+/* M10: a card that can be scored now: its gold glow breathes, wide enough to read across the screen */
+.card[data-ready] { animation: scoreable-pulse 1.2s ease-in-out infinite; }
 @keyframes scoreable-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px rgb(255 216 106 / 0.55), 0 0 12px rgb(255 200 80 / 0.55), 0 4px 10px rgb(0 0 0 / 0.45); }
-  50% { box-shadow: 0 0 0 3px rgb(255 230 150 / 0.95), 0 0 26px rgb(255 200 80 / 0.95), 0 4px 10px rgb(0 0 0 / 0.45); }
+  0%, 100% { box-shadow: 0 0 0 3px rgb(255 216 106 / 0.8), 0 0 18px 2px rgb(255 200 80 / 0.7), 0 10px 14px rgb(0 0 0 / 0.5); }
+  50% { box-shadow: 0 0 0 5px rgb(255 236 160 / 1), 0 0 36px 8px rgb(255 200 80 / 1), 0 10px 14px rgb(0 0 0 / 0.5); }
 }
 
 /* the card-glow option: the card the hovering token would complete rises and glows */
