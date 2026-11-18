@@ -1,10 +1,12 @@
-import { single } from '@dcv/engine'
-import type { LogEntry, Seat } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
+import { single } from './tokens.js'
 import { undoFloor, type UndoableState } from './undoFloor.js'
+import type { LogEntry, Seat } from './types.js'
 
 const draw = (seat: Seat): LogEntry => ({ seat, action: { type: 'draw', token: single('bread') } })
 const move = (seat: Seat): LogEntry => ({ seat, action: { type: 'skipFireUp' } })
+const coin = (seat: Seat): LogEntry => ({ seat, action: { type: 'spendCoin' } })
+const discard = (seat: Seat): LogEntry => ({ seat, action: { type: 'coinDiscard', cardIds: ['a', 'b'] } })
 
 /** Builds the history as a running log, one state per entry appended. */
 function history(entries: LogEntry[], seats: Seat[]): UndoableState[] {
@@ -25,6 +27,12 @@ describe('undoFloor', () => {
     // draw, place, fire up bread which draws again, place that one
     const states = history([draw(0), move(0), draw(0), move(0)], [0, 0, 0, 0])
     // index 2 is the state the second draw produced: undo may reach it, not pass it
+    expect(undoFloor(states)).toBe(2)
+  })
+
+  it('stops at a spent coin, so the cards it drew cannot be unseen', () => {
+    const states = history([draw(0), move(0), coin(0), discard(0)], [0, 0, 0, 0])
+    // index 2 is the state the spend produced: the discard may be re-chosen, the spend may not
     expect(undoFloor(states)).toBe(2)
   })
 

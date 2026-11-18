@@ -1,7 +1,6 @@
-import { applyAction, createGame, legalActions } from '@dcv/engine'
+import { applyAction, createGame, legalActions, undoFloor } from '@dcv/engine'
 import type { Action, GameState } from '@dcv/engine'
 import { useCallback, useMemo, useState } from 'react'
-import { undoFloor } from './undoFloor.js'
 
 /**
  * No `view` here on purpose. A session-level view could only be the *current*
