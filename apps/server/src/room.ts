@@ -1,4 +1,4 @@
-import { actionKey, applyAction, createGame, legalActions } from '@dcv/engine'
+import { actionKey, applyAction, createGame, legalActions, undoFloor } from '@dcv/engine'
 import { toPlayerView } from '@dcv/engine'
 import type { Action, GameState, Seat } from '@dcv/engine'
 import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
@@ -20,6 +20,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   'not-started': 'The game has not started yet',
   'not-your-turn': 'It is not your turn',
   'illegal-action': 'That move is not legal right now',
+  'cannot-undo': 'There is nothing to take back right now',
   replaced: 'You reconnected from somewhere else',
   busy: 'The server has no room for another game right now',
 }
@@ -38,7 +39,8 @@ export function errorMessage(code: ErrorCode): ServerMessage {
  */
 export class Room {
   private readonly seats: [SeatRecord | null, SeatRecord | null] = [null, null]
-  private state: GameState
+  /** Every state the game has been in; the last is current. Undo pops one. */
+  private history: GameState[]
   /** When the room last had nobody connected; sweeping reads it. */
   idleSince: number
 
@@ -50,8 +52,12 @@ export class Room {
     /** How the table is shown, as the creator chose; relayed to every seat as it sits. */
     readonly options: TableOptions = DEFAULT_TABLE_OPTIONS,
   ) {
-    this.state = createGame(seed)
+    this.history = [createGame(seed)]
     this.idleSince = createdAt
+  }
+
+  private get state(): GameState {
+    return this.history[this.history.length - 1]
   }
 
   get started(): boolean {
@@ -77,6 +83,11 @@ export class Room {
     return this.seats[seat]?.client ?? null
   }
 
+  /** Whether undo has anywhere to go, same rule as against the machine. */
+  private get undoable(): boolean {
+    return this.history.length - 1 > undoFloor(this.history)
+  }
+
   private viewFor(seat: Seat): ServerMessage {
     const mine = this.state.current === seat && this.state.phase !== 'ended'
     return {
@@ -84,6 +95,7 @@ export class Room {
       view: toPlayerView(this.state, seat),
       actions: mine ? legalActions(this.state) : [],
       opponentConnected: this.clientAt((1 - seat) as Seat) !== null,
+      canUndo: mine && this.undoable,
     }
   }
 
@@ -178,7 +190,30 @@ export class Room {
     if (!legal) return refuse('illegal-action')
 
     // apply the engine's own object, not the client's: same key, no stray fields
-    this.state = applyAction(this.state, legal)
+    this.history = [...this.history, applyAction(this.state, legal)]
+    return this.broadcastViews()
+  }
+
+  /**
+   * One step back, exactly as against the machine: only the player whose
+   * turn it is, and never across a draw, a spent coin, or into the other
+   * player's turn. Both seats get the rewound view, so a takeback happens
+   * in the open.
+   */
+  undo(client: ClientId): Outbound[] {
+    const seat = this.seatOf(client)
+    if (seat === null) return [{ to: client, message: errorMessage('not-seated') }]
+    if (!this.started) return [{ to: client, message: errorMessage('not-started') }]
+
+    const refuse = (code: ErrorCode): Outbound[] => [
+      { to: client, message: errorMessage(code) },
+      { to: client, message: this.viewFor(seat) },
+    ]
+
+    if (this.state.phase === 'ended' || this.state.current !== seat) return refuse('not-your-turn')
+    if (!this.undoable) return refuse('cannot-undo')
+
+    this.history = this.history.slice(0, -1)
     return this.broadcastViews()
   }
 

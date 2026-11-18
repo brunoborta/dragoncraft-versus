@@ -14,6 +14,7 @@ describe('parseClientMessage', () => {
       type: 'action',
       action: { type: 'endTurn' },
     })
+    expect(parseClientMessage('{"type":"undo"}')).toEqual({ type: 'undo' })
   })
 
   it('rejects what is not a message', () => {

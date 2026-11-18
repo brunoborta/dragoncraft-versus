@@ -182,6 +182,19 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
         deliver(out)
         return
       }
+      case 'undo': {
+        if (!connection.room) {
+          send(client, errorMessage('not-seated'))
+          return
+        }
+        const out = connection.room.undo(client)
+        const refused = out.find((o) => o.message.type === 'error')
+        if (refused?.message.type === 'error') {
+          log(`${client} undo refused in room ${connection.room.id}: ${refused.message.code}`)
+        }
+        deliver(out)
+        return
+      }
     }
   }
 

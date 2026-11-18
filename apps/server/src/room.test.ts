@@ -184,6 +184,76 @@ describe('Room', () => {
     expect(room.sit('A').map((o) => o.message.type)).toEqual(['waiting'])
   })
 
+  it('offers no undo at the opening of a turn, then offers it once a move is made', () => {
+    const room = makeRoom()
+    const { b } = seatBoth(room)
+    const viewA = lastView(to(b, 'A'))
+    const mover = viewA.view.current === 0 ? 'A' : 'B'
+    const moverView = mover === 'A' ? viewA : lastView(to(b, 'B'))
+
+    // the turn opened with a draw: there is nothing before it to go back to
+    expect(moverView.canUndo).toBe(false)
+
+    const place = moverView.actions.find((a) => a.type === 'place')!
+    const out = room.act(mover, place)
+    expect(lastView(to(out, mover)).canUndo).toBe(true)
+    // the idle seat sees the position move but gets no undo of its own
+    expect(lastView(to(out, mover === 'A' ? 'B' : 'A')).canUndo).toBe(false)
+  })
+
+  it('takes back the last move and shows both seats the rewound position', () => {
+    const room = makeRoom()
+    const { b } = seatBoth(room)
+    const viewA = lastView(to(b, 'A'))
+    const mover = viewA.view.current === 0 ? 'A' : 'B'
+    const idle = mover === 'A' ? 'B' : 'A'
+    const before = mover === 'A' ? viewA : lastView(to(b, 'B'))
+
+    const place = before.actions.find((a) => a.type === 'place')!
+    room.act(mover, place)
+
+    const out = room.undo(mover)
+    const rewound = lastView(to(out, mover))
+    expect(rewound.view.board).toEqual(before.view.board)
+    expect(rewound.actions).toEqual(before.actions)
+    expect(rewound.canUndo).toBe(false)
+    // the takeback happens in the open: the other seat gets the rewound view too
+    expect(lastView(to(out, idle)).view.board).toEqual(before.view.board)
+  })
+
+  it('refuses an undo from whoever is not the player of the turn', () => {
+    const room = makeRoom()
+    const { b } = seatBoth(room)
+    const viewA = lastView(to(b, 'A'))
+    const mover = viewA.view.current === 0 ? 'A' : 'B'
+    const idle = mover === 'A' ? 'B' : 'A'
+    const place = lastView(to(b, mover)).actions.find((a) => a.type === 'place')!
+    room.act(mover, place)
+
+    const out = room.undo(idle)
+    expect(to(out, idle).map((m) => m.type)).toEqual(['error', 'view'])
+    expect(to(out, idle)[0]).toMatchObject({ code: 'not-your-turn' })
+    expect(to(out, mover)).toEqual([])
+  })
+
+  it('refuses an undo with nothing to take back, without moving the state', () => {
+    const room = makeRoom()
+    const { b } = seatBoth(room)
+    const viewA = lastView(to(b, 'A'))
+    const mover = viewA.view.current === 0 ? 'A' : 'B'
+
+    const out = room.undo(mover)
+    expect(to(out, mover)[0]).toMatchObject({ type: 'error', code: 'cannot-undo' })
+    expect(lastView(to(out, mover)).view.board).toEqual(lastView(to(b, mover)).view.board)
+  })
+
+  it('refuses an undo from someone not seated, or before the game starts', () => {
+    const room = makeRoom()
+    expect(room.undo('nobody')[0].message).toMatchObject({ code: 'not-seated' })
+    room.sit('A')
+    expect(room.undo('A')[0].message).toMatchObject({ code: 'not-started' })
+  })
+
   it('tracks when the room was last empty', () => {
     const room = makeRoom()
     seatBoth(room)

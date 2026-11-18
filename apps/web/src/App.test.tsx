@@ -495,7 +495,7 @@ describe('App online', () => {
     expect(screen.getByLabelText('Opponent').textContent).toContain('Friend')
     const legal = screen.getAllByRole('button').filter((el) => el.getAttribute('data-highlight') === 'legal')
     expect(legal).toHaveLength(19)
-    // no undo across the wire
+    // this view carries no canUndo (an older server): nothing to take back
     expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(true)
 
     // two taps place, and the move goes to the server rather than into a local engine
@@ -503,6 +503,37 @@ describe('App online', () => {
     fireEvent.click(screen.getByLabelText('2,-2: empty'))
     expect(latest().sent.at(-1)).toEqual({ type: 'action', action: { type: 'place', at: { q: 2, r: -2 } } })
     expect(screen.getByText('Opponent is thinking…')).toBeDefined()
+  })
+
+  it('undoes across the wire when the server says there is something to take back', async () => {
+    const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
+    const { connect, latest } = fakeConnect()
+    render(<App server="ws://test" connect={connect} />)
+    fireEvent.click(screen.getByText('Against a player'))
+    fireEvent.click(screen.getByText('Join'))
+    fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Join' }))
+    act(() => latest().onopen?.())
+
+    const state = createGame(2)
+    const seat = state.current
+    act(() => latest().receive({ type: 'seated', room: '042137', seat, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
+    act(() =>
+      latest().receive({
+        type: 'view',
+        view: toPlayerView(state, seat),
+        actions: legalActions(state),
+        opponentConnected: true,
+        canUndo: true,
+      }),
+    )
+
+    const undo = screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement
+    expect(undo.disabled).toBe(false)
+    fireEvent.click(undo)
+    expect(latest().sent.at(-1)).toEqual({ type: 'undo' })
+    // one tap, one step back: the button waits for the server's next view
+    expect(undo.disabled).toBe(true)
   })
 
   it("plays a joined game with the host's options, shown but not changeable", async () => {

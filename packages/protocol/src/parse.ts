@@ -55,6 +55,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
       // the cast is the whole point of the comment above: shape here, legality in the engine
       return { type: 'action', action: data.action as unknown as Action }
     }
+    case 'undo':
+      return { type: 'undo' }
     default:
       return null
   }

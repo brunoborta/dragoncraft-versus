@@ -60,6 +60,7 @@ export function useRemoteTable({
 }): RemoteTable {
   const [view, setView] = useState<PlayerView | null>(null)
   const [actions, setActions] = useState<Action[]>([])
+  const [canUndo, setCanUndo] = useState(false)
   const [status, setStatus] = useState<TableStatus>({ kind: 'connecting' })
   const [opponentConnected, setOpponentConnected] = useState(false)
   const [roomId, setRoomId] = useState<string | null>(room)
@@ -97,6 +98,8 @@ export function useRemoteTable({
         case 'view':
           setView(message.view)
           setActions(message.actions)
+          // an older server sends none: then there is no undo to offer
+          setCanUndo(message.canUndo ?? false)
           setOpponentConnected(message.opponentConnected)
           setStatus({ kind: 'playing' })
           return
@@ -108,6 +111,7 @@ export function useRemoteTable({
             finished = true
             setStatus({ kind: 'closed', reason: message.message })
             setActions([])
+            setCanUndo(false)
             socketRef.current?.close()
           }
           // the rest arrive with a fresh view right behind them
@@ -146,6 +150,7 @@ export function useRemoteTable({
         if (cancelled || finished) return
         // nothing may be sent down a closed socket, and the view may be stale
         setActions([])
+        setCanUndo(false)
         setStatus({ kind: 'connecting' })
         const delay = Math.min(FIRST_RETRY_MS * 2 ** attempt, MAX_RETRY_MS)
         attempt += 1
@@ -173,14 +178,22 @@ export function useRemoteTable({
     setActions([])
   }, [])
 
-  const undo = useCallback(() => {}, [])
+  const undo = useCallback(() => {
+    const socket = socketRef.current
+    if (!socket) return
+    socket.send(JSON.stringify({ type: 'undo' } satisfies ClientMessage))
+    // one tap, one step back: nothing more until the server answers
+    setActions([])
+    setCanUndo(false)
+  }, [])
+
 
   return {
     view,
     actions,
     perform,
     undo,
-    canUndo: false,
+    canUndo,
     status,
     opponentConnected,
     opponentLabel: 'Opponent',

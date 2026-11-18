@@ -104,6 +104,27 @@ describe('useRemoteTable', () => {
     expect(h.result.current.actions).toEqual([])
   })
 
+  it('offers undo when the server says so, sends it, and offers nothing until the next view', () => {
+    const h = harness('ROOM01')
+    act(() => h.latest().onopen?.())
+    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
+    act(() =>
+      h.latest().receive({
+        type: 'view',
+        view: toPlayerView(state, state.current),
+        actions: legalActions(state),
+        opponentConnected: true,
+        canUndo: true,
+      }),
+    )
+
+    expect(h.result.current.canUndo).toBe(true)
+    act(() => h.result.current.undo())
+    expect(h.latest().sent.at(-1)).toEqual({ type: 'undo' })
+    expect(h.result.current.canUndo).toBe(false)
+    expect(h.result.current.actions).toEqual([])
+  })
+
   it('reconnects with the token after a drop, backing off, and withdraws the actions meanwhile', () => {
     const h = harness(null)
     act(() => h.latest().onopen?.())

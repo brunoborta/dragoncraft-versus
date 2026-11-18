@@ -25,6 +25,8 @@ export type ClientMessage =
   | { type: 'create'; options?: TableOptions }
   | { type: 'join'; room: string; token?: string }
   | { type: 'action'; action: Action }
+  /** Take back the last action. The server decides if the floor allows it. */
+  | { type: 'undo' }
 
 export type ErrorCode =
   | 'bad-message'
@@ -35,6 +37,8 @@ export type ErrorCode =
   | 'not-started'
   | 'not-your-turn'
   | 'illegal-action'
+  /** There is nothing undo may take back right now. */
+  | 'cannot-undo'
   /** Someone else reconnected with this seat's token; this connection is done. */
   | 'replaced'
   /** The server will not open another room right now. */
@@ -52,6 +56,7 @@ export type ServerMessage =
   /** `options`: the table's, as the room's creator chose them — the same for both seats. */
   | { type: 'seated'; room: string; seat: Seat; token: string; role: Role; options: TableOptions }
   | { type: 'waiting' }
-  | { type: 'view'; view: PlayerView; actions: Action[]; opponentConnected: boolean }
+  /** `canUndo`: whether this seat may take back an action right now; an older server sends none. */
+  | { type: 'view'; view: PlayerView; actions: Action[]; opponentConnected: boolean; canUndo?: boolean }
   | { type: 'presence'; opponentConnected: boolean }
   | { type: 'error'; code: ErrorCode; message: string }
