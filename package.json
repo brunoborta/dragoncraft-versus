@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @dcv/web",
-    "dev:online": "npm run dev -w @dcv/server & VITE_SERVER_URL=http://localhost:8080 npm run dev -w @dcv/web",
+    "dev:online": "concurrently -k -n server,web \"npm run dev -w @dcv/server\" \"cross-env VITE_SERVER_URL=http://localhost:8080 npm run dev -w @dcv/web\"",
     "build": "npm run build -w @dcv/web",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -19,6 +19,8 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^26.6.3",
+    "concurrently": "^10.0.7",
+    "cross-env": "^10.1.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"

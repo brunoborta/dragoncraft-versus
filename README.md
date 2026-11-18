@@ -152,7 +152,7 @@ or each on its own:
 
 ```bash
 npm run dev -w @dcv/server             # ws://localhost:8080, any origin
-VITE_SERVER_URL=http://localhost:8080 npm run dev   # the site, with the online option
+npx cross-env VITE_SERVER_URL=http://localhost:8080 npm run dev   # the site, with the online option (any OS)
 ```
 
 A plain `npm run dev` leaves the online option out. To play from two phones,
