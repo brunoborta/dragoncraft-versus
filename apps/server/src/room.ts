@@ -21,6 +21,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   'not-your-turn': 'It is not your turn',
   'illegal-action': 'That move is not legal right now',
   'cannot-undo': 'There is nothing to take back right now',
+  'not-ended': 'The game is not over yet',
   replaced: 'You reconnected from somewhere else',
   busy: 'The server has no room for another game right now',
 }
@@ -41,6 +42,10 @@ export class Room {
   private readonly seats: [SeatRecord | null, SeatRecord | null] = [null, null]
   /** Every state the game has been in; the last is current. Undo pops one. */
   private history: GameState[]
+  /** Who is asking to play again; both at once starts the next game. */
+  private wantsRematch: [boolean, boolean] = [false, false]
+  /** How many games this table has seen before the current one. */
+  private gameNumber = 0
   /** When the room last had nobody connected; sweeping reads it. */
   idleSince: number
 
@@ -51,6 +56,8 @@ export class Room {
     readonly createdAt: number,
     /** How the table is shown, as the creator chose; relayed to every seat as it sits. */
     readonly options: TableOptions = DEFAULT_TABLE_OPTIONS,
+    /** Where a rematch's seed comes from; the first game got its own in `seed`. */
+    private readonly newSeed: () => number = () => Math.floor(Math.random() * 0x7fffffff),
   ) {
     this.history = [createGame(seed)]
     this.idleSince = createdAt
@@ -96,6 +103,15 @@ export class Room {
       actions: mine ? legalActions(this.state) : [],
       opponentConnected: this.clientAt((1 - seat) as Seat) !== null,
       canUndo: mine && this.undoable,
+      game: this.gameNumber,
+    }
+  }
+
+  private rematchFor(seat: Seat): ServerMessage {
+    return {
+      type: 'rematch',
+      youWant: this.wantsRematch[seat],
+      opponentWants: this.wantsRematch[(1 - seat) as Seat],
     }
   }
 
@@ -112,7 +128,10 @@ export class Room {
   /** What a seat sees on arrival: the game if it is on, otherwise that it is not. */
   private arrival(client: ClientId, seat: Seat): Outbound[] {
     if (!this.started) return [{ to: client, message: { type: 'waiting' } }]
-    return [{ to: client, message: this.viewFor(seat) }]
+    const out: Outbound[] = [{ to: client, message: this.viewFor(seat) }]
+    // a rematch asked for while this seat was away is still on the table
+    if (this.wantsRematch[0] || this.wantsRematch[1]) out.push({ to: client, message: this.rematchFor(seat) })
+    return out
   }
 
   private presenceFor(seat: Seat): Outbound[] {
@@ -215,6 +234,34 @@ export class Room {
 
     this.history = this.history.slice(0, -1)
     return this.broadcastViews()
+  }
+
+  /**
+   * A seat asking to play again, once the game is over. The first to ask
+   * waits, and both seats hear who is asking; when the second agrees, the
+   * table starts over on a fresh seed — same seats, same options, and the
+   * game number moves so clients know this is a new game, not a correction.
+   */
+  rematch(client: ClientId): Outbound[] {
+    const seat = this.seatOf(client)
+    if (seat === null) return [{ to: client, message: errorMessage('not-seated') }]
+    if (!this.started) return [{ to: client, message: errorMessage('not-started') }]
+    if (this.state.phase !== 'ended') return [{ to: client, message: errorMessage('not-ended') }]
+
+    this.wantsRematch[seat] = true
+    if (this.wantsRematch[0] && this.wantsRematch[1]) {
+      this.wantsRematch = [false, false]
+      this.gameNumber += 1
+      this.history = [createGame(this.newSeed())]
+      return this.broadcastViews()
+    }
+
+    const out: Outbound[] = []
+    for (const other of [0, 1] as const) {
+      const at = this.clientAt(other)
+      if (at) out.push({ to: at, message: this.rematchFor(other) })
+    }
+    return out
   }
 
   disconnect(client: ClientId, now: number): Outbound[] {

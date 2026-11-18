@@ -47,6 +47,7 @@ export function GameScreen({
   detail,
   restartLabel,
   onRestart,
+  playAgain,
   extras,
   paused = false,
   options = DEFAULT_TABLE_OPTIONS,
@@ -60,6 +61,12 @@ export function GameScreen({
   detail: string
   restartLabel: string
   onRestart: () => void
+  /**
+   * Another game at the same table. Against the machine `act` starts it;
+   * online it asks the opponent, and `waiting`/`opponentWants` say where
+   * that asking stands.
+   */
+  playAgain?: { act: () => void; waiting?: boolean; opponentWants?: boolean }
   /** Anything the host wants under the board: the debug hatch, a connection notice. */
   extras?: ReactNode
   /**
@@ -298,7 +305,8 @@ export function GameScreen({
     table.undo()
   }
 
-  function restart(): void {
+  /** Clears everything this screen was holding, for whatever comes next. */
+  function freshStart(next: () => void): void {
     setSelected(null)
     setInspecting(null)
     setKeeping([])
@@ -307,7 +315,7 @@ export function GameScreen({
     setSettingsOpen(false)
     setPeeking(false)
     setViewingBoard(false)
-    onRestart()
+    next()
   }
 
   function decision() {
@@ -487,7 +495,17 @@ export function GameScreen({
             view={view}
             opponentLabel={table.opponentLabel}
             restartLabel={restartLabel}
-            onRestart={restart}
+            onRestart={() => freshStart(onRestart)}
+            playAgain={
+              playAgain
+                ? {
+                    act: () => freshStart(playAgain.act),
+                    waiting: playAgain.waiting ?? false,
+                    opponentWants: playAgain.opponentWants ?? false,
+                    opponentGone: !table.opponentConnected,
+                  }
+                : undefined
+            }
             onViewBoard={() => setViewingBoard(true)}
           />
         </div>

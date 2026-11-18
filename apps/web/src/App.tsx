@@ -128,6 +128,13 @@ function LocalApp({
     onNewGame()
   }
 
+  /** The same opponent, another game: a fresh seed and nothing asked. */
+  function playAgain(): void {
+    const next = randomSeed()
+    setSeed(next)
+    table.reset(next)
+  }
+
   const debugHatch = debugging ? (
     <div className="debug">
       <button type="button" onClick={() => jumpTo('win')}>
@@ -152,6 +159,7 @@ function LocalApp({
           detail={`Seed ${seed}`}
           restartLabel="New game"
           onRestart={restart}
+          playAgain={{ act: playAgain }}
           extras={debugHatch}
           paused={level === null}
           options={options}
@@ -199,13 +207,20 @@ function OnlineApp({
   }
 
   return (
+    // keyed by the game number: a rematch starts the screen over, queues and all
     <GameScreen
+      key={table.game}
       table={table}
       view={table.view}
       label="Friend"
       detail={roomId ? `PIN ${roomId}` : ''}
       restartLabel="Back to menu"
       onRestart={onLeave}
+      playAgain={{
+        act: table.rematch.request,
+        waiting: table.rematch.youWant && !table.rematch.opponentWants,
+        opponentWants: table.rematch.opponentWants,
+      }}
       extras={<Connection status={status} opponentConnected={table.opponentConnected} />}
       options={table.options}
     />

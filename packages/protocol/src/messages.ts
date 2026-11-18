@@ -27,6 +27,8 @@ export type ClientMessage =
   | { type: 'action'; action: Action }
   /** Take back the last action. The server decides if the floor allows it. */
   | { type: 'undo' }
+  /** After the end: this seat wants another game at the same table. */
+  | { type: 'rematch' }
 
 export type ErrorCode =
   | 'bad-message'
@@ -39,6 +41,8 @@ export type ErrorCode =
   | 'illegal-action'
   /** There is nothing undo may take back right now. */
   | 'cannot-undo'
+  /** A rematch was asked for while the game is still on. */
+  | 'not-ended'
   /** Someone else reconnected with this seat's token; this connection is done. */
   | 'replaced'
   /** The server will not open another room right now. */
@@ -56,7 +60,14 @@ export type ServerMessage =
   /** `options`: the table's, as the room's creator chose them — the same for both seats. */
   | { type: 'seated'; room: string; seat: Seat; token: string; role: Role; options: TableOptions }
   | { type: 'waiting' }
-  /** `canUndo`: whether this seat may take back an action right now; an older server sends none. */
-  | { type: 'view'; view: PlayerView; actions: Action[]; opponentConnected: boolean; canUndo?: boolean }
+  /**
+   * `canUndo`: whether this seat may take back an action right now.
+   * `game`: how many games this table has seen before this one — it changes
+   * when a rematch starts, so the client knows to begin afresh.
+   * An older server sends neither.
+   */
+  | { type: 'view'; view: PlayerView; actions: Action[]; opponentConnected: boolean; canUndo?: boolean; game?: number }
+  /** Who at the table is asking to play again, said to each seat from where it sits. */
+  | { type: 'rematch'; youWant: boolean; opponentWants: boolean }
   | { type: 'presence'; opponentConnected: boolean }
   | { type: 'error'; code: ErrorCode; message: string }

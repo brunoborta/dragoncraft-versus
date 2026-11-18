@@ -57,6 +57,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
     }
     case 'undo':
       return { type: 'undo' }
+    case 'rematch':
+      return { type: 'rematch' }
     default:
       return null
   }

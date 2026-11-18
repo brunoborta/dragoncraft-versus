@@ -1130,6 +1130,7 @@ body {
 .final-score .avatar { width: 64px; height: 64px; }
 .final-score dt { margin-top: 4px; color: #c9d4cc; font-size: 14px; }
 .final-score dd { margin: 0; font-family: var(--font-display); font-size: 34px; font-weight: 700; line-height: 1; color: var(--brass-200); }
+.rematch-note { margin: 0 0 2px; font-size: 14px; color: var(--brass-200); text-align: center; }
 .game-over button {
   min-height: 48px;
   width: 100%;

@@ -195,6 +195,19 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
         deliver(out)
         return
       }
+      case 'rematch': {
+        if (!connection.room) {
+          send(client, errorMessage('not-seated'))
+          return
+        }
+        const out = connection.room.rematch(client)
+        // a fresh view with no error means both seats agreed and a new game began
+        if (out.some((o) => o.message.type === 'view')) {
+          log(`room ${connection.room.id} rematch: a new game begins`)
+        }
+        deliver(out)
+        return
+      }
     }
   }
 

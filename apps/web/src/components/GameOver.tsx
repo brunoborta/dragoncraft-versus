@@ -86,12 +86,15 @@ export function GameOver({
   opponentLabel,
   restartLabel,
   onRestart,
+  playAgain,
   onViewBoard,
 }: {
   view: PlayerView
   opponentLabel: string
   restartLabel: string
   onRestart: () => void
+  /** Another game at this table; `waiting` and `opponentWants` say where the asking stands. */
+  playAgain?: { act: () => void; waiting: boolean; opponentWants: boolean; opponentGone: boolean }
   onViewBoard?: () => void
 }) {
   const winner = winnerOfView(view)
@@ -129,7 +132,18 @@ export function GameOver({
         </div>
       </motion.dl>
       <motion.div className="game-over-actions" {...step(1.5)}>
-        <button type="button" onClick={onRestart}>
+        {playAgain?.opponentWants ? <p className="rematch-note">{opponentLabel} wants to play again</p> : null}
+        {playAgain?.waiting ? (
+          <p className="rematch-note">
+            {playAgain.opponentGone ? `${opponentLabel} left the game` : `Waiting for ${opponentLabel}…`}
+          </p>
+        ) : null}
+        {playAgain ? (
+          <button type="button" onClick={playAgain.act} disabled={playAgain.waiting}>
+            Play again
+          </button>
+        ) : null}
+        <button type="button" className={playAgain ? 'btn-secondary' : undefined} onClick={onRestart}>
           {restartLabel}
         </button>
         {onViewBoard ? (

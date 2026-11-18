@@ -264,6 +264,95 @@ describe('Room', () => {
   })
 })
 
+/** Seats A and B and plays the game out on random legal moves; returns the ending views and tokens. */
+function playToEnd(room: Room) {
+  const latest: Record<'A' | 'B', Extract<ServerMessage, { type: 'view' }> | undefined> = { A: undefined, B: undefined }
+  const take = (out: Outbound[]) => {
+    for (const client of ['A', 'B'] as const) {
+      const view = lastView(to(out, client))
+      if (view) latest[client] = view
+    }
+  }
+  const a = room.sit('A')
+  const b = room.sit('B')
+  take(a)
+  take(b)
+
+  let rng = 1
+  let steps = 0
+  while (latest.A!.view.phase !== 'ended' && steps < 3000) {
+    const mover = latest.A!.actions.length > 0 ? 'A' : 'B'
+    const actions = latest[mover]!.actions
+    const pick = nextInt(rng, actions.length)
+    rng = pick.rng
+    take(room.act(mover, actions[pick.value]))
+    steps += 1
+  }
+  return { latest, take, tokens: { A: tokenOf(to(a, 'A')), B: tokenOf(to(b, 'B')) } }
+}
+
+describe('playing again', () => {
+  it('is refused while the game is still on', () => {
+    const room = makeRoom()
+    seatBoth(room)
+    expect(room.rematch('A')[0].message).toMatchObject({ type: 'error', code: 'not-ended' })
+  })
+
+  it('is refused from someone not seated, or before the game starts', () => {
+    const room = makeRoom()
+    expect(room.rematch('nobody')[0].message).toMatchObject({ code: 'not-seated' })
+    room.sit('A')
+    expect(room.rematch('A')[0].message).toMatchObject({ code: 'not-started' })
+  })
+
+  it('tells both seats who is asking, each from where it sits', () => {
+    const room = makeRoom()
+    playToEnd(room)
+    const out = room.rematch('A')
+    expect(to(out, 'A')).toEqual([{ type: 'rematch', youWant: true, opponentWants: false }])
+    expect(to(out, 'B')).toEqual([{ type: 'rematch', youWant: false, opponentWants: true }])
+  })
+
+  it('starts a fresh game, with a moved game number, when the second seat agrees', () => {
+    const room = makeRoom()
+    const { latest } = playToEnd(room)
+    expect(latest.A!.game).toBe(0)
+
+    room.rematch('A')
+    const out = room.rematch('B')
+    for (const client of ['A', 'B'] as const) {
+      const view = lastView(to(out, client))
+      expect(view.view.phase).not.toBe('ended')
+      expect(view.game).toBe(1)
+      expect(view.view.you.scored).toEqual([])
+    }
+  })
+
+  it('keeps the asking on the table for a seat that reconnects', () => {
+    const room = makeRoom()
+    const { tokens } = playToEnd(room)
+    room.rematch('A')
+    room.disconnect('B', 1000)
+
+    const back = room.rejoin('B2', tokens.B)
+    const messages = to(back, 'B2')
+    expect(messages.find((m) => m.type === 'rematch')).toEqual({ type: 'rematch', youWant: false, opponentWants: true })
+
+    // and the agreement still counts, from the new connection
+    const out = room.rematch('B2')
+    expect(lastView(to(out, 'B2')).game).toBe(1)
+  })
+
+  it('asking twice is not agreeing with yourself', () => {
+    const room = makeRoom()
+    playToEnd(room)
+    room.rematch('A')
+    const out = room.rematch('A')
+    expect(to(out, 'A')).toEqual([{ type: 'rematch', youWant: true, opponentWants: false }])
+    expect(out.every((o) => o.message.type !== 'view')).toBe(true)
+  })
+})
+
 /**
  * Everything a view may not carry. The log is left out of the hand check:
  * a card the opponent returned with a coin and drew again later would be

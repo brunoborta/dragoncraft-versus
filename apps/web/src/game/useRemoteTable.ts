@@ -24,6 +24,10 @@ export type RemoteTable = Table & {
   seat: Seat | null
   /** The table's options as the room's creator chose them: read-only for both players. */
   options: TableOptions
+  /** Counts the games this table has seen: a rematch moves it, and the screen starts afresh. */
+  game: number
+  /** Who is asking to play again, and the asking itself. */
+  rematch: { youWant: boolean; opponentWants: boolean; request: () => void }
 }
 
 /** These mean the seat is not ours to come back to. Everything else is a hiccup. */
@@ -61,6 +65,8 @@ export function useRemoteTable({
   const [view, setView] = useState<PlayerView | null>(null)
   const [actions, setActions] = useState<Action[]>([])
   const [canUndo, setCanUndo] = useState(false)
+  const [game, setGame] = useState(0)
+  const [wants, setWants] = useState({ youWant: false, opponentWants: false })
   const [status, setStatus] = useState<TableStatus>({ kind: 'connecting' })
   const [opponentConnected, setOpponentConnected] = useState(false)
   const [roomId, setRoomId] = useState<string | null>(room)
@@ -70,6 +76,7 @@ export function useRemoteTable({
 
   const socketRef = useRef<SocketLike | null>(null)
   const roomRef = useRef<string | null>(room)
+  const gameRef = useRef(0)
   const initialRoom = useRef(room)
 
   useEffect(() => {
@@ -100,8 +107,17 @@ export function useRemoteTable({
           setActions(message.actions)
           // an older server sends none: then there is no undo to offer
           setCanUndo(message.canUndo ?? false)
+          // a moved game number is a rematch that began: the old asking is spent
+          if ((message.game ?? gameRef.current) !== gameRef.current) {
+            gameRef.current = message.game!
+            setGame(message.game!)
+            setWants({ youWant: false, opponentWants: false })
+          }
           setOpponentConnected(message.opponentConnected)
           setStatus({ kind: 'playing' })
+          return
+        case 'rematch':
+          setWants({ youWant: message.youWant, opponentWants: message.opponentWants })
           return
         case 'presence':
           setOpponentConnected(message.opponentConnected)
@@ -187,6 +203,13 @@ export function useRemoteTable({
     setCanUndo(false)
   }, [])
 
+  const requestRematch = useCallback(() => {
+    const socket = socketRef.current
+    if (!socket) return
+    socket.send(JSON.stringify({ type: 'rematch' } satisfies ClientMessage))
+    // said at once, so the button answers the tap; the server's word follows
+    setWants((current) => ({ ...current, youWant: true }))
+  }, [])
 
   return {
     view,
@@ -200,5 +223,7 @@ export function useRemoteTable({
     roomId,
     seat,
     options,
+    game,
+    rematch: { ...wants, request: requestRematch },
   }
 }

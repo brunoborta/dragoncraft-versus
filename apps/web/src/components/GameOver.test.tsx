@@ -1,7 +1,7 @@
 import { createInitialState, DECK, toPlayerView } from '@dcv/engine'
 import type { PlayerView } from '@dcv/engine'
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { ArtProvider } from '../art/ArtContext.js'
 import { CHOSEN_ART } from '../art/chosen.js'
 import { GameOver } from './GameOver.js'
@@ -75,5 +75,64 @@ describe('GameOver', () => {
   it('offers a new game', () => {
     render(<GameOver opponentLabel="Machine" restartLabel="New game" view={finished([], [])} onRestart={() => {}} />)
     expect(screen.getByRole('button', { name: 'New game' })).toBeDefined()
+  })
+})
+
+describe('playing again from the end screen', () => {
+  const idle = { waiting: false, opponentWants: false, opponentGone: false }
+
+  it('offers it first, with the way out beside it', () => {
+    const act = vi.fn()
+    render(
+      <GameOver
+        opponentLabel="Friend"
+        restartLabel="Back to menu"
+        view={finished([], [])}
+        onRestart={() => {}}
+        playAgain={{ ...idle, act }}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Play again' }))
+    expect(act).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Back to menu' })).toBeDefined()
+  })
+
+  it('waits on the opponent once asked, saying so', () => {
+    render(
+      <GameOver
+        opponentLabel="Friend"
+        restartLabel="Back to menu"
+        view={finished([], [])}
+        onRestart={() => {}}
+        playAgain={{ ...idle, act: () => {}, waiting: true }}
+      />,
+    )
+    expect((screen.getByRole('button', { name: 'Play again' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText('Waiting for Friend…')).toBeDefined()
+  })
+
+  it('says when the opponent is asking, and when they have left instead', () => {
+    const asking = render(
+      <GameOver
+        opponentLabel="Friend"
+        restartLabel="Back to menu"
+        view={finished([], [])}
+        onRestart={() => {}}
+        playAgain={{ ...idle, act: () => {}, opponentWants: true }}
+      />,
+    )
+    expect(screen.getByText('Friend wants to play again')).toBeDefined()
+    asking.unmount()
+
+    render(
+      <GameOver
+        opponentLabel="Friend"
+        restartLabel="Back to menu"
+        view={finished([], [])}
+        onRestart={() => {}}
+        playAgain={{ ...idle, act: () => {}, waiting: true, opponentGone: true }}
+      />,
+    )
+    expect(screen.getByText('Friend left the game')).toBeDefined()
   })
 })

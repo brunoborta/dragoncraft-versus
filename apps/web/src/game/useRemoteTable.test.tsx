@@ -125,6 +125,34 @@ describe('useRemoteTable', () => {
     expect(h.result.current.actions).toEqual([])
   })
 
+  it('relays who is asking to play again, asks itself, and starts over when the game moves', () => {
+    const h = harness('ROOM01')
+    act(() => h.latest().onopen?.())
+    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
+    act(() => h.latest().receive(viewMessage(state.current)))
+
+    act(() => h.latest().receive({ type: 'rematch', youWant: false, opponentWants: true }))
+    expect(h.result.current.rematch.opponentWants).toBe(true)
+
+    act(() => h.result.current.rematch.request())
+    expect(h.latest().sent.at(-1)).toEqual({ type: 'rematch' })
+    // said at once, so the button answers the tap
+    expect(h.result.current.rematch.youWant).toBe(true)
+
+    // the server starts the next game: the asking is spent
+    act(() =>
+      h.latest().receive({
+        type: 'view',
+        view: toPlayerView(state, state.current),
+        actions: legalActions(state),
+        opponentConnected: true,
+        game: 1,
+      }),
+    )
+    expect(h.result.current.game).toBe(1)
+    expect(h.result.current.rematch).toMatchObject({ youWant: false, opponentWants: false })
+  })
+
   it('reconnects with the token after a drop, backing off, and withdraws the actions meanwhile', () => {
     const h = harness(null)
     act(() => h.latest().onopen?.())
