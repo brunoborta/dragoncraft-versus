@@ -6,7 +6,7 @@ import { HEX_SIZE, hexCenter, hexPoints } from '../geometry.js'
 import { FLIGHT } from '../game/presentation.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
-export type Highlight = 'legal' | 'selected'
+export type Highlight = 'legal' | 'selected' | 'inspected'
 
 /** The stone tile is inset this much, so the joint between tiles shows. */
 export const STONE_SCALE = 0.92

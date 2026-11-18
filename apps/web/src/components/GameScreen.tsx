@@ -27,12 +27,12 @@ import { PlayerBar } from './PlayerBar.js'
 import { OpponentThinking, Prompt } from './Prompt.js'
 import { HelpDialog } from './HelpDialog.js'
 import { SettingsDialog } from './SettingsDialog.js'
-import { StackDetail } from './StackDetail.js'
+import { StackPeek } from './StackPeek.js'
 import { TurnBanner, useTurnBanner } from './TurnBanner.js'
 import { TopBar } from './TopBar.js'
 
 /** What a tap can land on and mean something: the rest of the screen is "beside the board". */
-const ANSWERS_A_TAP = '.hex-cell, button, [role="button"], .fire-choice, .stack-detail, .modal'
+const ANSWERS_A_TAP = '.hex-cell, button, [role="button"], .fire-choice, .stack-peek, .modal'
 
 /**
  * A game in progress, drawn from a `Table` and nothing else. Whether the
@@ -164,6 +164,8 @@ export function GameScreen({
   const highlights: Record<string, Highlight> = {}
   for (const hex of targets) highlights[key(hex)] = 'legal'
   if (selected) highlights[key(selected)] = 'selected'
+  // the stack being peeked at keeps a quiet ring, so the corner points somewhere
+  if (inspecting && !highlights[key(inspecting)]) highlights[key(inspecting)] = 'inspected'
 
   /*
    * The token the open decision is about glows (M4, M5): gold with sparks while
@@ -219,14 +221,6 @@ export function GameScreen({
 
   // "Fire up this token?" is asked on the board, around the token that just landed
   const firing = myTurn && !peeking && pending?.kind === 'mayFireUp' ? pending : null
-  // a fired-up ability lifting tokens off the board: the meat and the iron move one, the potion swaps two
-  const movingTokens = pending?.kind === 'meat' || pending?.kind === 'iron' || pending?.kind === 'potion'
-  /*
-   * Nothing open is answered on the board: the turn is played out (score, end
-   * turn), or a coin's cards are being chosen — where what lies under a stack
-   * can decide which card is worth keeping.
-   */
-  const freeLook = pending === undefined || pending.kind === 'coinDiscard'
   /*
    * A plant's chosen neighbour gets the fire-up treatment over it: a fire per
    * ability it could lend, the same I or Y as "Fire up this token?".
@@ -266,10 +260,15 @@ export function GameScreen({
     })
   }
 
-  /** A stack, opened or shut by a tap: only a space with something buried has anything to show. */
-  function lookAt(hex: Hex): void {
+  /**
+   * A stack, opened or shut by a tap. Only a space with something buried has
+   * anything to show — unless your token is about to land there, when a single
+   * token is already a stack of two in the making and the corner shows both.
+   */
+  function lookAt(hex: Hex, landing = false): void {
     const open = inspecting !== null && hexEq(inspecting, hex)
-    setInspecting(!open && (view.board[key(hex)] ?? []).length > 1 ? hex : null)
+    const height = (view.board[key(hex)] ?? []).length
+    setInspecting(!open && height >= (landing ? 1 : 2) ? hex : null)
   }
 
   function selectHex(hex: Hex): void {
@@ -282,20 +281,13 @@ export function GameScreen({
 
     setSelected(outcome.select)
     /*
-     * What a tap on a stack shows depends on what the board is being used for.
-     * Placing a token is choosing a space, and a plant borrows only what is on
-     * top: the panel stays shut. Moving a token — the meat, the iron, the
-     * potion — lifts the top one off, and what it uncovers is the point of the
-     * move, so picking it up opens the stack. With nothing left to decide on
-     * the board, a tap is only a look (`lookAt`).
+     * Whatever the board is being used for, a tap on a stack also shows what
+     * is buried in it: choosing a space to place on, picking a token up to
+     * move, or only looking. Knowing what lies underneath is never wrong,
+     * and hiding it cost more games than it saved taps.
      */
-    if (freeLook) {
-      lookAt(hex)
-      return
-    }
-    const pickingUp = movingTokens && outcome.select !== null && hexEq(outcome.select, hex)
-    // one token hides nothing: the panel is for seeing what is buried
-    setInspecting(pickingUp && (view.board[key(hex)] ?? []).length > 1 ? hex : null)
+    const landing = pending?.kind === 'place' && outcome.select !== null && hexEq(outcome.select, hex)
+    lookAt(hex, landing)
   }
 
   function undo(): void {
@@ -362,10 +354,6 @@ export function GameScreen({
     return <Prompt view={view} actions={barActions} onAct={handleAct} />
   }
 
-  function stackDetail(hex: Hex, over?: 'board') {
-    return <StackDetail hex={hex} stack={view.board[key(hex)] ?? []} onClose={() => setInspecting(null)} over={over} />
-  }
-
   const spendCoin = actions.find((action) => action.type === 'spendCoin')
 
   return (
@@ -414,8 +402,16 @@ export function GameScreen({
           viewer={view.seat}
           onSelectHex={myTurn && !peeking ? selectHex : lookAt}
         />
-        {/* while the hand is the choice, the stack opens over the board instead of over the cards */}
-        {inspecting && discarding ? stackDetail(inspecting, 'board') : null}
+        {/* what the tapped stack holds, in the corner the hexagon leaves empty; keyed so a new stack deals in afresh */}
+        {inspecting ? (
+          <StackPeek
+            key={key(inspecting)}
+            hex={inspecting}
+            stack={view.board[key(inspecting)] ?? []}
+            // the held token, while this is the space it would land on: the corner agrees with the hover
+            ghost={preview && hexEq(preview.hex, inspecting) ? preview.token : undefined}
+          />
+        ) : null}
         {/* under their portrait, in the corner the hexagon leaves empty */}
         <HeldSlot side="opponent" token={theirHeld} arriving={arrivingIn(opponentSeat)} />
         {firing && firedToken ? (
@@ -433,7 +429,6 @@ export function GameScreen({
         ) : null}
       </div>
       <footer className="bottom">
-        {inspecting && !discarding ? stackDetail(inspecting) : null}
         {extras}
         {/* one line under the board: the coin, your token's home, the bag */}
         <div className="tray-row">

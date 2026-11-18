@@ -13,7 +13,7 @@ import { THICKNESS, TokenGlyph } from './TokenGlyph.js'
  * whatever is drawn after it, so the selection has to come last or a neighbour
  * that merely offers a move covers two of its sides.
  */
-const RING_ORDER: readonly Highlight[] = ['legal', 'selected']
+const RING_ORDER: readonly Highlight[] = ['inspected', 'legal', 'selected']
 
 /** Size of one tile of the stone texture, in board units (a space is 20 wide). */
 const STONE_TILE = 32

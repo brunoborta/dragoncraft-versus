@@ -876,44 +876,47 @@ body {
 /* ---------- dialogs (v3, F4) ---------- */
 
 /*
- * The stack inspector sits over the top of the footer, absolutely, so opening
- * it never changes the footer's height or rescales the board mid-gesture.
+ * The stack peek: the tapped stack as small tokens in the board's top-right
+ * corner — the one corner the hexagon leaves empty (the opponent's slot has
+ * the left, the coins and bag the bottom two). Absolutely placed, so it never
+ * moves a hex centre mid-gesture, and never covers the hand or the prompt.
  */
-/* above the tray under the board (z 3), which comes later in the footer and would otherwise take its taps */
-.stack-detail {
+.stack-peek {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 2px;
+  right: 2px;
   z-index: 5;
-  padding: 8px 12px 10px;
+  display: grid;
+  padding: 5px;
   border-radius: 14px;
-  color: var(--parchment-ink);
-  background-color: var(--parchment);
-  background-image: linear-gradient(180deg, rgb(255 250 235 / 0.35), rgb(120 80 30 / 0.12)), var(--art-parchment, none);
-  background-size: auto, 220px;
-  border: 2px solid var(--brass-400);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.55);
+  background: rgb(12 26 19 / 0.78);
+  border: 1px solid var(--brass-400);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.45);
 }
-/* during a coin's choice the hand is the control: the stack opens over the top of the board instead */
-.stack-detail[data-over='board'] { top: 8px; left: 8px; right: 8px; }
-.stack-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.stack-detail-head button {
-  min-width: 44px;
-  min-height: 44px;
-  background: none;
-  border: 0;
-  color: var(--parchment-ink);
-  font: inherit;
-  font-size: 18px;
+/* the pile as a pile: top of the stack on top, each token riding over the one beneath */
+.stack-chips { display: flex; flex-direction: column; align-items: center; }
+.stack-chip { position: relative; display: grid; }
+.stack-chip + .stack-chip { margin-top: -14px; }
+.stack-chip svg { width: 36px; height: 36px; }
+/*
+ * The top of the pile is the answer: a little larger and lit, the rest dimmer
+ * beneath it. The top is the stack's own top, or the token about to land on
+ * it while this is its space — the same emphasis the hover over the board has.
+ */
+.stack-chip[data-top] svg { width: 42px; height: 42px; filter: drop-shadow(0 0 7px rgb(255 216 106 / 0.6)); }
+.stack-chip:not([data-top]) { opacity: 0.72; filter: saturate(0.85); }
+/* dealt out bottom first, the way the stack was built */
+.stack-chip { animation: chip-in 240ms ease-out both; animation-delay: calc(var(--i) * 90ms); }
+@keyframes chip-in {
+  from { opacity: 0; transform: translateY(6px); }
 }
-.stack-detail-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
-/* bottom to top, left to right, with an arrow between: the last one is what counts */
-.stack-detail ol { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.stack-detail li { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; }
-.stack-detail li + li::before { content: '›'; margin-right: 4px; color: var(--parchment-muted); font-size: 20px; }
-.stack-detail li:last-child { color: #1d4a2a; }
-.stack-detail svg { width: 34px; height: 34px; }
+@media (prefers-reduced-motion: reduce) {
+  .stack-chip { animation: none; }
+}
+/* the quiet ring on the space being peeked at */
+.hex-ring-edge[data-highlight='inspected'] { stroke: rgb(16 33 26 / 0.6); stroke-width: 2; }
+.hex-ring[data-highlight='inspected'] { stroke: var(--brass-400); stroke-width: 1.1; stroke-dasharray: 3 2; }
+
 
 .modal-backdrop {
   position: fixed;

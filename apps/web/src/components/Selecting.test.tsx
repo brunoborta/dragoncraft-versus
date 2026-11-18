@@ -176,19 +176,20 @@ describe('the stack inspector, while a decision is open', () => {
     { type: 'plantTarget', at: DUAL, ability: 'plant' },
   ]
 
-  it('stays shut on a space the decision is about: that tap is an answer', () => {
+  it('opens on the space the decision is about: the tap answers and shows what is buried', () => {
     show({ pending: plantPending, actions: targets, board: buried })
     fireEvent.click(screen.getByLabelText(/^1,0: /))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
     // the tap did what it was for: the fire-ups are up
     expect(screen.getByRole('button', { name: 'Use Potion' })).toBeDefined()
   })
 
-  it('stays shut on a space the decision leaves alone, and lets go of the selection', () => {
+  it('moves to the next stack tapped, letting go of the selection', () => {
     show({ pending: plantPending, actions: targets, board: buried })
     fireEvent.click(screen.getByLabelText(/^1,0: /))
     fireEvent.click(screen.getByLabelText(/^1,-1: /))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+    expect(screen.getByLabelText('Stack at 1,-1')).toBeDefined()
+    expect(screen.queryByLabelText('Stack at 1,0')).toBeNull()
     expect(screen.getByLabelText(/^1,0: /).getAttribute('data-highlight')).toBe('legal')
   })
 

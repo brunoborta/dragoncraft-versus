@@ -204,18 +204,22 @@ describe('App', () => {
     expect(screen.queryByLabelText('Move log')).toBeNull()
   })
 
-  it('does not open a stack for a space holding a single token', () => {
+  it('opens a single token as a stack of two when your token is chosen to land on it', () => {
     startGame()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+    const peek = screen.getByLabelText('Stack at 1,0')
+    expect(peek.querySelectorAll('.stack-chip')).toHaveLength(2)
+    expect(peek.querySelector('.stack-chip[data-ghost][data-top]')).not.toBeNull()
   })
 
-  it('keeps a buried stack shut while placing or firing up: what is under it is not yours to see', () => {
+  it('opens a buried stack even while a fire-up is being offered', () => {
     startGame()
     stackTwoOnInnerRing()
     expect(screen.getByText('Fire up this token?')).toBeDefined()
     fireEvent.click(screen.getByLabelText(/^1,0: /))
-    expect(screen.queryByLabelText(/^Stack at /)).toBeNull()
+    expect(screen.getByLabelText('Stack at 1,0')).toBeDefined()
+    // the question itself is still standing
+    expect(screen.getByText('Fire up this token?')).toBeDefined()
   })
 
   it('offers Undo once something is done this turn, and takes it back one step at a time', () => {
