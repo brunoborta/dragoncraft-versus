@@ -1,11 +1,13 @@
-import { finalScore, winnerOfView } from '@dcv/engine'
+import { bankedReputation, winnerOfView } from '@dcv/engine'
 import type { PlayerView } from '@dcv/engine'
+import type { Scorable } from '@dcv/engine'
 import { motion } from 'motion/react'
 import { useArt } from '../art/ArtContext.js'
 import type { GameResult as Result } from '../art/ArtContext.js'
 import { useCountUp } from '../game/useCountUp.js'
 import { useReducedMotion } from '../motion.js'
 import { Avatar } from './Avatar.js'
+import { CoinIcon } from './icons.js'
 
 const HEADLINE: Record<Result, string> = { win: 'You win', lose: 'You lose', draw: 'Shared victory' }
 
@@ -69,9 +71,30 @@ function Crest({ result }: { result: Result }) {
   )
 }
 
-/** A final total, counted up from zero once the crest has landed (M14). */
-function FinalTotal({ value, delay }: { value: number; delay: number }) {
-  return <dd>{useCountUp(value, { from: 0, delay, duration: 900 })}</dd>
+/** When the coins join the sum: after the card points have finished counting. */
+const COINS_JOIN_MS = 1900
+
+/**
+ * A final total in two counts (M14): up from zero to what the cards banked,
+ * a beat, then the coins join one by one — the one moment they turn into
+ * points, shown as the turning.
+ */
+function FinalTotal({ player, delay }: { player: Scorable; delay: number }) {
+  const cards = useCountUp(bankedReputation(player), { from: 0, delay, duration: 900 })
+  const coins = useCountUp(player.coins, { from: 0, delay: COINS_JOIN_MS, duration: 600 })
+  return <dd>{cards + coins}</dd>
+}
+
+/** Where the total came from: the cards, and the coins kept to the end. */
+function Breakdown({ player }: { player: Scorable }) {
+  return (
+    <p className="final-breakdown">
+      <span>{bankedReputation(player)} cards</span>
+      <span className="final-coins">
+        <CoinIcon className="final-coin" /> +{player.coins}
+      </span>
+    </p>
+  )
 }
 
 /**
@@ -123,15 +146,20 @@ export function GameOver({
         <div className="final-score" data-side="you">
           <Avatar side="you" active={result !== 'lose'} />
           <dt>You</dt>
-          <FinalTotal value={finalScore(view.you)} delay={700} />
+          <FinalTotal player={view.you} delay={700} />
         </div>
         <div className="final-score" data-side="opponent">
           <Avatar side="opponent" active={result !== 'win'} />
           <dt>{opponentLabel}</dt>
-          <FinalTotal value={finalScore(view.opponent)} delay={700} />
+          <FinalTotal player={view.opponent} delay={700} />
         </div>
       </motion.dl>
-      <motion.div className="game-over-actions" {...step(1.5)}>
+      {/* the breakdown appears as the coins join the count, naming what just happened */}
+      <motion.div className="final-breakdowns" {...step(COINS_JOIN_MS / 1000)}>
+        <Breakdown player={view.you} />
+        <Breakdown player={view.opponent} />
+      </motion.div>
+      <motion.div className="game-over-actions" {...step(2.6)}>
         {playAgain?.opponentWants ? <p className="rematch-note">{opponentLabel} wants to play again</p> : null}
         {playAgain?.waiting ? (
           <p className="rematch-note">

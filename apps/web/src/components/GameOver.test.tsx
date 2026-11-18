@@ -76,6 +76,19 @@ describe('GameOver', () => {
     render(<GameOver opponentLabel="Machine" restartLabel="New game" view={finished([], [])} onRestart={() => {}} />)
     expect(screen.getByRole('button', { name: 'New game' })).toBeDefined()
   })
+
+  it('counts the coins into the totals and says where each came from', () => {
+    render(
+      <GameOver opponentLabel="Machine" restartLabel="New game" view={finished(['tri-bread'], [], 2, 1)} onRestart={() => {}} />,
+    )
+    // tri-bread banks 3; 2 coins kept make 5 against 0 + 1
+    expect(screen.getByText('5')).toBeDefined()
+    expect(screen.getByText('1')).toBeDefined()
+    expect(screen.getByText('3 cards')).toBeDefined()
+    expect(screen.getByText('+2')).toBeDefined()
+    expect(screen.getByText('0 cards')).toBeDefined()
+    expect(screen.getByText('+1')).toBeDefined()
+  })
 })
 
 describe('playing again from the end screen', () => {
