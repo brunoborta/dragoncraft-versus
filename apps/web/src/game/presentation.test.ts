@@ -71,7 +71,7 @@ describe('script', () => {
   })
 
   it('places the token the crystal kept, not the last one it drew', () => {
-    const { board } = script(
+    const { events, board } = script(
       {},
       [
         entry({ type: 'fireUp', ability: 'crystal' }),
@@ -85,6 +85,13 @@ describe('script', () => {
       counter(),
     )
     expect(toBoard(board)).toEqual({ '0,0': [single('iron')] })
+    // the pick is its own moment: the kept token to the cushion, the others back to the bag
+    expect(events[4]).toMatchObject({
+      kind: 'crystalKeep',
+      tokens: [single('bread'), single('iron'), single('plant')],
+      index: 1,
+      held: single('iron'),
+    })
   })
 
   it('picks from draws a plant caused, though the plant is logged after them', () => {
@@ -165,12 +172,24 @@ describe('memoryFromView', () => {
 })
 
 describe('eventDuration', () => {
-  it('gives the bag its moment on a draw, shorter for the opponent, none for a crystal draw', () => {
+  it('gives the bag its moment on a draw, shorter for the opponent', () => {
     const mine = eventDuration({ kind: 'draw', seat: 0, crystal: false }, 0, false)
     const theirs = eventDuration({ kind: 'draw', seat: 1, crystal: false }, 0, false)
     expect(mine).toBeGreaterThan(theirs)
     expect(theirs).toBeGreaterThan(0)
-    expect(eventDuration({ kind: 'draw', seat: 0, crystal: true }, 0, false)).toBe(0)
+  })
+
+  it("gives your own crystal's draws their flights to the arch, and none to the opponent's", () => {
+    expect(eventDuration({ kind: 'draw', seat: 0, crystal: true }, 0, false)).toBe(HOLD.crystalDraw)
+    expect(eventDuration({ kind: 'draw', seat: 1, crystal: true }, 0, false)).toBe(0)
+    // under reduced motion the arch simply appears, whole
+    expect(eventDuration({ kind: 'draw', seat: 0, crystal: true }, 0, true)).toBe(0)
+  })
+
+  it("gives your own crystal's pick its resolving moment, and none to the opponent's", () => {
+    expect(eventDuration({ kind: 'crystalKeep', seat: 0 }, 0, false)).toBe(HOLD.crystalKeep)
+    expect(eventDuration({ kind: 'crystalKeep', seat: 1 }, 0, false)).toBe(0)
+    expect(eventDuration({ kind: 'crystalKeep', seat: 0 }, 0, true)).toBe(0)
   })
 
   it('gives time to what moves on the board, less under reduced motion', () => {
@@ -262,7 +281,7 @@ describe('what the script tells the choreography', () => {
     expect(events[4]).toMatchObject({ kind: 'fireUp', ability: 'meat', at: at(1, -1), from: at(1, 0) })
   })
 
-  it("marks a crystal's draws as the Discover's, not the bag's", () => {
+  it("marks a crystal's draws as the arch's, not the tray's", () => {
     const { events } = script(
       {},
       [

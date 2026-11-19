@@ -2,40 +2,47 @@ import { DECK, createInitialState, dual, single, toPlayerView } from '@dcv/engin
 import type { Action } from '@dcv/engine'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { CrystalDiscover } from './CrystalDiscover.js'
+import { CrystalArch } from './CrystalArch.js'
 import { GameOver } from './GameOver.js'
 
-describe('CrystalDiscover', () => {
+describe('CrystalArch', () => {
   const tokens = [single('bread'), dual('iron', 'potion'), single('plant')]
   const actions: Action[] = tokens.map((_, index) => ({ type: 'crystalPick', index }))
 
-  it('offers every token the crystal drew, by name, with what it would do', () => {
-    render(<CrystalDiscover tokens={tokens} actions={actions} onAct={() => {}} />)
-    const dialog = screen.getByRole('dialog', { name: 'Keep one of these' })
-    const names = [...dialog.querySelectorAll('.discover-name')].map((el) => el.textContent)
+  it('offers every token the crystal drew, bare: named for the reader, no dialog, no description', () => {
+    const { container } = render(<CrystalArch tokens={tokens} actions={actions} onAct={() => {}} />)
+    const names = [...container.querySelectorAll('button')].map((el) => el.getAttribute('aria-label'))
     expect(names).toEqual(['Keep Bread', 'Keep Iron/Potion', 'Keep Plant'])
-    expect(dialog.textContent).toContain('Swap any two tokens')
+    expect(container.querySelector('[role=dialog]')).toBeNull()
+    expect(container.textContent).not.toContain('Swap any two tokens')
   })
 
   it('keeps the token tapped', () => {
     const onAct = vi.fn()
-    render(<CrystalDiscover tokens={tokens} actions={actions} onAct={onAct} />)
-    fireEvent.click(screen.getByRole('button', { name: /Keep Plant/ }))
+    render(<CrystalArch tokens={tokens} actions={actions} onAct={onAct} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Keep Plant' }))
     expect(onAct).toHaveBeenCalledWith({ type: 'crystalPick', index: 2 })
   })
 
-  it('takes fewer than three when the bag ran short, and says nothing goes back', () => {
-    render(<CrystalDiscover tokens={[single('meat')]} actions={[{ type: 'crystalPick', index: 0 }]} onAct={() => {}} />)
+  it('takes fewer than three when the bag ran short', () => {
+    render(<CrystalArch tokens={[single('meat')]} actions={[{ type: 'crystalPick', index: 0 }]} onAct={() => {}} />)
     expect(screen.getAllByRole('button')).toHaveLength(1)
-    expect(screen.queryByText(/go back in the bag/)).toBeNull()
   })
 
-  it('fans the choices from the middle', () => {
-    const { container } = render(<CrystalDiscover tokens={tokens} actions={actions} onAct={() => {}} />)
-    const angles = [...container.querySelectorAll<HTMLElement>('.discover-choice')].map((el) =>
-      el.style.getPropertyValue('--fan-angle'),
+  it('arches the tokens: the middle one risen to the crown, the outer ones on the tray, turned', () => {
+    const { container } = render(<CrystalArch tokens={tokens} actions={actions} onAct={() => {}} />)
+    const frames = [...container.querySelectorAll<HTMLElement>('.crystal-slot-frame')]
+    expect(frames.map((el) => el.style.getPropertyValue('--arch-rise'))).toEqual(['0px', '14px', '0px'])
+    expect(frames.map((el) => el.style.getPropertyValue('--arch-turn'))).toEqual(['-8deg', '0deg', '8deg'])
+  })
+
+  it('hides a slot whose token has not landed yet, but keeps its place for the flight to aim at', () => {
+    const { container } = render(
+      <CrystalArch tokens={tokens} actions={actions} onAct={() => {}} arrival={(index) => (index === 0 ? 0 : -1)} />,
     )
-    expect(angles).toEqual(['-6deg', '0deg', '6deg'])
+    const slots = [...container.querySelectorAll<HTMLElement>('.crystal-slot')]
+    expect(slots.map((el) => el.hasAttribute('data-waiting'))).toEqual([false, true, true])
+    expect(slots.map((el) => el.getAttribute('data-slot'))).toEqual(['0', '1', '2'])
   })
 })
 

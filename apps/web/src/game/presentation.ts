@@ -27,8 +27,17 @@ export type PresentedBoard = Record<string, PresentedToken[]>
  * tray or slot shows from then on; absent where the script did not say.
  */
 export type PresentationEvent = { seat: Seat; entry: LogEntry; seq: number; board: PresentedBoard; held?: Token | null } & (
-  /** `crystal`: one of the three a crystal drew — shown by the Discover, not by the bag. */
-  | { kind: 'draw'; token: Token; crystal: boolean }
+  /**
+   * `crystal`: one of the three a crystal drew — it flies to the arch of
+   * choices over the board, not to the tray. `drawIndex` is its place in the
+   * run of draws, which for a crystal's is its slot in that arch.
+   */
+  | { kind: 'draw'; token: Token; crystal: boolean; drawIndex: number }
+  /**
+   * The crystal's pick resolving: the kept token (`tokens[index]`) slides from
+   * its arch slot onto the tray's cushion, the others shrink back into the bag.
+   */
+  | { kind: 'crystalKeep'; tokens: Token[]; index: number }
   | { kind: 'place'; at: Hex; id: string; token: Token }
   /**
    * `at` is the token that fired; null when the script cannot tell (a fire-up
@@ -189,7 +198,14 @@ export function script(
       case 'draw': {
         held = action.token
         draws = [...draws, action.token]
-        const event: PresentationEvent = { ...base, kind: 'draw', token: action.token, crystal: crystalRun, board }
+        const event: PresentationEvent = {
+          ...base,
+          kind: 'draw',
+          token: action.token,
+          crystal: crystalRun,
+          drawIndex: draws.length - 1,
+          board,
+        }
         runDraws.push(event)
         events.push(event)
         break
@@ -214,10 +230,10 @@ export function script(
         if (!kept) throw new Error('presentation: a crystal pick with no draws to pick from')
         markCrystal()
         held = kept
+        events.push({ ...base, kind: 'crystalKeep', tokens: draws, index: action.index, board })
         draws = []
         runDraws = []
         crystalRun = false
-        events.push({ ...base, kind: 'other', board })
         break
       }
       case 'place': {
@@ -279,8 +295,8 @@ export function script(
 /**
  * Marks the last `count` draw events as a crystal's. For when the pick is still
  * open in the view (the player's own crystal): the draws arrived in this batch,
- * the pick has not happened yet, and the Discover is their moment — the bag
- * must not announce them one by one.
+ * the pick has not happened yet, and they belong to the arch of choices — they
+ * must fly there, not to the tray.
  */
 export function markCrystalDraws(events: PresentationEvent[], count: number): void {
   let left = count
@@ -316,6 +332,10 @@ export const FLIGHT = 480
 export const HOLD = {
   draw: 1300,
   drawTheirs: 900,
+  /** One of a crystal's three, bag to arch: quicker than a lone draw, there are three in a row. */
+  crystalDraw: 800,
+  /** The pick resolving: the kept token to the cushion, the others back into the bag. */
+  crystalKeep: 650,
   place: 450,
   move: 450,
   swap: 600,
@@ -344,8 +364,12 @@ export function eventDuration(
   const theirs = (ms: number) => (mine ? ms : Math.round(ms * THEIRS))
   switch (event.kind) {
     case 'draw':
-      if (event.crystal) return 0
+      // a crystal's draws fly to its arch on the drawer's own screen; the other side sees only the pick
+      if (event.crystal) return mine && !reduced ? HOLD.crystalDraw : 0
       return reduced ? HOLD.reduced * 2 : mine ? HOLD.draw : HOLD.drawTheirs
+    case 'crystalKeep':
+      // only the drawer's screen has an arch to resolve; the other side sees the pick in the slot
+      return mine && !reduced ? HOLD.crystalKeep : 0
     case 'place':
       // theirs flies in from the slot first, then lands like yours, a little quicker
       return reduced ? HOLD.reduced : mine ? HOLD.place : FLIGHT + theirs(HOLD.place)

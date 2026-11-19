@@ -73,7 +73,7 @@ export function promptFor(view: PlayerView): string {
     case 'mayFireUp':
       return 'Fire up this token?'
     case 'crystalPick':
-      return 'Keep one of these three'
+      return 'Choose a token to keep'
     case 'meat':
       return 'Move one neighbour anywhere'
     case 'iron':

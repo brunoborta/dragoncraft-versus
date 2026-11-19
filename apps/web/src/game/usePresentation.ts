@@ -113,7 +113,7 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
     // the script must land exactly where the view is, or it is not to be trusted
     if (!sameBoard(toBoard(played.board), view.board)) return snap()
 
-    // the player's own crystal: its pick is still open, its draws belong to the Discover
+    // the player's own crystal: its pick is still open, its draws belong to the arch of choices
     const top = view.pending[view.pending.length - 1]
     if (top?.kind === 'crystalPick') markCrystalDraws(played.events, top.tokens.length)
 
@@ -147,7 +147,7 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
       setState((current) => {
         const [first, ...rest] = current.queue
         if (!first) return current
-        // a crystal's draws belong to its Discover: the hand does not change until the pick
+        // a crystal's draws belong to its arch: the hand does not change until the pick
         const changesHand = first.held !== undefined && !(first.kind === 'draw' && first.crystal)
         const held = changesHand ? (first.held ? { seat: first.seat, token: first.held } : null) : current.held
         return { ...current, shown: first.board, held, event: first, queue: rest }

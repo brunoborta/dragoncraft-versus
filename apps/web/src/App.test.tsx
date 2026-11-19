@@ -320,10 +320,10 @@ describe('App', () => {
       return true
     }
 
-    // the crystal's choice is made on the tokens, in their own dialog
-    const discover = document.querySelector<HTMLButtonElement>('.discover-choice:not(:disabled)')
-    if (discover) {
-      fireEvent.click(discover)
+    // the crystal's choice is made on the tokens, in the arch over the board
+    const archToken = document.querySelector<HTMLButtonElement>('.crystal-slot:not(:disabled)')
+    if (archToken) {
+      fireEvent.click(archToken)
       return true
     }
 

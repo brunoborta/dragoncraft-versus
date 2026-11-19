@@ -108,7 +108,7 @@ describe('usePresentation, animation on', () => {
     expect(result.current.held).toBeNull()
   })
 
-  it("leaves the hand alone for a crystal's draws: they are the Discover's", () => {
+  it("leaves the hand alone for a crystal's draws: they belong to its arch", () => {
     const fire: LogEntry = { seat: 1, action: { type: 'fireUp', ability: 'crystal' } }
     const draws: LogEntry[] = ['bread', 'iron', 'plant'].map((type) => ({
       seat: 1,

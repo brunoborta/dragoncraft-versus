@@ -71,11 +71,6 @@ export function FlameIcon(props: IconProps) {
   return <TracedIcon name="flame" fill="#ffcf5a" stroke="#9a3a10" strokeWidth={0.9} strokeLinejoin="round" paintOrder="stroke" {...props} />
 }
 
-/** An eye: look at the board behind a choice that still has to be made. */
-export function EyeIcon(props: IconProps) {
-  return <TracedIcon name="eye" {...props} />
-}
-
 /** Not on the sheet: a plain cross, drawn here — no, decline, let it be. */
 export function CrossIcon({ className }: IconProps) {
   return (

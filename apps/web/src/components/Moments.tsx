@@ -70,10 +70,16 @@ export function DrawFlight({
   event,
   seat,
   within,
+  target,
+  hold: holdMs,
 }: {
   event: Extract<PresentationEvent, { kind: 'draw' }>
   seat: Seat
   within: HTMLElement | null
+  /** Where it settles, as a selector: a crystal draw's arch slot. The drawer's tray or slot when absent. */
+  target?: string
+  /** How long the whole flight takes, ms; the draw's usual slot when absent. */
+  hold?: number
 }) {
   const reduced = useReducedMotion()
   const mine = event.seat === seat
@@ -82,6 +88,11 @@ export function DrawFlight({
   useLayoutEffect(() => {
     const from = centreOf('.bag-art', within)
     const mid = centreOf('.board', within)
+    if (target) {
+      const to = centreOf(target, within)
+      if (from && mid && to) setPath({ from, mid, to, size: slotSize(target, within), boost: 1 })
+      return
+    }
     /*
      * To the tray: the flight ends exactly where the token will rest, at the
      * token's own size, so the handover to the glyph is seamless. The reveal
@@ -98,10 +109,10 @@ export function DrawFlight({
         boost: slotSize(mine ? SLOT.you : SLOT.opponent, within) / spot.size,
       })
     }
-  }, [within, mine])
+  }, [within, mine, target])
 
   if (!path) return null
-  const hold = (mine ? HOLD.draw : HOLD.drawTheirs) / 1000
+  const hold = (holdMs ?? (mine ? HOLD.draw : HOLD.drawTheirs)) / 1000
   const { from, mid, to, size, boost } = path
   // the reveal: big over the board, bigger for your own draw
   const big = (mine ? 2.3 : 1.8) * boost
@@ -128,6 +139,80 @@ export function DrawFlight({
           <TokenGlyph token={event.token} radius={9} />
         </svg>
       </motion.div>
+    </div>
+  )
+}
+
+/**
+ * The crystal's pick resolving (your own): the kept token slides from its arch
+ * slot onto the tray's cushion, shrinking to the size a held token has there;
+ * the others fly back into the bag, getting smaller until they vanish behind
+ * it. The arch keeps its slots mounted but hidden while this plays, so each
+ * flight starts exactly where its token stood.
+ */
+export function CrystalKeepMoment({
+  event,
+  within,
+}: {
+  event: Extract<PresentationEvent, { kind: 'crystalKeep' }>
+  within: HTMLElement | null
+}) {
+  const reduced = useReducedMotion()
+  type Leg = { from: Point; to: Point; size: number; end: number; kept: boolean }
+  const [legs, setLegs] = useState<Leg[] | null>(null)
+
+  useLayoutEffect(() => {
+    const bag = centreOf('.bag-art', within)
+    const cushion = heldSpot('you', within)
+    const found: Leg[] = []
+    for (const index of event.tokens.keys()) {
+      const slot = `.crystal-slot[data-slot="${index}"]`
+      const from = centreOf(slot, within)
+      const kept = index === event.index
+      const to = kept ? cushion : bag
+      if (!from || !to) return
+      const size = slotSize(slot, within)
+      // the kept token ends exactly at the size it will have resting on the cushion
+      found.push({ from, to, size, end: kept ? (cushion?.size ?? size) / size : 0.3, kept })
+    }
+    setLegs(found)
+  }, [within, event])
+
+  if (!legs || reduced) return null
+  const hold = HOLD.crystalKeep / 1000
+  return (
+    <div className="draw-flight" data-side="you" aria-hidden="true">
+      {legs.map((leg, index) => (
+        <motion.div
+          key={index}
+          className="draw-token"
+          style={{ left: 0, top: 0, width: leg.size, height: leg.size * 1.075, margin: `${-leg.size / 2}px 0 0 ${-leg.size / 2}px` }}
+          initial={{ x: leg.from.x, y: leg.from.y, scale: 1, opacity: 1 }}
+          animate={
+            leg.kept
+              ? {
+                  // the keep, celebrated: it rises and grows, then settles onto the cushion at its resting size
+                  x: [leg.from.x, (leg.from.x + leg.to.x) / 2, leg.to.x],
+                  y: [leg.from.y, leg.from.y - 24, leg.to.y],
+                  scale: [1, 1.55, leg.end],
+                  opacity: 1,
+                  transition: { duration: hold, times: [0, 0.45, 1], ease: 'easeInOut' },
+                }
+              : {
+                  // the others are swallowed by the bag, getting smaller on the way
+                  x: [leg.from.x, leg.to.x, leg.to.x],
+                  y: [leg.from.y, leg.to.y, leg.to.y],
+                  scale: [1, leg.end, leg.end],
+                  opacity: [1, 0.9, 0],
+                  transition: { duration: hold, times: [0, 0.82, 1], ease: 'easeInOut' },
+                }
+          }
+        >
+          <svg viewBox="-10 -10 20 21.5">
+            <TokenGlyph token={event.tokens[index]} radius={9} />
+          </svg>
+        </motion.div>
+      ))}
     </div>
   )
 }

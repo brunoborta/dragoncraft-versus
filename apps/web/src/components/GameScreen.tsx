@@ -2,7 +2,6 @@ import { bankedReputation, hexEq, key, wouldComplete } from '@dcv/engine'
 import type { Action, Hex, PlayerView } from '@dcv/engine'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { promptFor } from '../game/labels.js'
 import { boardTargets, resolveTap } from '../game/selection.js'
 import type { Table } from '../game/table.js'
 import { ANIMATIONS_OFF, useReducedMotion } from '../motion.js'
@@ -14,13 +13,13 @@ import { Ambience } from './Ambience.js'
 import { Bag, BagDialog, DeckCount } from './Bag.js'
 import { Board } from './Board.js'
 import { CoinPurse } from './CoinPurse.js'
-import { CrystalDiscover } from './CrystalDiscover.js'
+import { CrystalArch } from './CrystalArch.js'
 import { GameOver } from './GameOver.js'
 import { Hand } from './Hand.js'
 import { keepCount } from './CardView.js'
 import type { Highlight } from './HexCell.js'
 import { LogDialog } from './LogDialog.js'
-import { CoinMoment, DrawFlight, PlaceFlight, ScoreMoment, UNDO_REVEAL_MS, UndoMoment, landingDelay } from './Moments.js'
+import { CoinMoment, CrystalKeepMoment, DrawFlight, PlaceFlight, ScoreMoment, UNDO_REVEAL_MS, UndoMoment, landingDelay } from './Moments.js'
 import { FireChoice } from './FireChoice.js'
 import { HeldSlot } from './HeldToken.js'
 import { PlayerBar } from './PlayerBar.js'
@@ -85,8 +84,6 @@ export function GameScreen({
   const [bagOpen, setBagOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
-  // a choice put aside to look at the board (the eye); it comes back with the next commit at the latest
-  const [peeking, setPeeking] = useState(false)
   // the end screen opens over the board; this puts it away to look at the board
   const [viewingBoard, setViewingBoard] = useState(false)
   // the cards marked to stay in hand after a coin: the rest, always two, go back under the deck
@@ -167,8 +164,9 @@ export function GameScreen({
    * Under test nothing is ever staged, so nothing is ever held.
    */
   const theirsLanding = presentation.remaining.some((queued) => queued.seat !== view.seat)
+  // your own draw, including each of a crystal's three on their way to its arch — and the pick resolving
   const yourDrawLanding = presentation.remaining.some(
-    (queued) => queued.seat === view.seat && queued.kind === 'draw' && !queued.crystal,
+    (queued) => queued.seat === view.seat && (queued.kind === 'draw' || queued.kind === 'crystalKeep'),
   )
   const catchingUp = !ANIMATIONS_OFF && (theirsLanding || yourDrawLanding || turnBanner.pending || undoHeld !== null)
   const actions = catchingUp ? [] : table.actions
@@ -198,9 +196,27 @@ export function GameScreen({
       keeping.length === keepWanted &&
       candidate.cardIds.every((id) => returned.includes(id)),
   )
-  // the crystal's choice is made on the tokens themselves (the Discover), so the bar offers nothing
-  const discovering = myTurn && pending?.kind === 'crystalPick'
-  const barActions = discarding ? (returnAction ? [returnAction] : []) : discovering ? [] : actions
+  const barActions = discarding ? (returnAction ? [returnAction] : []) : actions
+
+  /*
+   * The crystal's choice: the tokens it drew, in an arch over the tray, where
+   * the drawn token's cushion lives. Drawn as soon as the pick is open — the
+   * flights out of the bag aim at its slots — with each token hidden until its
+   * own flight lands. While the pick resolves (`crystalKeep`), the arch stays
+   * mounted with every slot hidden, so the resolving flights can start exactly
+   * where the tokens stood.
+   */
+  const keepEvent = presentation.event?.kind === 'crystalKeep' && presentation.event.seat === view.seat ? presentation.event : null
+  const crystalTokens =
+    pending?.kind === 'crystalPick' && view.current === view.seat ? pending.tokens : (keepEvent?.tokens ?? null)
+  const crystalArrival = (index: number): number => {
+    if (keepEvent) return -1
+    const queued = presentation.remaining.find(
+      (candidate) => candidate.kind === 'draw' && candidate.crystal && candidate.drawIndex === index,
+    )
+    if (!queued) return 0
+    return queued === presentation.event ? HOLD.crystalDraw : -1
+  }
 
   // the board marks what is legal, and nothing else: the printed game does not
   // point out where a card would complete, so neither does this one
@@ -259,17 +275,24 @@ export function GameScreen({
   const yourHeld = held?.seat === view.seat ? held.token : null
   const theirHeld = held?.seat === opponentSeat ? held.token : null
   const drawingFor = event?.kind === 'draw' && !event.crystal ? event.seat : null
-  const arrivingIn = (seat: number) =>
-    drawingFor === seat && !reduced ? (seat === view.seat ? HOLD.draw : HOLD.drawTheirs) : 0
+  // the bag also shakes while your crystal pulls its three out of it
+  const bagDrawing = event?.kind === 'draw' && (!event.crystal || event.seat === view.seat)
+  const arrivingIn = (seat: number) => {
+    if (reduced) return 0
+    if (drawingFor === seat) return seat === view.seat ? HOLD.draw : HOLD.drawTheirs
+    // the kept token is still sliding from the arch: the cushion waits for it
+    if (keepEvent && seat === view.seat) return HOLD.crystalKeep
+    return 0
+  }
 
   // "Fire up this token?" is asked on the board, around the token that just landed
-  const firing = myTurn && !peeking && pending?.kind === 'mayFireUp' ? pending : null
+  const firing = myTurn && pending?.kind === 'mayFireUp' ? pending : null
   /*
    * A plant's chosen neighbour gets the fire-up treatment over it: a fire per
    * ability it could lend, the same I or Y as "Fire up this token?".
    */
   const borrowing =
-    myTurn && !peeking && pending?.kind === 'plant' && selected
+    myTurn && pending?.kind === 'plant' && selected
       ? { at: selected, token: view.board[key(selected)]?.at(-1) }
       : null
   const firedToken = firing ? view.board[key(firing.at)]?.at(-1) : undefined
@@ -291,7 +314,6 @@ export function GameScreen({
     setSelected(null)
     setInspecting(null)
     setKeeping([])
-    setPeeking(false)
     table.perform(action)
   }
 
@@ -348,7 +370,6 @@ export function GameScreen({
     setLogOpen(false)
     setBagOpen(false)
     setSettingsOpen(false)
-    setPeeking(false)
     setViewingBoard(false)
     next()
   }
@@ -372,29 +393,20 @@ export function GameScreen({
     if (!myTurn) {
       // the real turn may be yours already; this says what the screen is showing
       const theirCoin = view.current !== view.seat && pending?.kind === 'coinDiscard'
+      // their crystal: the pick is theirs, and the panel says a token is being chosen
+      const theirCrystal = view.current !== view.seat && pending?.kind === 'crystalPick'
       // a takeback says so until the board goes back; then the panel is the play before it
       if (undoHeld) return <OpponentThinking mode="undoing" side={undoArrow?.mine === false ? 'opponent' : 'you'} />
       const mode = theirsLanding
         ? 'playing'
         : catchingUp && view.current === view.seat
           ? 'drawing'
-          : theirCoin
-            ? 'choosingCards'
-            : 'thinking'
+          : theirCrystal
+            ? 'choosingToken'
+            : theirCoin
+              ? 'choosingCards'
+              : 'thinking'
       return <OpponentThinking mode={mode} />
-    }
-    if (peeking) {
-      // the board is being looked at; the only way on is back to the choice
-      return (
-        <section className="prompt" aria-label="Current decision">
-          <div className="prompt-head">
-            <p className="prompt-text">{promptFor(view)}</p>
-            <button type="button" className="btn-secondary peek-back" onClick={() => setPeeking(false)}>
-              Back to your choice
-            </button>
-          </div>
-        </section>
-      )
     }
     return <Prompt view={view} actions={barActions} onAct={handleAct} />
   }
@@ -445,7 +457,7 @@ export function GameScreen({
           highlights={highlights}
           preview={preview}
           viewer={view.seat}
-          onSelectHex={myTurn && !peeking ? selectHex : lookAt}
+          onSelectHex={myTurn ? selectHex : lookAt}
         />
         {/* what the tapped stack holds, in the corner the hexagon leaves empty; keyed so a new stack deals in afresh */}
         {inspecting ? (
@@ -485,9 +497,13 @@ export function GameScreen({
             }}
           />
           <HeldSlot side="you" token={yourHeld} arriving={arrivingIn(view.seat)} away={preview !== undefined} />
+          {/* the crystal's choice, over the cushion the kept token will land on */}
+          {crystalTokens ? (
+            <CrystalArch tokens={crystalTokens} actions={actions} onAct={handleAct} arrival={crystalArrival} />
+          ) : null}
           {/* the two things that run out and end the game: the bag, the deck under it */}
           <div className="bag-corner">
-            <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={drawingFor !== null} />
+            <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={bagDrawing} />
             <DeckCount count={view.deckCount} />
           </div>
         </div>
@@ -530,13 +546,23 @@ export function GameScreen({
       ) : null}
       {logOpen ? <LogDialog view={view} onClose={() => setLogOpen(false)} /> : null}
       {bagOpen ? <BagDialog bag={view.bag} onClose={() => setBagOpen(false)} /> : null}
-      {discovering && !peeking && pending?.kind === 'crystalPick' ? (
-        <CrystalDiscover tokens={pending.tokens} actions={actions} onAct={handleAct} onPeek={() => setPeeking(true)} />
-      ) : null}
       {/* the flights between the bag, the hands and the board cross rows, so they are drawn over the whole screen */}
       {event?.kind === 'draw' && !event.crystal ? (
         <DrawFlight key={event.seq} event={event} seat={view.seat} within={screenRef.current} />
       ) : null}
+      {/* your crystal's draws fly from the bag to their slots in the arch instead */}
+      {event?.kind === 'draw' && event.crystal && event.seat === view.seat ? (
+        <DrawFlight
+          key={event.seq}
+          event={event}
+          seat={view.seat}
+          within={screenRef.current}
+          target={`.crystal-slot[data-slot="${event.drawIndex}"]`}
+          hold={HOLD.crystalDraw}
+        />
+      ) : null}
+      {/* the pick resolving: the kept token to the cushion, the others back into the bag */}
+      {keepEvent ? <CrystalKeepMoment key={keepEvent.seq} event={keepEvent} within={screenRef.current} /> : null}
       {event?.kind === 'place' && event.seat !== view.seat ? (
         <PlaceFlight key={event.seq} event={event} within={screenRef.current} />
       ) : null}

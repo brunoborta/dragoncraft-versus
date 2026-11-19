@@ -35,7 +35,6 @@ describe('Prompt', () => {
     const view = staged({ kind: 'place', token: dual('meat', 'plant'), fireUpAllowed: true })
     const { container } = render(<Prompt view={view} actions={[]} onAct={() => {}} />)
     expect(container.querySelector('.prompt-text')?.textContent).toBe('Choose where to place the token')
-    expect(container.querySelector('.token-chip')).toBeNull()
     expect(container.textContent).not.toContain('Move one neighbour anywhere')
   })
 
@@ -51,20 +50,14 @@ describe('Prompt', () => {
     expect(container.querySelector('.prompt-text')?.textContent).toBe('Use a neighbouring ability')
   })
 
-  it('names each of the three tokens crystal drew instead of numbering them', () => {
+  it("leaves the crystal's pick to the arch of tokens over the board, keeping only the question", () => {
     const tokens = [single('bread'), dual('iron', 'potion'), single('plant')]
     const view = staged({ kind: 'crystalPick', tokens })
     const actions: Action[] = tokens.map((_, index) => ({ type: 'crystalPick', index }))
     const { container } = render(<Prompt view={view} actions={actions} onAct={() => {}} />)
 
-    // the glyph's symbol sits inside the button too, hence the loose match
-    const labels = [...container.querySelectorAll('.prompt-actions button')].map((b) => b.textContent)
-    expect(labels).toHaveLength(3)
-    expect(labels[0]).toMatch(/^Keep .*Bread$/)
-    expect(labels[1]).toMatch(/^Keep .*Iron\/Potion$/)
-    expect(labels[2]).toMatch(/^Keep .*Plant$/)
-    expect(screen.queryByText(/Keep token/)).toBeNull()
-    expect(container.querySelectorAll('.prompt-actions .token-chip svg')).toHaveLength(3)
+    expect(container.querySelectorAll('button')).toHaveLength(0)
+    expect(container.querySelector('.prompt-text')?.textContent).toBe('Choose a token to keep')
   })
 
   it('leaves the discard to the cards, carrying only the confirmation', () => {
@@ -84,6 +77,11 @@ describe('OpponentThinking', () => {
   it('says when the opponent spent a coin and is choosing cards', () => {
     render(<OpponentThinking mode="choosingCards" />)
     expect(screen.getByText('Opponent spent a coin and is choosing cards…')).toBeDefined()
+  })
+
+  it("says when the opponent's crystal has them choosing a token", () => {
+    render(<OpponentThinking mode="choosingToken" />)
+    expect(screen.getByText('Opponent is choosing a token to keep…')).toBeDefined()
   })
 
   it('holds the decision slot with no instruction and no buttons', () => {
