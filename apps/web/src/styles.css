@@ -542,9 +542,13 @@ body {
 .held-glyph[data-arriving] {
   animation: held-arrive 260ms ease-out var(--arrive-ms) both, held-bob 2.6s ease-in-out calc(var(--arrive-ms) + 260ms) infinite;
 }
+/* hidden through the animation's delay (the flight is the token meanwhile), then
+   on screen at once — the flight ends at exactly this size and spot — and a
+   small squash as it settles into the velvet */
 @keyframes held-arrive {
-  0% { opacity: 0; transform: translateY(-6px) scale(1.12); }
-  60% { opacity: 1; transform: translateY(1px) scale(0.97); }
+  0% { opacity: 0; transform: none; }
+  5% { opacity: 1; transform: none; }
+  50% { opacity: 1; transform: translateY(2px) scale(0.95); }
   100% { opacity: 1; transform: none; }
 }
 @keyframes held-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }

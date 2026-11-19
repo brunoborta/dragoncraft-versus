@@ -31,6 +31,32 @@ function slotSize(selector: string, within: HTMLElement | null): number {
 const SLOT = { you: '.held-slot[data-side="you"] .held-anchor', opponent: '.held-slot[data-side="opponent"] .held-anchor' }
 
 /**
+ * Where the held token actually rests in a tray, and its size — not the tray's
+ * anchor plate, which is wider than the token and centred lower. A flight that
+ * ends (or starts) anywhere else swaps for the real glyph with a visible jump.
+ *
+ * Computed from the slot's own CSS variables rather than measured off the
+ * glyph, because during a flight the glyph is mounted but held in its arrival
+ * keyframe's first frame (shifted and scaled), so its box lies. Mirrors the
+ * `.held-glyph` rule: centred, `--token` wide, its bottom `--slot-w * 0.12`
+ * above the anchor's.
+ */
+function heldSpot(side: 'you' | 'opponent', within: HTMLElement | null): { x: number; y: number; size: number } | null {
+  const anchor = within?.querySelector(SLOT[side])
+  if (!anchor || !within) return null
+  const a = anchor.getBoundingClientRect()
+  const b = within.getBoundingClientRect()
+  const style = getComputedStyle(anchor)
+  const size = parseFloat(style.getPropertyValue('--token')) || a.width * (2 / 3) || 48
+  const lift = (parseFloat(style.getPropertyValue('--slot-w')) || a.width) * 0.12
+  return {
+    x: a.left + a.width / 2 - b.left,
+    y: a.bottom - lift - (size * 1.075) / 2 - b.top,
+    size,
+  }
+}
+
+/**
  * A token out of the bag (M2), on its way to the hand that drew it: it rises
  * from the bag, shows itself big over the board for a beat — the one moment
  * everybody looks at what came out — and settles into its home: your tray
@@ -51,20 +77,34 @@ export function DrawFlight({
 }) {
   const reduced = useReducedMotion()
   const mine = event.seat === seat
-  const [path, setPath] = useState<{ from: Point; mid: Point; to: Point; size: number } | null>(null)
+  const [path, setPath] = useState<{ from: Point; mid: Point; to: Point; size: number; boost: number } | null>(null)
 
   useLayoutEffect(() => {
     const from = centreOf('.bag-art', within)
     const mid = centreOf('.board', within)
-    const to = centreOf(mine ? SLOT.you : SLOT.opponent, within)
-    if (from && mid && to) setPath({ from, mid, to, size: slotSize(mine ? SLOT.you : SLOT.opponent, within) })
+    /*
+     * To the tray: the flight ends exactly where the token will rest, at the
+     * token's own size, so the handover to the glyph is seamless. The reveal
+     * over the board keeps the size it had when the flight was measured off
+     * the wider anchor plate, hence the boost.
+     */
+    const spot = heldSpot(mine ? 'you' : 'opponent', within)
+    if (from && mid && spot) {
+      setPath({
+        from,
+        mid,
+        to: { x: spot.x, y: spot.y },
+        size: spot.size,
+        boost: slotSize(mine ? SLOT.you : SLOT.opponent, within) / spot.size,
+      })
+    }
   }, [within, mine])
 
   if (!path) return null
   const hold = (mine ? HOLD.draw : HOLD.drawTheirs) / 1000
-  const { from, mid, to, size } = path
+  const { from, mid, to, size, boost } = path
   // the reveal: big over the board, bigger for your own draw
-  const big = mine ? 2.3 : 1.8
+  const big = (mine ? 2.3 : 1.8) * boost
   return (
     <div className="draw-flight" data-side={mine ? 'you' : 'opponent'} aria-hidden="true">
       <motion.div
@@ -106,16 +146,24 @@ export function PlaceFlight({
   within: HTMLElement | null
 }) {
   const reduced = useReducedMotion()
-  const [path, setPath] = useState<{ from: Point; to: Point; size: number; land: number } | null>(null)
+  const [path, setPath] = useState<{ from: Point; to: Point; size: number; land: number; boost: number } | null>(null)
 
   useLayoutEffect(() => {
-    const from = centreOf(SLOT.opponent, within)
+    // it lifts off exactly where it rested, at the token's own size, not the anchor plate's
+    const spot = heldSpot('opponent', within)
     const to = hexOnScreen(within?.querySelector<SVGSVGElement>('svg.board'), within, event.at)
-    if (from && to) setPath({ from, to, size: slotSize(SLOT.opponent, within), land: TOKEN_RADIUS * 2 * to.unit })
+    if (spot && to)
+      setPath({
+        from: { x: spot.x, y: spot.y },
+        to,
+        size: spot.size,
+        land: TOKEN_RADIUS * 2 * to.unit,
+        boost: slotSize(SLOT.opponent, within) / spot.size,
+      })
   }, [within, event.at])
 
   if (!path || reduced) return null
-  const { from, to, size, land } = path
+  const { from, to, size, land, boost } = path
   const lift = Math.max(40, Math.abs(to.x - from.x) * 0.25)
   return (
     <div className="draw-flight" data-side="opponent" aria-hidden="true">
@@ -126,8 +174,9 @@ export function PlaceFlight({
         animate={{
           x: [from.x, (from.x + to.x) / 2, to.x, to.x],
           y: [from.y, Math.min(from.y, to.y) - lift, to.y, to.y],
-          // lands a little bigger than its cell's token: the cell's drop shrinks it into place
-          scale: [1, 1.35, (land / size) * 1.3, (land / size) * 1.3],
+          // up to the size it used to fly at, then lands a little bigger than its
+          // cell's token: the cell's drop shrinks it into place
+          scale: [1, 1.35 * boost, (land / size) * 1.3, (land / size) * 1.3],
           // solid all the way down; it hands over to the cell's token only as it arrives
           opacity: [1, 1, 1, 0],
           transition: { duration: FLIGHT / 1000, times: [0, 0.5, 0.94, 1], ease: 'easeInOut' },
