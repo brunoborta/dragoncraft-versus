@@ -1,5 +1,6 @@
 import type { PlayerView } from '@dcv/engine'
 import { groupRounds } from '../game/log.js'
+import { CrossIcon } from './icons.js'
 
 /**
  * The whole history, newest turn first. The top bar can only hold a couple of
@@ -21,8 +22,8 @@ export function LogDialog({ view, onClose }: { view: PlayerView; onClose: () => 
       >
         <div className="modal-head">
           <h2>Move log</h2>
-          <button type="button" onClick={onClose} aria-label="Close log">
-            ✕
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close log">
+            <CrossIcon />
           </button>
         </div>
         <ol className="log-rounds">

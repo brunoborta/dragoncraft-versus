@@ -1,7 +1,7 @@
 import { tokenId } from '@dcv/engine'
 import type { Token } from '@dcv/engine'
 import { useArt } from '../art/ArtContext.js'
-import { CardIcon } from './icons.js'
+import { CardIcon, CrossIcon } from './icons.js'
 import { TokenGlyph, tokenLabel } from './TokenGlyph.js'
 
 /** How many of each token are left, in the bag's own canonical order. */
@@ -86,8 +86,8 @@ export function BagDialog({ bag, onClose }: { bag: readonly Token[]; onClose: ()
       >
         <div className="modal-head">
           <h2>In the bag: {bag.length}</h2>
-          <button type="button" onClick={onClose} aria-label="Close bag">
-            ✕
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close bag">
+            <CrossIcon />
           </button>
         </div>
         <p className="modal-note">What is left, not the order it comes out in.</p>

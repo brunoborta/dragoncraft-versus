@@ -1,6 +1,7 @@
 import { DRAGON_TYPES, single } from '@dcv/engine'
 import { DRAGON_THEME } from '../theme.js'
 import { TokenGlyph } from './TokenGlyph.js'
+import { CrossIcon } from './icons.js'
 
 /**
  * The rules on one screen, behind the ? button: enough to play, not the
@@ -13,8 +14,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       <section className="modal help" role="dialog" aria-modal="true" aria-label="How to play" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <h2>How to play</h2>
-          <button type="button" onClick={onClose} aria-label="Close help">
-            ✕
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close help">
+            <CrossIcon />
           </button>
         </div>
         <ol className="help-steps">

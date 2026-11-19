@@ -1,6 +1,7 @@
 import type { GameOptions, TableOptions } from '../game/settings.js'
 import { HoldButton } from './HoldButton.js'
 import { OptionsForm } from './OptionsForm.js'
+import { CrossIcon } from './icons.js'
 
 /**
  * The table's options during a game. Against the machine they can still be
@@ -25,8 +26,8 @@ export function SettingsDialog({
       <section className="modal" role="dialog" aria-modal="true" aria-label="Settings" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <h2>Settings</h2>
-          <button type="button" onClick={onClose} aria-label="Close settings">
-            ✕
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close settings">
+            <CrossIcon />
           </button>
         </div>
         {onChange ? null : <p className="modal-note">Chosen by whoever opened this game, for both players.</p>}
