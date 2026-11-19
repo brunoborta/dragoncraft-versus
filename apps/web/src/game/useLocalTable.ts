@@ -45,6 +45,8 @@ export function useLocalTable({
     perform: game.perform,
     undo: game.undo,
     canUndo: game.canUndo && myTurn,
+    undos: game.undos,
+    forfeit: () => game.forfeit(HUMAN_SEAT),
     status: { kind: 'playing' },
     opponentConnected: true,
     opponentLabel: 'Machine',

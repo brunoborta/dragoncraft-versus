@@ -65,6 +65,7 @@ export function useRemoteTable({
   const [view, setView] = useState<PlayerView | null>(null)
   const [actions, setActions] = useState<Action[]>([])
   const [canUndo, setCanUndo] = useState(false)
+  const [undos, setUndos] = useState(0)
   const [game, setGame] = useState(0)
   const [wants, setWants] = useState({ youWant: false, opponentWants: false })
   const [status, setStatus] = useState<TableStatus>({ kind: 'connecting' })
@@ -77,6 +78,8 @@ export function useRemoteTable({
   const socketRef = useRef<SocketLike | null>(null)
   const roomRef = useRef<string | null>(room)
   const gameRef = useRef(0)
+  // the last view, to tell a takeback (the log got shorter) from a move
+  const viewRef = useRef<PlayerView | null>(null)
   const initialRoom = useRef(room)
 
   useEffect(() => {
@@ -102,7 +105,18 @@ export function useRemoteTable({
         case 'waiting':
           setStatus({ kind: 'waiting' })
           return
-        case 'view':
+        case 'view': {
+          /*
+           * A takeback, whoever made it: the same game, not over, and the log
+           * shorter than it was. A rematch also shortens the log, but it moves
+           * the game number and starts from a game that had ended.
+           */
+          const before = viewRef.current
+          const sameGame = (message.game ?? gameRef.current) === gameRef.current
+          if (before && sameGame && before.phase !== 'ended' && message.view.log.length < before.log.length) {
+            setUndos((n) => n + 1)
+          }
+          viewRef.current = message.view
           setView(message.view)
           setActions(message.actions)
           // an older server sends none: then there is no undo to offer
@@ -116,6 +130,7 @@ export function useRemoteTable({
           setOpponentConnected(message.opponentConnected)
           setStatus({ kind: 'playing' })
           return
+        }
         case 'rematch':
           setWants({ youWant: message.youWant, opponentWants: message.opponentWants })
           return
@@ -198,7 +213,16 @@ export function useRemoteTable({
     const socket = socketRef.current
     if (!socket) return
     socket.send(JSON.stringify({ type: 'undo' } satisfies ClientMessage))
-    // one tap, one step back: nothing more until the server answers
+    // one tap, one play back: nothing more until the server answers
+    setActions([])
+    setCanUndo(false)
+  }, [])
+
+  const forfeit = useCallback(() => {
+    const socket = socketRef.current
+    if (!socket) return
+    socket.send(JSON.stringify({ type: 'forfeit' } satisfies ClientMessage))
+    // the end comes back as a view; nothing more is offered until then
     setActions([])
     setCanUndo(false)
   }, [])
@@ -217,6 +241,8 @@ export function useRemoteTable({
     perform,
     undo,
     canUndo,
+    undos,
+    forfeit,
     status,
     opponentConnected,
     opponentLabel: 'Opponent',

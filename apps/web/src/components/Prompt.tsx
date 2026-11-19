@@ -63,6 +63,7 @@ const WAITING_TEXT = {
   playing: 'Opponent is playing…',
   drawing: 'Drawing from the bag…',
   choosingCards: 'Opponent spent a coin and is choosing cards…',
+  undoing: 'Undoing the last play…',
 } as const
 
 /**
@@ -71,9 +72,16 @@ const WAITING_TEXT = {
  * reads as an instruction. Wine for the opponent's moment, parchment for yours.
  * No hourglass: their token waiting in its slot already says they are deciding.
  */
-export function OpponentThinking({ mode = 'thinking' }: { mode?: keyof typeof WAITING_TEXT }) {
+export function OpponentThinking({
+  mode = 'thinking',
+  side,
+}: {
+  mode?: keyof typeof WAITING_TEXT
+  /** Whose moment it is, when the mode alone does not say (a takeback is either side's). */
+  side?: 'you' | 'opponent'
+}) {
   return (
-    <section className="prompt" data-side={mode === 'drawing' ? 'you' : 'opponent'} aria-label="Current decision">
+    <section className="prompt" data-side={side ?? (mode === 'drawing' ? 'you' : 'opponent')} aria-label="Current decision">
       <div className="prompt-head">
         <p className="prompt-text prompt-waiting" aria-live="polite">
           {WAITING_TEXT[mode]}

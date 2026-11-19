@@ -1,6 +1,6 @@
 import { bankedReputation, hexEq, key, wouldComplete } from '@dcv/engine'
 import type { Action, Hex, PlayerView } from '@dcv/engine'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { promptFor } from '../game/labels.js'
 import { boardTargets, resolveTap } from '../game/selection.js'
@@ -20,7 +20,7 @@ import { Hand } from './Hand.js'
 import { keepCount } from './CardView.js'
 import type { Highlight } from './HexCell.js'
 import { LogDialog } from './LogDialog.js'
-import { CoinMoment, DrawFlight, PlaceFlight, ScoreMoment, landingDelay } from './Moments.js'
+import { CoinMoment, DrawFlight, PlaceFlight, ScoreMoment, UNDO_REVEAL_MS, UndoMoment, landingDelay } from './Moments.js'
 import { FireChoice } from './FireChoice.js'
 import { HeldSlot } from './HeldToken.js'
 import { PlayerBar } from './PlayerBar.js'
@@ -42,7 +42,7 @@ const ANSWERS_A_TAP = '.hex-cell, button, [role="button"], .fire-choice, .stack-
  */
 export function GameScreen({
   table,
-  view,
+  view: liveView,
   label,
   detail,
   restartLabel,
@@ -92,9 +92,43 @@ export function GameScreen({
   // the cards marked to stay in hand after a coin: the rest, always two, go back under the deck
   const [keeping, setKeeping] = useState<string[]>([])
 
+  /*
+   * A takeback, whoever made it, plays like a spent coin: the Undo arrow
+   * leaves its button (the opponent's plate, when it was theirs), turns
+   * backwards in the middle of the board, and only then does the board go
+   * back. Until then the screen keeps the board as it was before the undo and
+   * offers nothing: the arrow is the news, the board its result. Keyed by the
+   * count, so two quick ones play twice; the count a screen opens with is
+   * history, not news. Read during render, so not one frame shows the board
+   * already back before the arrow.
+   */
+  const [undosSeen, setUndosSeen] = useState(table.undos)
+  const [undoArrow, setUndoArrow] = useState<{ key: number; mine: boolean } | null>(null)
+  const [undoHeld, setUndoHeld] = useState<PlayerView | null>(null)
+  const lastView = useRef(liveView)
+  if (table.undos !== undosSeen) {
+    setUndosSeen(table.undos)
+    if (!ANIMATIONS_OFF) {
+      // after a takeback the turn is the one who took it back
+      setUndoArrow({ key: table.undos, mine: liveView.current === liveView.seat })
+      setUndoHeld((held) => held ?? lastView.current)
+    }
+  }
+  useEffect(() => {
+    lastView.current = liveView
+  })
+  useEffect(() => {
+    if (!undoArrow) return
+    const timer = setTimeout(() => setUndoHeld(null), UNDO_REVEAL_MS)
+    return () => clearTimeout(timer)
+  }, [undoArrow])
+  const undoDone = useCallback(() => setUndoArrow(null), [])
+  const view = undoHeld ?? liveView
+
   const ended = view.phase === 'ended'
   // a new turn starts with every stack shut: what was looked at belonged to the last one
   useEffect(() => setInspecting(null), [view.current])
+
   /*
    * The board as it is being shown: the real one, or a step behind it while
    * moves play. The turn banner and the queue take turns: the banner waits for
@@ -127,12 +161,12 @@ export function GameScreen({
   const yourDrawLanding = presentation.remaining.some(
     (queued) => queued.seat === view.seat && queued.kind === 'draw' && !queued.crystal,
   )
-  const catchingUp = !ANIMATIONS_OFF && (theirsLanding || yourDrawLanding || turnBanner.pending)
+  const catchingUp = !ANIMATIONS_OFF && (theirsLanding || yourDrawLanding || turnBanner.pending || undoHeld !== null)
   const actions = catchingUp ? [] : table.actions
   const myTurn = actions.length > 0
 
   // the machine waits for the screen: it never moves under a banner or a landing move
-  const busy = !ANIMATIONS_OFF && (presentation.playing || turnBanner.pending)
+  const busy = !ANIMATIONS_OFF && (presentation.playing || turnBanner.pending || undoHeld !== null)
   useEffect(() => table.setScreenBusy?.(busy), [busy, table.setScreenBusy])
 
   const targets = boardTargets(actions, selected)
@@ -293,7 +327,7 @@ export function GameScreen({
   function undo(): void {
     setSelected(null)
     setInspecting(null)
-    // one action at a time, and never across a draw or into the other turn
+    // one play at a time, and never across a draw or into the other turn
     table.undo()
   }
 
@@ -329,6 +363,8 @@ export function GameScreen({
     if (!myTurn) {
       // the real turn may be yours already; this says what the screen is showing
       const theirCoin = view.current !== view.seat && pending?.kind === 'coinDiscard'
+      // a takeback says so until the board goes back; then the panel is the play before it
+      if (undoHeld) return <OpponentThinking mode="undoing" side={undoArrow?.mine === false ? 'opponent' : 'you'} />
       const mode = theirsLanding
         ? 'playing'
         : catchingUp && view.current === view.seat
@@ -461,13 +497,27 @@ export function GameScreen({
           actions={actions}
           myTurn={myTurn && !ended}
           onAct={handleAct}
-          canUndo={table.canUndo}
+          canUndo={table.canUndo && undoHeld === null}
           onUndo={undo}
         />
       </footer>
       {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
       {settingsOpen ? (
-        <SettingsDialog options={options} onChange={onOptionsChange} onClose={() => setSettingsOpen(false)} />
+        <SettingsDialog
+          options={options}
+          onChange={onOptionsChange}
+          onForfeit={
+            ended || paused
+              ? undefined
+              : () => {
+                  setSettingsOpen(false)
+                  setSelected(null)
+                  setInspecting(null)
+                  table.forfeit()
+                }
+          }
+          onClose={() => setSettingsOpen(false)}
+        />
       ) : null}
       {logOpen ? <LogDialog view={view} onClose={() => setLogOpen(false)} /> : null}
       {bagOpen ? <BagDialog bag={view.bag} onClose={() => setBagOpen(false)} /> : null}
@@ -483,6 +533,9 @@ export function GameScreen({
       ) : null}
       {event?.kind === 'score' ? <ScoreMoment key={event.seq} event={event} seat={view.seat} within={screenRef.current} /> : null}
       {event?.kind === 'coin' ? <CoinMoment key={event.seq} event={event} seat={view.seat} within={screenRef.current} /> : null}
+      {undoArrow !== null ? (
+        <UndoMoment key={undoArrow.key} within={screenRef.current} mine={undoArrow.mine} onDone={undoDone} />
+      ) : null}
       <TurnBanner banner={turnBanner.banner} onDismiss={turnBanner.dismiss} />
       {ended && !viewingBoard ? (
         <div className="modal-backdrop game-over-backdrop">

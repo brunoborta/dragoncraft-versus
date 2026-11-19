@@ -195,6 +195,16 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
         deliver(out)
         return
       }
+      case 'forfeit': {
+        if (!connection.room) {
+          send(client, errorMessage('not-seated'))
+          return
+        }
+        const out = connection.room.forfeit(client)
+        if (!out.some((o) => o.message.type === 'error')) log(`${client} gave up in room ${connection.room.id}`)
+        deliver(out)
+        return
+      }
       case 'rematch': {
         if (!connection.room) {
           send(client, errorMessage('not-seated'))

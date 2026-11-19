@@ -29,6 +29,8 @@ function show({ pending, actions, board }: { pending: Pending; actions: Action[]
     perform,
     undo: () => {},
     canUndo: false,
+    undos: 0,
+    forfeit: () => {},
     status: { kind: 'playing' },
     opponentConnected: true,
     opponentLabel: 'Machine',

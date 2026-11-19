@@ -1,3 +1,4 @@
+import { forfeitedBy } from './forfeit.js'
 import { canScore } from './matcher.js'
 import type { GameState, PlayerView, Seat, ShopCard } from './types.js'
 
@@ -43,12 +44,17 @@ function decide(first: Scorable, second: Scorable): 0 | 1 | 'draw' {
   return 'draw'
 }
 
+/** A game given up goes to the other seat, whatever the score. */
 export function winner(state: GameState): Seat | 'draw' {
+  const quitter = forfeitedBy(state.log)
+  if (quitter !== null) return (1 - quitter) as Seat
   return decide(state.players[0], state.players[1])
 }
 
 /** The same verdict as `winner`, from what one seat can see. */
 export function winnerOfView(view: PlayerView): Seat | 'draw' {
+  const quitter = forfeitedBy(view.log)
+  if (quitter !== null) return (1 - quitter) as Seat
   const result = decide(view.you, view.opponent)
   if (result === 'draw') return 'draw'
   return result === 0 ? view.seat : ((1 - view.seat) as Seat)

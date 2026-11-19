@@ -149,3 +149,28 @@ describe('playing again from the end screen', () => {
     expect(screen.getByText('Friend left the game')).toBeDefined()
   })
 })
+
+describe('GameOver after giving up', () => {
+  function givenUp(by: 0 | 1): PlayerView {
+    const view = finished(['tri-bread'], [])
+    return { ...view, log: [...view.log, { seat: by, action: { type: 'forfeit' } }] }
+  }
+
+  it('gives the game to the other side whatever the score, and says who gave up', () => {
+    // seat 0 is ahead on cards but gave up
+    const { container } = render(<GameOver opponentLabel="Machine" restartLabel="New game" view={givenUp(0)} onRestart={() => {}} />)
+    expect(screen.getByText('You lose')).toBeDefined()
+    expect(screen.getByText('You gave up')).toBeDefined()
+    // the same crest as any loss, for now
+    expect(container.querySelector('.crest')?.getAttribute('data-result')).toBe('lose')
+  })
+
+  it('names the opponent when they gave up', () => {
+    render(<GameOver opponentLabel="Opponent" restartLabel="Back to menu" view={givenUp(1)} onRestart={() => {}} />)
+    expect(screen.getByText('You win')).toBeDefined()
+    expect(screen.getByText('Opponent gave up')).toBeDefined()
+  })
+
+  it('says nothing of the kind after a game played to the end', () => {
+    render(<GameOver opponentLabel="Machine" restartLabel="New game" view={finished(['tri-bread'], [])} onRestart={() => {}} />)
+    expect(screen.queryByText(/gave up/)).toBeNull()

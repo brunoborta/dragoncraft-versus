@@ -16,6 +16,7 @@ describe('parseClientMessage', () => {
     })
     expect(parseClientMessage('{"type":"undo"}')).toEqual({ type: 'undo' })
     expect(parseClientMessage('{"type":"rematch"}')).toEqual({ type: 'rematch' })
+    expect(parseClientMessage('{"type":"forfeit"}')).toEqual({ type: 'forfeit' })
   })
 
   it('rejects what is not a message', () => {

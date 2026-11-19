@@ -10,7 +10,7 @@ import { useReducedMotion } from '../motion.js'
 import { DRAGON_THEME } from '../theme.js'
 import { STONE_SCALE, TOKEN_RADIUS } from './HexCell.js'
 import { DEF } from './SvgDefs.js'
-import { StarIcon } from './icons.js'
+import { StarIcon, UndoIcon } from './icons.js'
 import { PatternGlyph } from './PatternGlyph.js'
 import { TokenGlyph } from './TokenGlyph.js'
 
@@ -548,6 +548,78 @@ export function CoinMoment({
               }
         }
       />
+    </div>
+  )
+}
+
+/** How long the takeback shows: the flight to the middle, then one slow turn there. */
+export const UNDO_MS = 900
+
+/**
+ * When the board goes back, like a coin's cards arriving after the coin: the
+ * turn is nearly done and the arrow is fading. Until then the screen keeps
+ * the board as it was and offers nothing.
+ */
+export const UNDO_REVEAL_MS = 730
+
+/**
+ * A takeback, told like a spent coin: the Undo arrow leaves the button that
+ * asked for it (the opponent's plate, when it was theirs), crosses to the
+ * middle of the board, turns once backwards — a rewind — and goes. Every
+ * part eases in and out, with no stops on the way. Both seats see it online,
+ * since the board changes under the one who did not ask. It plays over the
+ * board as it was; the screen shows the takeback's result as the turn ends
+ * (`UNDO_REVEAL_MS`).
+ */
+export function UndoMoment({ within, mine, onDone }: { within: HTMLElement | null; mine: boolean; onDone: () => void }) {
+  const reduced = useReducedMotion()
+  const [path, setPath] = useState<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null)
+
+  useLayoutEffect(() => {
+    const to = centreOf('.board-area svg.board', within) ?? centreOf('.board-area', within)
+    const from = centreOf(mine ? '.undo-button' : '.top-row .plate-stats', within) ?? to
+    setPath(from && to ? { from, to } : null)
+  }, [within, mine])
+
+  useEffect(() => {
+    const timer = setTimeout(onDone, UNDO_MS)
+    return () => clearTimeout(timer)
+  }, [onDone])
+
+  if (!path) return null
+  const { from, to } = path
+  const hold = UNDO_MS / 1000
+  // the flight takes the first part, the turn the rest; each starts slow and ends slow
+  const landed = 0.42
+  return (
+    <div className="undo-moment" aria-hidden="true">
+      <motion.div
+        className="undo-spinning"
+        style={{ left: 0, top: 0 }}
+        // visible on the button from the first frame: the tap and the arrow are one gesture
+        initial={{ x: reduced ? to.x : from.x, y: reduced ? to.y : from.y, scale: reduced ? 1 : 0.4, rotate: 0, opacity: reduced ? 0 : 1 }}
+        animate={
+          reduced
+            ? { opacity: [0, 1, 0], scale: 1.6, transition: { duration: hold } }
+            : {
+                x: [from.x, to.x, to.x],
+                y: [from.y, to.y, to.y],
+                // from the size of the button's icon to big in the middle of the board
+                scale: [0.4, 2, 1.7],
+                rotate: [0, 0, -360],
+                opacity: [1, 1, 0],
+                transition: {
+                  x: { duration: hold, times: [0, landed, 1], ease: ['easeInOut', 'linear'] },
+                  y: { duration: hold, times: [0, landed, 1], ease: ['easeInOut', 'linear'] },
+                  scale: { duration: hold, times: [0, landed, 1], ease: ['easeInOut', 'easeInOut'] },
+                  rotate: { duration: hold, times: [0, landed, 1], ease: ['linear', 'easeInOut'] },
+                  opacity: { duration: hold, times: [0, 0.85, 1], ease: 'easeInOut' },
+                },
+              }
+        }
+      >
+        <UndoIcon />
+      </motion.div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { describeAction } from './labels.js'
 export function describeLogLine(entry: LogEntry): string {
   if (entry.action.type === 'draw') return `Drew ${tokenLabel(entry.action.token)}`
   if (entry.action.type === 'gameOver') return 'Game over'
+  if (entry.action.type === 'forfeit') return 'Gave up'
   return describeAction(entry.action)
 }
 

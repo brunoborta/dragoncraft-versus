@@ -407,3 +407,55 @@ describe('a whole game through a room', () => {
     }
   })
 })
+
+describe('Room: a play at a time, and giving up', () => {
+  /** Seats both, and returns who moves first and the view they opened with. */
+  function opening() {
+    const room = makeRoom()
+    const { b } = seatBoth(room)
+    const mover = lastView(to(b, 'A')).view.current === 0 ? 'A' : 'B'
+    const idle = mover === 'A' ? 'B' : 'A'
+    return { room, mover, idle, before: lastView(to(b, mover)) }
+  }
+
+  it('takes back an answer together with the placement it answered, in one undo', () => {
+    const { room, mover, before } = opening()
+    let out = room.act(mover, before.actions.find((a) => a.type === 'place')!)
+    // placed; whether there is a fire-up question depends on the token, so answer it if asked
+    const answer = lastView(to(out, mover)).actions.find((a) => a.type === 'skipFireUp')
+    if (answer) out = room.act(mover, answer)
+
+    out = room.undo(mover)
+    const rewound = lastView(to(out, mover))
+    expect(rewound.view.board).toEqual(before.view.board)
+    expect(rewound.view.pending).toEqual(before.view.pending)
+  })
+
+  it('lets either seat give up, and gives the game to the other', () => {
+    const { room, idle, mover } = opening()
+    const out = room.forfeit(idle)
+    for (const client of [mover, idle]) {
+      const view = lastView(to(out, client))
+      expect(view.view.phase).toBe('ended')
+      expect(view.actions).toEqual([])
+      expect(view.view.log[view.view.log.length - 1]).toMatchObject({ action: { type: 'forfeit' } })
+    }
+  })
+
+  it('refuses to give up a game already over, or before it starts', () => {
+    const { room, mover, idle } = opening()
+    room.forfeit(mover)
+    expect(to(room.forfeit(idle), idle)[0]).toMatchObject({ type: 'error', code: 'already-ended' })
+
+    const early = makeRoom()
+    expect(early.forfeit('nobody')[0].message).toMatchObject({ code: 'not-seated' })
+    early.sit('A')
+    expect(early.forfeit('A')[0].message).toMatchObject({ code: 'not-started' })
+  })
+
+  it('takes no undo after a game given up', () => {
+    const { room, mover } = opening()
+    room.forfeit(mover)
+    expect(to(room.undo(mover), mover)[0]).toMatchObject({ type: 'error' })
+  })
+})

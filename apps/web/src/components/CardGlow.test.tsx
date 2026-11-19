@@ -25,6 +25,8 @@ describe('the card glow', () => {
       perform: () => {},
       undo: () => {},
       canUndo: false,
+      undos: 0,
+      forfeit: () => {},
       status: { kind: 'playing' },
       opponentConnected: true,
       opponentLabel: 'Machine',

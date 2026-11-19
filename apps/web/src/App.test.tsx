@@ -222,7 +222,7 @@ describe('App', () => {
     expect(screen.getByText('Fire up this token?')).toBeDefined()
   })
 
-  it('offers Undo once something is done this turn, and takes it back one step at a time', () => {
+  it('offers Undo once something is done this turn, and takes back a whole play at a time', () => {
     startGame()
     const undo = () => screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement
     // the turn opens on a draw: there is nothing of yours to take back yet
@@ -236,12 +236,38 @@ describe('App', () => {
     expect(screen.getByText('Score what you can, then end your turn')).toBeDefined()
     expect(undo().disabled).toBe(false)
 
-    fireEvent.click(undo())
-    expect(screen.getByText('Fire up this token?')).toBeDefined()
+    // the placement and the answer to "fire up?" are one play: one tap takes both back
     fireEvent.click(undo())
     expect(screen.getByText('Choose where to place the token')).toBeDefined()
     // and back at the draw it stops: the token in hand stays the one drawn
     expect(undo().disabled).toBe(true)
+  })
+
+  it('gives up against the machine from Settings, by holding the button', () => {
+    vi.useFakeTimers()
+    try {
+      startGame()
+      fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+      const giveUp = screen.getByRole('button', { name: 'Hold to give up' })
+
+      // a tap is not enough
+      fireEvent.click(giveUp)
+      act(() => vi.advanceTimersByTime(3000))
+      expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
+
+      fireEvent.pointerDown(giveUp)
+      act(() => vi.advanceTimersByTime(1500))
+      const result = screen.getByRole('dialog', { name: 'Final score' })
+      expect(within(result).getByText('You lose')).toBeDefined()
+      expect(within(result).getByText('You gave up')).toBeDefined()
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull()
+
+      // and once the game is over there is nothing left to give up
+      fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+      expect(screen.queryByRole('button', { name: 'Hold to give up' })).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows nothing for an empty space', () => {

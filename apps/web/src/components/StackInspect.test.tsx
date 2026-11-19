@@ -26,6 +26,8 @@ function play(view: PlayerView, actions: Action[], undo: () => void = () => {}) 
     perform: vi.fn(),
     undo,
     canUndo: true,
+    undos: 0,
+    forfeit: () => {},
     status: { kind: 'playing' },
     opponentConnected: true,
     opponentLabel: 'Machine',

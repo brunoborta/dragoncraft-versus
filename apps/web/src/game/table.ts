@@ -23,8 +23,16 @@ export type Table = {
   view: PlayerView | null
   actions: Action[]
   perform: (action: Action) => void
+  /** Takes back one play: a placement or a move, with the answers that followed it. */
   undo: () => void
   canUndo: boolean
+  /**
+   * How many takebacks this game has seen, whoever made them: it moves when
+   * one lands, so the screen can show it — online, to both seats.
+   */
+  undos: number
+  /** This seat gives up: the game ends and the other seat wins. */
+  forfeit: () => void
   status: TableStatus
   opponentConnected: boolean
   /** 'Machine' or 'Opponent': what the final screen calls the other seat. */

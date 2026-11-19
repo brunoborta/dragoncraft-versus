@@ -222,3 +222,46 @@ describe('useRemoteTable', () => {
     expect(h.latest().closed).toBe(true)
   })
 })
+
+describe('useRemoteTable: takebacks and giving up', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  function seated() {
+    const h = harness('ROOM01')
+    act(() => h.latest().onopen?.())
+    act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: 0, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
+    return h
+  }
+
+  it('counts a takeback when the log comes back shorter, whoever made it', () => {
+    const h = seated()
+    const placed = state
+    const moved = { ...toPlayerView(placed, 0), log: [...placed.log, { seat: placed.current, action: { type: 'skipFireUp' as const } }] }
+    act(() => h.latest().receive({ type: 'view', view: moved, actions: [], opponentConnected: true }))
+    expect(h.result.current.undos).toBe(0)
+
+    act(() => h.latest().receive(viewMessage(0)))
+    expect(h.result.current.undos).toBe(1)
+
+    // a move is not a takeback
+    act(() => h.latest().receive({ type: 'view', view: moved, actions: [], opponentConnected: true }))
+    expect(h.result.current.undos).toBe(1)
+  })
+
+  it('counts no takeback when a rematch starts a new game', () => {
+    const h = seated()
+    const ended = { ...toPlayerView(state, 0), phase: 'ended' as const, log: [...state.log, { seat: 0 as const, action: { type: 'gameOver' as const } }] }
+    act(() => h.latest().receive({ type: 'view', view: ended, actions: [], opponentConnected: true, game: 0 }))
+    act(() => h.latest().receive({ ...viewMessage(0), game: 1 } as ServerMessage))
+    expect(h.result.current.undos).toBe(0)
+  })
+
+  it('sends a forfeit and offers nothing more until the server answers', () => {
+    const h = seated()
+    act(() => h.latest().receive(viewMessage(state.current)))
+    act(() => h.result.current.forfeit())
+    expect(h.latest().sent.at(-1)).toEqual({ type: 'forfeit' })
+    expect(h.result.current.actions).toEqual([])
+  })
+})

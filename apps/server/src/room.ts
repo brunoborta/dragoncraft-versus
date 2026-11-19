@@ -1,4 +1,4 @@
-import { actionKey, applyAction, createGame, legalActions, undoFloor } from '@dcv/engine'
+import { actionKey, applyAction, createGame, forfeit, legalActions, undoTarget } from '@dcv/engine'
 import { toPlayerView } from '@dcv/engine'
 import type { Action, GameState, Seat } from '@dcv/engine'
 import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
@@ -22,6 +22,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   'illegal-action': 'That move is not legal right now',
   'cannot-undo': 'There is nothing to take back right now',
   'not-ended': 'The game is not over yet',
+  'already-ended': 'The game is already over',
   replaced: 'You reconnected from somewhere else',
   busy: 'The server has no room for another game right now',
 }
@@ -40,7 +41,7 @@ export function errorMessage(code: ErrorCode): ServerMessage {
  */
 export class Room {
   private readonly seats: [SeatRecord | null, SeatRecord | null] = [null, null]
-  /** Every state the game has been in; the last is current. Undo pops one. */
+  /** Every state the game has been in; the last is current. Undo pops one play. */
   private history: GameState[]
   /** Who is asking to play again; both at once starts the next game. */
   private wantsRematch: [boolean, boolean] = [false, false]
@@ -92,7 +93,7 @@ export class Room {
 
   /** Whether undo has anywhere to go, same rule as against the machine. */
   private get undoable(): boolean {
-    return this.history.length - 1 > undoFloor(this.history)
+    return undoTarget(this.history) !== null
   }
 
   private viewFor(seat: Seat): ServerMessage {
@@ -214,9 +215,9 @@ export class Room {
   }
 
   /**
-   * One step back, exactly as against the machine: only the player whose
-   * turn it is, and never across a draw, a spent coin, or into the other
-   * player's turn. Both seats get the rewound view, so a takeback happens
+   * One play back, exactly as against the machine (`undoTarget`): only the
+   * player whose turn it is, and never across a draw, a spent coin, or into
+   * the other player's turn. Both seats get the rewound view, so a takeback happens
    * in the open.
    */
   undo(client: ClientId): Outbound[] {
@@ -232,7 +233,27 @@ export class Room {
     if (this.state.phase === 'ended' || this.state.current !== seat) return refuse('not-your-turn')
     if (!this.undoable) return refuse('cannot-undo')
 
-    this.history = this.history.slice(0, -1)
+    this.history = this.history.slice(0, undoTarget(this.history)! + 1)
+    return this.broadcastViews()
+  }
+
+  /**
+   * A seat gives up. Unlike everything else it does not wait for a turn:
+   * either seat, any time the game is on. Both get the final view, and the
+   * log in it says who gave up.
+   */
+  forfeit(client: ClientId): Outbound[] {
+    const seat = this.seatOf(client)
+    if (seat === null) return [{ to: client, message: errorMessage('not-seated') }]
+    if (!this.started) return [{ to: client, message: errorMessage('not-started') }]
+    if (this.state.phase === 'ended') {
+      return [
+        { to: client, message: errorMessage('already-ended') },
+        { to: client, message: this.viewFor(seat) },
+      ]
+    }
+
+    this.history = [...this.history, forfeit(this.state, seat)]
     return this.broadcastViews()
   }
 

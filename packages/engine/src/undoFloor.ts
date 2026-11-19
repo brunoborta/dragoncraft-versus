@@ -34,3 +34,31 @@ export function undoFloor(history: readonly UndoableState[]): number {
 
   return floor
 }
+
+/**
+ * Answers that change nothing on the board by themselves: "fire up this
+ * token?", "done moving", which neighbour a plant borrows from. Taken back on
+ * their own they would leave the board as it was, and the player tapping
+ * Undo again; so each one goes back together with the play it answered.
+ */
+const ANSWERS: ReadonlySet<string> = new Set(['fireUp', 'skipFireUp', 'ironDone', 'plantTarget'])
+
+/**
+ * Where one Undo lands: one play back, never below `undoFloor`. A play is
+ * what the player did to the table — a placement, a token moved, a pick, a
+ * card scored — with the answers that followed it. `null` when there is
+ * nothing to take back.
+ */
+export function undoTarget(history: readonly UndoableState[]): number | null {
+  const floor = undoFloor(history)
+  let at = history.length - 1
+
+  while (at > floor) {
+    const added = history[at].log.slice(history[at - 1].log.length)
+    const played = added.find((entry) => entry.action.type !== 'draw' && entry.action.type !== 'gameOver')
+    at -= 1
+    if (!played || !ANSWERS.has(played.action.type)) break
+  }
+
+  return at < history.length - 1 ? at : null
+}

@@ -81,7 +81,7 @@ export type Action =
 
 export type LogEntry = {
   seat: Seat
-  action: Action | { type: 'draw'; token: Token } | { type: 'gameOver' }
+  action: Action | { type: 'draw'; token: Token } | { type: 'gameOver' } | { type: 'forfeit' }
 }
 
 export type GameState = {

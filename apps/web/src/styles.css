@@ -1438,3 +1438,53 @@ body {
   .top-buttons .icon-button { width: 36px; height: 36px; }
   .top-buttons .icon-button .icon-help { width: 24px; height: 24px; }
 }
+
+/* ---------- takebacks and giving up ---------- */
+
+/* the Undo arrow, turning backwards in the middle of the board */
+.undo-moment { position: absolute; inset: 0; z-index: 14; pointer-events: none; overflow: hidden; }
+.undo-spinning {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  color: var(--brass-200);
+  /* the icon alone, no disc: a dark outline and shadow keep it readable on the pale stones */
+  filter: drop-shadow(0 0 1.5px rgb(16 33 26 / 0.95)) drop-shadow(0 0 1.5px rgb(16 33 26 / 0.95))
+    drop-shadow(0 4px 8px rgb(0 0 0 / 0.55));
+}
+.undo-spinning .icon { width: 100%; height: 100%; }
+
+/* hold to confirm: a red ring grows around the button until it acts */
+.forfeit { display: grid; gap: 6px; margin-top: 8px; padding-top: 12px; border-top: 1px solid rgb(217 180 90 / 0.3); }
+.hold-button {
+  position: relative;
+  overflow: hidden;
+  min-height: 48px;
+  border-radius: 12px;
+  background: #3a1620;
+  color: #f3c9d0;
+  border: 1.5px solid #a2384e;
+  font: inherit;
+  font-weight: 700;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  box-shadow: 0 0 0 0 #d2445f;
+}
+.hold-label { position: relative; }
+/* the inside fills from the left as the ring grows, so the time left is plain */
+.hold-fill { position: absolute; inset: 0; background: #7a2034; transform: scaleX(0); transform-origin: left; }
+.hold-button[data-holding] { animation: hold-ring var(--hold-ms) linear forwards; }
+.hold-button[data-holding] .hold-fill { animation: hold-fill var(--hold-ms) linear forwards; }
+@keyframes hold-ring { to { box-shadow: 0 0 0 8px #d2445f; } }
+@keyframes hold-fill { to { transform: scaleX(1); } }
+
+.game-over-reason { margin: -4px 0 4px; color: #d7c79d; font-size: 15px; font-style: italic; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* the hold still takes its time; only the growing ring is calmer */
+  .hold-button[data-holding] { animation: none; box-shadow: 0 0 0 4px #d2445f; }
+}
+

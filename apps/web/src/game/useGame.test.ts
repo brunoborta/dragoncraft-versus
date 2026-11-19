@@ -64,3 +64,35 @@ describe('useGame', () => {
     expect(result.current.canUndo).toBe(false)
   })
 })
+
+describe('useGame: a play at a time, and giving up', () => {
+  it('takes back a placement and the fire-up answer after it in one undo, and counts the takeback', () => {
+    const { result } = renderHook(() => useGame(42))
+    const opening = JSON.stringify(result.current.state)
+
+    act(() => result.current.perform(result.current.actions.find((a) => a.type === 'place')!))
+    const answer = result.current.actions.find((a) => a.type === 'skipFireUp')
+    if (answer) act(() => result.current.perform(answer))
+
+    expect(result.current.undos).toBe(0)
+    act(() => result.current.undo())
+    expect(JSON.stringify(result.current.state)).toBe(opening)
+    expect(result.current.undos).toBe(1)
+  })
+
+  it('counts no takeback when there is nothing to take back', () => {
+    const { result } = renderHook(() => useGame(42))
+    act(() => result.current.undo())
+    expect(result.current.undos).toBe(0)
+  })
+
+  it('ends the game when a seat gives up, and only once', () => {
+    const { result } = renderHook(() => useGame(42))
+    act(() => result.current.forfeit(0))
+    expect(result.current.state.phase).toBe('ended')
+    expect(result.current.actions).toEqual([])
+    const after = result.current.state
+    act(() => result.current.forfeit(1))
+    expect(result.current.state).toBe(after)
+  })
+})

@@ -1,4 +1,4 @@
-import { bankedReputation, winnerOfView } from '@dcv/engine'
+import { bankedReputation, forfeitedBy, winnerOfView } from '@dcv/engine'
 import type { PlayerView } from '@dcv/engine'
 import type { Scorable } from '@dcv/engine'
 import { motion } from 'motion/react'
@@ -122,6 +122,9 @@ export function GameOver({
 }) {
   const winner = winnerOfView(view)
   const result: Result = winner === 'draw' ? 'draw' : winner === view.seat ? 'win' : 'lose'
+  // a game given up keeps the same crest and headline; a line under it says why
+  const quitter = forfeitedBy(view.log)
+  const reason = quitter === null ? null : quitter === view.seat ? 'You gave up' : `${opponentLabel} gave up`
 
   const reduced = useReducedMotion()
   // each step after the one before: crest, headline, totals, buttons
@@ -142,6 +145,11 @@ export function GameOver({
         <Crest result={result} />
       </motion.div>
       <motion.h2 {...step(0.35)}>{HEADLINE[result]}</motion.h2>
+      {reason ? (
+        <motion.p className="game-over-reason" {...step(0.45)}>
+          {reason}
+        </motion.p>
+      ) : null}
       <motion.dl className="final-scores" {...step(0.55)}>
         <div className="final-score" data-side="you">
           <Avatar side="you" active={result !== 'lose'} />

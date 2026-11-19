@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { single } from './tokens.js'
-import { undoFloor, type UndoableState } from './undoFloor.js'
+import { undoFloor, undoTarget, type UndoableState } from './undoFloor.js'
 import type { LogEntry, Seat } from './types.js'
 
 const draw = (seat: Seat): LogEntry => ({ seat, action: { type: 'draw', token: single('bread') } })
@@ -49,5 +49,40 @@ describe('undoFloor', () => {
     // the bag ran dry, so the turn opened without a draw
     const states = history([move(0), move(1), move(1)], [0, 1, 1])
     expect(undoFloor(states)).toBe(1)
+  })
+})
+
+const place = (seat: Seat): LogEntry => ({ seat, action: { type: 'place', at: { q: 0, r: 0 } } })
+const fireUp = (seat: Seat): LogEntry => ({ seat, action: { type: 'fireUp', ability: 'iron' } })
+const ironMove = (seat: Seat): LogEntry => ({ seat, action: { type: 'ironMove', from: { q: 1, r: 0 }, to: { q: 2, r: 0 } } })
+const ironDone = (seat: Seat): LogEntry => ({ seat, action: { type: 'ironDone' } })
+
+describe('undoTarget', () => {
+  it('takes back the last move of an iron, leaving the iron fired up', () => {
+    // drawn, placed, fired up, one token moved
+    const states = history([draw(0), place(0), fireUp(0), ironMove(0)], [0, 0, 0, 0])
+    expect(undoTarget(states)).toBe(2)
+  })
+
+  it('takes back an answer together with the placement it answered', () => {
+    // drawn, placed, fired up: nothing has moved yet, so the token goes back to the hand
+    const states = history([draw(0), place(0), fireUp(0)], [0, 0, 0])
+    expect(undoTarget(states)).toBe(0)
+  })
+
+  it('takes back "done" together with the move before it', () => {
+    const states = history([draw(0), place(0), fireUp(0), ironMove(0), ironDone(0)], [0, 0, 0, 0, 0])
+    expect(undoTarget(states)).toBe(2)
+  })
+
+  it('never goes past the floor, even in the middle of a play', () => {
+    // a bread drew a second token; its fire-up answer sits right on the floor
+    const states = history([draw(0), place(0), draw(0), fireUp(0)], [0, 0, 0, 0])
+    expect(undoTarget(states)).toBe(2)
+  })
+
+  it('has nothing to take back at the floor', () => {
+    expect(undoTarget(history([draw(0)], [0]))).toBeNull()
+    expect(undoTarget(history([move(1), draw(0)], [1, 0]))).toBeNull()
   })
 })

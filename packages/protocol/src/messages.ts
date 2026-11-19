@@ -25,10 +25,12 @@ export type ClientMessage =
   | { type: 'create'; options?: TableOptions }
   | { type: 'join'; room: string; token?: string }
   | { type: 'action'; action: Action }
-  /** Take back the last action. The server decides if the floor allows it. */
+  /** Take back the last play. The server decides how far that is, and whether the floor allows it. */
   | { type: 'undo' }
   /** After the end: this seat wants another game at the same table. */
   | { type: 'rematch' }
+  /** This seat gives up: the game ends and the other seat wins. Either seat, any time the game is on. */
+  | { type: 'forfeit' }
 
 export type ErrorCode =
   | 'bad-message'
@@ -43,6 +45,8 @@ export type ErrorCode =
   | 'cannot-undo'
   /** A rematch was asked for while the game is still on. */
   | 'not-ended'
+  /** Giving up a game that is already over. */
+  | 'already-ended'
   /** Someone else reconnected with this seat's token; this connection is done. */
   | 'replaced'
   /** The server will not open another room right now. */
