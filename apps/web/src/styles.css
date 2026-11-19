@@ -1491,3 +1491,33 @@ body {
 /* a menu opened during the game (settings, help, log, bag) covers all of it: nothing in the game, a flight, the coin, a banner, passes over it */
 .menu-backdrop { z-index: 30; }
 
+/* ---------- the end screen: put away with its X, and the asking for a rematch ---------- */
+
+.game-over { position: relative; }
+/* the X that puts the result away to look at the board; a tap outside does the same */
+.game-over button.game-over-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  width: 36px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border-color: rgb(243 223 162 / 0.45);
+  background: rgb(6 14 10 / 0.45);
+  color: var(--brass-200);
+}
+.game-over-close .icon { width: 16px; height: 16px; }
+/* Rematch and New game side by side; one alone takes the whole row */
+.game-over-buttons { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; width: 100%; }
+.game-over-buttons button { padding: 0 8px; }
+.game-over button:disabled { opacity: 0.7; cursor: default; }
+/* answering the other side: a yellow tick, and a cross for a new game elsewhere */
+.game-over button.rematch-yes, .game-over button.rematch-no { display: grid; place-items: center; }
+.rematch-yes .icon, .rematch-no .icon { width: 26px; height: 26px; }
+.game-over-buttons button { white-space: nowrap; }
+

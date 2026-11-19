@@ -140,7 +140,7 @@ describe('App', () => {
     expect(screen.getByText('You win')).toBeDefined()
 
     const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
-    fireEvent.click(screen.getByRole('button', { name: 'Play again' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Rematch' }))
     random.mockRestore()
 
     // no opponent chooser, no result left standing: the same machine, a new game
@@ -626,9 +626,9 @@ describe('App online', () => {
     act(() => latest().receive({ type: 'view', view: toPlayerView(over, 0), actions: [], opponentConnected: true }))
 
     expect(screen.getByRole('dialog', { name: 'Final score' })).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: 'Play again' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Rematch' }))
     expect(latest().sent.at(-1)).toEqual({ type: 'rematch' })
-    expect(screen.getByText('Waiting for Opponent…')).toBeDefined()
+    expect((screen.getByRole('button', { name: 'Requested…' }) as HTMLButtonElement).disabled).toBe(true)
 
     // the opponent agrees: a fresh game arrives under the next game number
     act(() =>
@@ -641,6 +641,36 @@ describe('App online', () => {
       }),
     )
     expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
+  })
+
+  it('online, New game leaves the room for good, and the result can be put away with a tap outside', async () => {
+    const { createGame, toPlayerView } = await import('@dcv/engine')
+    const { connect, latest } = fakeConnect()
+    render(<App server="ws://test" connect={connect} />)
+    fireEvent.click(screen.getByText('Against a player'))
+    fireEvent.click(screen.getByText('Join'))
+    fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Join' }))
+    act(() => latest().onopen?.())
+    const over = { ...createGame(2), phase: 'ended' as const }
+    act(() => latest().receive({ type: 'seated', room: '042137', seat: 0, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
+    act(() => latest().receive({ type: 'view', view: toPlayerView(over, 0), actions: [], opponentConnected: true }))
+
+    // a tap outside puts it away; there is no View board button any more
+    expect(screen.queryByRole('button', { name: 'View board' })).toBeNull()
+    fireEvent.click(document.querySelector('.game-over-backdrop')!)
+    expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show result' }))
+
+    // the opponent turned the rematch down: New game alone
+    act(() => latest().receive({ type: 'opponentLeft' }))
+    expect(screen.getByText('Opponent left the room')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Rematch' })).toBeNull()
+
+    const socket = latest()
+    fireEvent.click(screen.getByRole('button', { name: 'New game' }))
+    expect(socket.sent.at(-1)).toEqual({ type: 'leave' })
+    expect(screen.getByText('Against the computer')).toBeDefined()
   })
 
   it("plays a joined game with the host's options, shown but not changeable", async () => {

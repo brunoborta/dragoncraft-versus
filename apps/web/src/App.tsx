@@ -214,12 +214,17 @@ function OnlineApp({
       view={table.view}
       label="Friend"
       detail={roomId ? `PIN ${roomId}` : ''}
-      restartLabel="Back to menu"
-      onRestart={onLeave}
+      restartLabel="New game"
+      onRestart={() => {
+        // the other seat hears it at once: no rematch here, and they are alone
+        table.rematch.leave()
+        onLeave()
+      }}
       playAgain={{
         act: table.rematch.request,
         waiting: table.rematch.youWant && !table.rematch.opponentWants,
         opponentWants: table.rematch.opponentWants,
+        opponentLeft: table.rematch.opponentLeft,
       }}
       extras={<Connection status={status} opponentConnected={table.opponentConnected} />}
       options={table.options}

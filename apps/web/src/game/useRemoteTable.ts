@@ -27,11 +27,15 @@ export type RemoteTable = Table & {
   /** Counts the games this table has seen: a rematch moves it, and the screen starts afresh. */
   game: number
   /** Who is asking to play again, and the asking itself. */
-  rematch: { youWant: boolean; opponentWants: boolean; request: () => void }
+  /**
+   * `opponentLeft`: the other seat is done with this table, so no rematch.
+   * `leave` says this seat is done with it, before the screen moves on.
+   */
+  rematch: { youWant: boolean; opponentWants: boolean; opponentLeft: boolean; request: () => void; leave: () => void }
 }
 
 /** These mean the seat is not ours to come back to. Everything else is a hiccup. */
-const FATAL = new Set(['room-not-found', 'room-full', 'bad-token', 'replaced', 'busy'])
+const FATAL = new Set(['room-not-found', 'room-full', 'bad-token', 'replaced', 'busy', 'left'])
 
 const FIRST_RETRY_MS = 1000
 const MAX_RETRY_MS = 30_000
@@ -68,6 +72,7 @@ export function useRemoteTable({
   const [undos, setUndos] = useState(0)
   const [game, setGame] = useState(0)
   const [wants, setWants] = useState({ youWant: false, opponentWants: false })
+  const [opponentLeft, setOpponentLeft] = useState(false)
   const [status, setStatus] = useState<TableStatus>({ kind: 'connecting' })
   const [opponentConnected, setOpponentConnected] = useState(false)
   const [roomId, setRoomId] = useState<string | null>(room)
@@ -136,6 +141,10 @@ export function useRemoteTable({
           return
         case 'presence':
           setOpponentConnected(message.opponentConnected)
+          return
+        case 'opponentLeft':
+          setOpponentLeft(true)
+          setWants({ youWant: false, opponentWants: false })
           return
         case 'error':
           if (FATAL.has(message.code)) {
@@ -235,6 +244,10 @@ export function useRemoteTable({
     setWants((current) => ({ ...current, youWant: true }))
   }, [])
 
+  const leave = useCallback(() => {
+    socketRef.current?.send(JSON.stringify({ type: 'leave' } satisfies ClientMessage))
+  }, [])
+
   return {
     view,
     actions,
@@ -250,6 +263,6 @@ export function useRemoteTable({
     seat,
     options,
     game,
-    rematch: { ...wants, request: requestRematch },
+    rematch: { ...wants, opponentLeft, request: requestRematch, leave },
   }
 }

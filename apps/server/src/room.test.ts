@@ -351,6 +351,27 @@ describe('playing again', () => {
     expect(to(out, 'A')).toEqual([{ type: 'rematch', youWant: true, opponentWants: false }])
     expect(out.every((o) => o.message.type !== 'view')).toBe(true)
   })
+
+  it('a seat that leaves calls the asking off and tells the other it is alone', () => {
+    const room = makeRoom()
+    playToEnd(room)
+    room.rematch('A')
+    const out = room.leave('A', 1000)
+    expect(to(out, 'B')).toEqual([{ type: 'opponentLeft' }])
+    expect(to(out, 'A')).toEqual([])
+    // nobody is left to agree with
+    expect(to(room.rematch('B'), 'B')).toEqual([{ type: 'opponentLeft' }])
+  })
+
+  it('a seat that left cannot come back, and the one that stayed still hears it after a reconnect', () => {
+    const room = makeRoom()
+    const { tokens } = playToEnd(room)
+    room.leave('B', 1000)
+    expect(to(room.rejoin('B2', tokens.B), 'B2')[0]).toMatchObject({ type: 'error', code: 'left' })
+
+    room.disconnect('A', 2000)
+    expect(to(room.rejoin('A2', tokens.A), 'A2')).toContainEqual({ type: 'opponentLeft' })
+  })
 })
 
 /**

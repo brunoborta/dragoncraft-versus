@@ -23,6 +23,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   'cannot-undo': 'There is nothing to take back right now',
   'not-ended': 'The game is not over yet',
   'already-ended': 'The game is already over',
+  left: 'You left this game',
   replaced: 'You reconnected from somewhere else',
   busy: 'The server has no room for another game right now',
 }
@@ -45,6 +46,8 @@ export class Room {
   private history: GameState[]
   /** Who is asking to play again; both at once starts the next game. */
   private wantsRematch: [boolean, boolean] = [false, false]
+  /** Seats that left the table for good; one gone means no rematch here. */
+  private left: [boolean, boolean] = [false, false]
   /** How many games this table has seen before the current one. */
   private gameNumber = 0
   /** When the room last had nobody connected; sweeping reads it. */
@@ -132,6 +135,7 @@ export class Room {
     const out: Outbound[] = [{ to: client, message: this.viewFor(seat) }]
     // a rematch asked for while this seat was away is still on the table
     if (this.wantsRematch[0] || this.wantsRematch[1]) out.push({ to: client, message: this.rematchFor(seat) })
+    if (this.left[(1 - seat) as Seat]) out.push({ to: client, message: { type: 'opponentLeft' } })
     return out
   }
 
@@ -168,6 +172,7 @@ export class Room {
   rejoin(client: ClientId, token: string): Outbound[] {
     const seat: Seat | null = this.seats[0]?.token === token ? 0 : this.seats[1]?.token === token ? 1 : null
     if (seat === null) return [{ to: client, message: errorMessage('bad-token') }]
+    if (this.left[seat]) return [{ to: client, message: errorMessage('left') }]
 
     const record = this.seats[seat]!
     const out: Outbound[] = []
@@ -268,6 +273,8 @@ export class Room {
     if (seat === null) return [{ to: client, message: errorMessage('not-seated') }]
     if (!this.started) return [{ to: client, message: errorMessage('not-started') }]
     if (this.state.phase !== 'ended') return [{ to: client, message: errorMessage('not-ended') }]
+    // the other seat is gone: nobody is left to agree
+    if (this.left[(1 - seat) as Seat]) return [{ to: client, message: { type: 'opponentLeft' } }]
 
     this.wantsRematch[seat] = true
     if (this.wantsRematch[0] && this.wantsRematch[1]) {
@@ -283,6 +290,22 @@ export class Room {
       if (at) out.push({ to: at, message: this.rematchFor(other) })
     }
     return out
+  }
+
+  /**
+   * A seat done with the table: it asked for a new game elsewhere, or turned
+   * a rematch down. Any asking is over, the seat cannot come back, and the
+   * other seat hears that it is alone.
+   */
+  leave(client: ClientId, now: number): Outbound[] {
+    const seat = this.seatOf(client)
+    if (seat === null) return [{ to: client, message: errorMessage('not-seated') }]
+    this.left[seat] = true
+    this.wantsRematch = [false, false]
+    this.seats[seat]!.client = null
+    if (this.connectedCount() === 0) this.idleSince = now
+    const other = this.clientAt((1 - seat) as Seat)
+    return other ? [{ to: other, message: { type: 'opponentLeft' } }] : []
   }
 
   disconnect(client: ClientId, now: number): Outbound[] {

@@ -31,6 +31,8 @@ export type ClientMessage =
   | { type: 'rematch' }
   /** This seat gives up: the game ends and the other seat wins. Either seat, any time the game is on. */
   | { type: 'forfeit' }
+  /** This seat is done with the table: no rematch, and the other seat is told so. */
+  | { type: 'leave' }
 
 export type ErrorCode =
   | 'bad-message'
@@ -47,6 +49,8 @@ export type ErrorCode =
   | 'not-ended'
   /** Giving up a game that is already over. */
   | 'already-ended'
+  /** Coming back to a table this seat already left. */
+  | 'left'
   /** Someone else reconnected with this seat's token; this connection is done. */
   | 'replaced'
   /** The server will not open another room right now. */
@@ -74,4 +78,6 @@ export type ServerMessage =
   /** Who at the table is asking to play again, said to each seat from where it sits. */
   | { type: 'rematch'; youWant: boolean; opponentWants: boolean }
   | { type: 'presence'; opponentConnected: boolean }
+  /** The other seat left the table for good: there will be no rematch here. */
+  | { type: 'opponentLeft' }
   | { type: 'error'; code: ErrorCode; message: string }

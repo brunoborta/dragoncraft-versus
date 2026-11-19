@@ -205,6 +205,21 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
         deliver(out)
         return
       }
+      case 'leave': {
+        if (!connection.room) {
+          send(client, errorMessage('not-seated'))
+          return
+        }
+        const room = connection.room
+        const out = room.leave(client, now())
+        if (!out.some((o) => o.message.type === 'error')) {
+          log(`${client} left room ${room.id}`)
+          // the seat is gone: its socket's close later is not a disconnect from the room
+          connection.room = null
+        }
+        deliver(out)
+        return
+      }
       case 'rematch': {
         if (!connection.room) {
           send(client, errorMessage('not-seated'))

@@ -93,60 +93,55 @@ describe('GameOver', () => {
 
 describe('playing again from the end screen', () => {
   const idle = { waiting: false, opponentWants: false, opponentGone: false }
-
-  it('offers it first, with the way out beside it', () => {
-    const act = vi.fn()
+  const at = (playAgain: Partial<typeof idle> & { opponentLeft?: boolean }, act = vi.fn(), onRestart = vi.fn()) => {
     render(
       <GameOver
         opponentLabel="Friend"
-        restartLabel="Back to menu"
+        restartLabel="New game"
         view={finished([], [])}
-        onRestart={() => {}}
-        playAgain={{ ...idle, act }}
+        onRestart={onRestart}
+        playAgain={{ ...idle, ...playAgain, act }}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Play again' }))
+    return { act, onRestart }
+  }
+
+  it('offers it first, with New game beside it', () => {
+    const { act } = at({})
+    fireEvent.click(screen.getByRole('button', { name: 'Rematch' }))
     expect(act).toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Back to menu' })).toBeDefined()
+    const buttons = document.querySelector('.game-over-buttons')!
+    expect(buttons.children).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'New game' })).toBeDefined()
   })
 
-  it('waits on the opponent once asked, saying so', () => {
-    render(
-      <GameOver
-        opponentLabel="Friend"
-        restartLabel="Back to menu"
-        view={finished([], [])}
-        onRestart={() => {}}
-        playAgain={{ ...idle, act: () => {}, waiting: true }}
-      />,
-    )
-    expect((screen.getByRole('button', { name: 'Play again' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByText('Waiting for Friend…')).toBeDefined()
+  it('once asked, the button says so and waits; New game is still there', () => {
+    const { onRestart } = at({ waiting: true })
+    const asked = screen.getByRole('button', { name: 'Requested…' }) as HTMLButtonElement
+    expect(asked.disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'New game' }))
+    expect(onRestart).toHaveBeenCalled()
   })
 
-  it('says when the opponent is asking, and when they have left instead', () => {
-    const asking = render(
-      <GameOver
-        opponentLabel="Friend"
-        restartLabel="Back to menu"
-        view={finished([], [])}
-        onRestart={() => {}}
-        playAgain={{ ...idle, act: () => {}, opponentWants: true }}
-      />,
-    )
-    expect(screen.getByText('Friend wants to play again')).toBeDefined()
-    asking.unmount()
+  it('when the opponent asks: their note, a tick to agree and a cross to go', () => {
+    const { act, onRestart } = at({ opponentWants: true })
+    expect(screen.getByText('Friend wants a rematch')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Rematch' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Accept rematch' }))
+    expect(act).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Decline rematch' }))
+    expect(onRestart).toHaveBeenCalled()
+  })
 
-    render(
-      <GameOver
-        opponentLabel="Friend"
-        restartLabel="Back to menu"
-        view={finished([], [])}
-        onRestart={() => {}}
-        playAgain={{ ...idle, act: () => {}, waiting: true, opponentGone: true }}
-      />,
-    )
-    expect(screen.getByText('Friend left the game')).toBeDefined()
+  it('when the opponent left the room, New game is all there is', () => {
+    at({ opponentLeft: true, opponentWants: true })
+    expect(screen.getByText('Friend left the room')).toBeDefined()
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['New game'])
+  })
+
+  it('says when the opponent it waits on is not connected', () => {
+    at({ waiting: true, opponentGone: true })
+    expect(screen.getByText('Friend is not connected')).toBeDefined()
   })
 })
 
@@ -174,3 +169,5 @@ describe('GameOver after giving up', () => {
   it('says nothing of the kind after a game played to the end', () => {
     render(<GameOver opponentLabel="Machine" restartLabel="New game" view={finished(['tri-bread'], [])} onRestart={() => {}} />)
     expect(screen.queryByText(/gave up/)).toBeNull()
+  })
+})

@@ -85,6 +85,15 @@ export function CrossIcon({ className }: IconProps) {
   )
 }
 
+/** Not on the sheet: a plain tick, drawn here — yes, agreed. */
+export function CheckIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  )
+}
+
 export function GearIcon(props: IconProps) {
   return <TracedIcon name="gear" {...props} />
 }

@@ -7,7 +7,7 @@ import type { GameResult as Result } from '../art/ArtContext.js'
 import { useCountUp } from '../game/useCountUp.js'
 import { useReducedMotion } from '../motion.js'
 import { Avatar } from './Avatar.js'
-import { CoinIcon } from './icons.js'
+import { CheckIcon, CoinIcon, CrossIcon } from './icons.js'
 
 const HEADLINE: Record<Result, string> = { win: 'You win', lose: 'You lose', draw: 'Shared victory' }
 
@@ -101,8 +101,8 @@ function Breakdown({ player }: { player: Scorable }) {
  * The end of the game (plan M14): the crest drops in, the result appears,
  * both totals count up from zero, then the buttons. A tap does not skip it:
  * it is short, and it is the one moment the game is about. It opens over the board, and
- * "View board" puts it away to look at the final position — the decision panel
- * then offers it back.
+ * its X, or a tap outside it, puts it away to look at the final position — the
+ * decision panel then offers it back.
  */
 export function GameOver({
   view,
@@ -110,21 +110,72 @@ export function GameOver({
   restartLabel,
   onRestart,
   playAgain,
-  onViewBoard,
+  onClose,
 }: {
   view: PlayerView
   opponentLabel: string
   restartLabel: string
   onRestart: () => void
-  /** Another game at this table; `waiting` and `opponentWants` say where the asking stands. */
-  playAgain?: { act: () => void; waiting: boolean; opponentWants: boolean; opponentGone: boolean }
-  onViewBoard?: () => void
+  /**
+   * Another game at this table. `waiting`: this side asked and waits.
+   * `opponentWants`: the other side asked, and this one answers yes or no.
+   * `opponentLeft`: the other side is gone, and a new game elsewhere is all that is left.
+   */
+  playAgain?: { act: () => void; waiting: boolean; opponentWants: boolean; opponentLeft?: boolean; opponentGone: boolean }
+  /** Puts the result away to look at the board; the decision panel offers it back. */
+  onClose?: () => void
 }) {
   const winner = winnerOfView(view)
   const result: Result = winner === 'draw' ? 'draw' : winner === view.seat ? 'win' : 'lose'
   // a game given up keeps the same crest and headline; a line under it says why
   const quitter = forfeitedBy(view.log)
   const reason = quitter === null ? null : quitter === view.seat ? 'You gave up' : `${opponentLabel} gave up`
+
+  /*
+   * Online, the asking for another game: asked by nobody, Rematch and New game
+   * side by side; asked by this side, Rematch says so and waits; asked by the
+   * other side, a yes and a no; the other side gone, New game alone.
+   */
+  const leaving = (
+    <button type="button" className="btn-secondary" onClick={onRestart}>
+      {restartLabel}
+    </button>
+  )
+  const leavingAlone = (
+    <button type="button" onClick={onRestart}>
+      {restartLabel}
+    </button>
+  )
+  let note: string | null = null
+  let buttons: React.ReactNode
+  if (playAgain?.opponentLeft) {
+    note = `${opponentLabel} left the room`
+    buttons = leavingAlone
+  } else if (playAgain?.opponentWants) {
+    note = `${opponentLabel} wants a rematch`
+    buttons = (
+      <>
+        <button type="button" className="rematch-yes" aria-label="Accept rematch" onClick={playAgain.act}>
+          <CheckIcon />
+        </button>
+        <button type="button" className="btn-secondary rematch-no" aria-label="Decline rematch" onClick={onRestart}>
+          <CrossIcon />
+        </button>
+      </>
+    )
+  } else if (playAgain) {
+    if (playAgain.waiting && playAgain.opponentGone) note = `${opponentLabel} is not connected`
+    buttons = (
+      <>
+        <button type="button" onClick={playAgain.act} disabled={playAgain.waiting}>
+          {playAgain.waiting ? 'Requested…' : 'Rematch'}
+        </button>
+        {leaving}
+      </>
+    )
+  } else {
+    buttons = leavingAlone
+  }
 
   const reduced = useReducedMotion()
   // each step after the one before: crest, headline, totals, buttons
@@ -135,6 +186,11 @@ export function GameOver({
 
   return (
     <div className="game-over" role="dialog" aria-label="Final score" data-result={result}>
+      {onClose ? (
+        <button type="button" className="game-over-close" aria-label="Close" onClick={onClose}>
+          <CrossIcon />
+        </button>
+      ) : null}
       <motion.div
         className="crest-wrap"
         initial={reduced ? { opacity: 0 } : { y: -80, scale: 0.5, opacity: 0 }}
@@ -168,25 +224,8 @@ export function GameOver({
         <Breakdown player={view.opponent} />
       </motion.div>
       <motion.div className="game-over-actions" {...step(2.6)}>
-        {playAgain?.opponentWants ? <p className="rematch-note">{opponentLabel} wants to play again</p> : null}
-        {playAgain?.waiting ? (
-          <p className="rematch-note">
-            {playAgain.opponentGone ? `${opponentLabel} left the game` : `Waiting for ${opponentLabel}…`}
-          </p>
-        ) : null}
-        {playAgain ? (
-          <button type="button" onClick={playAgain.act} disabled={playAgain.waiting}>
-            Play again
-          </button>
-        ) : null}
-        <button type="button" className={playAgain ? 'btn-secondary' : undefined} onClick={onRestart}>
-          {restartLabel}
-        </button>
-        {onViewBoard ? (
-          <button type="button" className="btn-secondary" onClick={onViewBoard}>
-            View board
-          </button>
-        ) : null}
+        {note ? <p className="rematch-note">{note}</p> : null}
+        <div className="game-over-buttons">{buttons}</div>
       </motion.div>
     </div>
   )

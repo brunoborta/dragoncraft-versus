@@ -66,7 +66,7 @@ export function GameScreen({
    * online it asks the opponent, and `waiting`/`opponentWants` say where
    * that asking stands.
    */
-  playAgain?: { act: () => void; waiting?: boolean; opponentWants?: boolean }
+  playAgain?: { act: () => void; waiting?: boolean; opponentWants?: boolean; opponentLeft?: boolean }
   /** Anything the host wants under the board: the debug hatch, a connection notice. */
   extras?: ReactNode
   /**
@@ -547,7 +547,13 @@ export function GameScreen({
       ) : null}
       <TurnBanner banner={turnBanner.banner} onDismiss={turnBanner.dismiss} />
       {ended && !viewingBoard ? (
-        <div className="modal-backdrop game-over-backdrop">
+        // a tap outside the result puts it away, the same as its X
+        <div
+          className="modal-backdrop game-over-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setViewingBoard(true)
+          }}
+        >
           <GameOver
             view={view}
             opponentLabel={table.opponentLabel}
@@ -559,11 +565,12 @@ export function GameScreen({
                     act: () => freshStart(playAgain.act),
                     waiting: playAgain.waiting ?? false,
                     opponentWants: playAgain.opponentWants ?? false,
+                    opponentLeft: playAgain.opponentLeft ?? false,
                     opponentGone: !table.opponentConnected,
                   }
                 : undefined
             }
-            onViewBoard={() => setViewingBoard(true)}
+            onClose={() => setViewingBoard(true)}
           />
         </div>
       ) : null}

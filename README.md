@@ -155,6 +155,11 @@ npm run dev -w @dcv/server             # ws://localhost:8080, any origin
 npx cross-env VITE_SERVER_URL=http://localhost:8080 npm run dev   # the site, with the online option (any OS)
 ```
 
+To see the end of an online game from both sides, open the two players at
+different addresses (`localhost:5173` and `127.0.0.1:5173`): a seat's token
+is kept per address, so two tabs at the same one are the same player. Holding
+"Hold to give up" in Settings ends the game at once.
+
 A plain `npm run dev` leaves the online option out. To play from two phones,
 open the site at the computer's LAN address (the `Network:` line Vite
 prints); a `localhost` server is then looked for at that same address, since

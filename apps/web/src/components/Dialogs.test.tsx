@@ -46,10 +46,11 @@ describe('GameOver, over the board', () => {
   const view = toPlayerView({ ...base, phase: 'ended', players: [{ ...base.players[0], scored: [tri] }, base.players[1]] }, 0)
 
   it('can be put away to look at the final board', () => {
-    const onViewBoard = vi.fn()
-    render(<GameOver view={view} opponentLabel="Machine" restartLabel="New game" onRestart={() => {}} onViewBoard={onViewBoard} />)
-    fireEvent.click(screen.getByRole('button', { name: 'View board' }))
-    expect(onViewBoard).toHaveBeenCalledOnce()
+    const onClose = vi.fn()
+    render(<GameOver view={view} opponentLabel="Machine" restartLabel="New game" onRestart={() => {}} onClose={onClose} />)
+    expect(screen.queryByRole('button', { name: 'View board' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalledOnce()
   })
 
   it('marks the result, so a loss is drawn in wine', () => {
