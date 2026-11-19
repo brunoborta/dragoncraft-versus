@@ -21,7 +21,7 @@ export function SettingsDialog({
   onClose: () => void
 }) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop menu-backdrop" onClick={onClose}>
       <section className="modal" role="dialog" aria-modal="true" aria-label="Settings" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <h2>Settings</h2>

@@ -9,7 +9,7 @@ import { TokenGlyph } from './TokenGlyph.js'
  */
 export function HelpDialog({ onClose }: { onClose: () => void }) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop menu-backdrop" onClick={onClose}>
       <section className="modal help" role="dialog" aria-modal="true" aria-label="How to play" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <h2>How to play</h2>

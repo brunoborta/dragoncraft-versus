@@ -270,6 +270,32 @@ describe('App', () => {
     }
   })
 
+  it('freezes the machine while a menu is open, and lets it go on when it closes', () => {
+    vi.useFakeTimers()
+    try {
+      startGame('Easy')
+      fireEvent.click(screen.getByLabelText('2,-2: empty'))
+      fireEvent.click(screen.getByLabelText('2,-2: empty'))
+      fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+      fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
+      const before = document.querySelector('svg.board')!.innerHTML
+
+      fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+      act(() => vi.advanceTimersByTime(20_000))
+      // nothing moved under the menu
+      expect(document.querySelector('svg.board')!.innerHTML).toBe(before)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close settings' }))
+      for (let i = 0; i < 60 && !screen.queryByText('Choose where to place the token'); i += 1) {
+        act(() => vi.advanceTimersByTime(500))
+      }
+      expect(screen.getByText('Choose where to place the token')).toBeDefined()
+      expect(document.querySelector('svg.board')!.innerHTML).not.toBe(before)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows nothing for an empty space', () => {
     startGame()
     fireEvent.click(screen.getByLabelText('2,-2: empty'))

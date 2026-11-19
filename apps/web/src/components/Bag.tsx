@@ -76,7 +76,7 @@ export function DeckCount({ count }: { count: number }) {
 export function BagDialog({ bag, onClose }: { bag: readonly Token[]; onClose: () => void }) {
   const groups = bagComposition(bag)
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop menu-backdrop" onClick={onClose}>
       <section
         className="modal"
         role="dialog"

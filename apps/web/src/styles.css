@@ -1488,3 +1488,6 @@ body {
   .hold-button[data-holding] { animation: none; box-shadow: 0 0 0 4px #d2445f; }
 }
 
+/* a menu opened during the game (settings, help, log, bag) covers all of it: nothing in the game, a flight, the coin, a banner, passes over it */
+.menu-backdrop { z-index: 30; }
+

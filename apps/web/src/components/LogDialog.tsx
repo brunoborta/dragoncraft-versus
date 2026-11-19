@@ -11,7 +11,7 @@ export function LogDialog({ view, onClose }: { view: PlayerView; onClose: () => 
   const rounds = groupRounds(view.log, view.seat).reverse()
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop menu-backdrop" onClick={onClose}>
       <section
         className="modal"
         role="dialog"

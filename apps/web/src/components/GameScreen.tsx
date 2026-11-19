@@ -138,18 +138,27 @@ export function GameScreen({
    */
   const bannerPending = useRef(false)
   const [wake, setWake] = useState(0)
+  /*
+   * A menu (settings, help, log, bag) covers the whole game. Against the
+   * machine the game freezes under it: the machine stops, and what was still
+   * playing waits, all of it resuming when the menu closes. Online nobody can
+   * stop the other player, so the game goes on under the cover.
+   */
+  const menuOpen = settingsOpen || helpOpen || logOpen || bagOpen
+  const canFreeze = table.setScreenBusy !== undefined
+  const menuOver = paused || (menuOpen && canFreeze)
   const presentation = usePresentation(view, {
-    gate: (event) => paused || (event.seat === view.current && bannerPending.current),
+    gate: (event) => menuOver || (event.seat === view.current && bannerPending.current),
     wake: wake,
   })
   const turnBanner = useTurnBanner({
     current: view.current,
     seat: view.seat,
     ended: view.phase === 'ended',
-    blocked: paused || presentation.remaining.some((event) => event.seat !== view.current),
+    blocked: menuOver || presentation.remaining.some((event) => event.seat !== view.current),
   })
   bannerPending.current = turnBanner.pending
-  useEffect(() => setWake((n) => n + 1), [turnBanner.pending, paused])
+  useEffect(() => setWake((n) => n + 1), [turnBanner.pending, menuOver])
   /*
    * The screen catches up before it offers anything. While the opponent's
    * moves are still landing, while a turn banner is up, and while your own
@@ -165,8 +174,8 @@ export function GameScreen({
   const actions = catchingUp ? [] : table.actions
   const myTurn = actions.length > 0
 
-  // the machine waits for the screen: it never moves under a banner or a landing move
-  const busy = !ANIMATIONS_OFF && (presentation.playing || turnBanner.pending || undoHeld !== null)
+  // the machine waits for the screen: it never moves under a banner, a landing move or a menu
+  const busy = menuOpen || (!ANIMATIONS_OFF && (presentation.playing || turnBanner.pending || undoHeld !== null))
   useEffect(() => table.setScreenBusy?.(busy), [busy, table.setScreenBusy])
 
   const targets = boardTargets(actions, selected)
