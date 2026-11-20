@@ -10,6 +10,7 @@ import {
   memoryFromView,
   newEntries,
   presentBoard,
+  renameBoard,
   sameBoard,
   script,
   toBoard,
@@ -83,6 +84,9 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
   const latest = useRef(view)
   latest.current = view
 
+  // the board on screen this very moment: what a snap renames against
+  const shownNow = useRef<PresentedBoard>(consumed.current.board)
+
   const [state, setState] = useState<State>(() => ({
     shown: consumed.current!.board,
     held: heldFromView(view),
@@ -90,13 +94,15 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
     event: null,
     announcement: '',
   }))
+  shownNow.current = state.shown
 
   useEffect(() => {
     const before = consumed.current!
     const added = newEntries(before.log, view.log)
 
     const snap = () => {
-      const board = presentBoard(view.board, nextId)
+      // named against the board on screen: what the takeback left alone stays put
+      const board = renameBoard(shownNow.current, view.board, nextId)
       consumed.current = { log: view.log, board, memory: memoryFromView(view) }
       setState({ shown: board, held: heldFromView(view), queue: [], event: null, announcement: '' })
     }

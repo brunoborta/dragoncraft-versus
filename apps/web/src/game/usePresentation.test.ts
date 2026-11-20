@@ -54,6 +54,17 @@ describe('usePresentation, animation off (as in every other test)', () => {
     expect(result.current.board).toEqual({})
   })
 
+  it('keeps the identity of the tokens an undo left alone, so they are not redrawn', () => {
+    const board = { [at00]: [single('meat')], [at10]: [single('bread')] }
+    const one = after([drawMeat, placeMeat], board)
+    const { result, rerender } = renderHook(({ view }) => usePresentation(view), { initialProps: { view: one } })
+    const before = result.current.ids
+
+    // the placement on 0,0 is taken back; the bread on 1,0 was never part of it
+    rerender({ view: after([drawMeat], { [at10]: [single('bread')] }) })
+    expect(result.current.ids).toEqual({ [at10]: before[at10] })
+  })
+
   it('snaps when the script cannot explain the new view', () => {
     const { result, rerender } = renderHook(({ view }) => usePresentation(view), { initialProps: { view: empty } })
     // a move from an empty space: the script refuses it, the view wins

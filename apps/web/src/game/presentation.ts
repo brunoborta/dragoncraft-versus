@@ -69,6 +69,33 @@ export function presentBoard(board: Board, nextId: () => string): PresentedBoard
   return presented
 }
 
+/**
+ * The same board, named against one already on screen: a token that has not
+ * moved keeps the name it had.
+ *
+ * `presentBoard` alone names every token anew, and a name is what the board
+ * draws a token by — so a fresh set of names rebuilds every token on the
+ * board, and the whole board blinks. That is what an undo looked like. Stacks
+ * only ever grow and shrink at the top, so the tokens that stayed are the ones
+ * matching from the bottom up: those keep their names, and only what the
+ * takeback actually changed is new.
+ */
+export function renameBoard(shown: PresentedBoard, board: Board, nextId: () => string): PresentedBoard {
+  const presented: PresentedBoard = {}
+  for (const [space, stack] of Object.entries(board)) {
+    if (stack.length === 0) continue
+    const before = shown[space] ?? []
+    // from the first token that differs, everything above it is new
+    let matching = true
+    presented[space] = stack.map((token, index) => {
+      const was = before[index]
+      matching = matching && !!was && sameToken(was.token, token)
+      return matching ? was! : { token, id: nextId() }
+    })
+  }
+  return presented
+}
+
 /** Back to what the engine and the board component speak. */
 export function toBoard(presented: PresentedBoard): Board {
   const board: Board = {}

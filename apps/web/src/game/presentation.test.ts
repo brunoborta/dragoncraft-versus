@@ -14,6 +14,7 @@ import {
   memoryFromView,
   newEntries,
   presentBoard,
+  renameBoard,
   sameBoard,
   script,
   toBoard,
@@ -158,6 +159,33 @@ describe('the script against the engine', () => {
       expect(state.phase).toBe('ended')
     }
   }, 30_000)
+})
+
+describe('renameBoard', () => {
+  it('keeps the name of every token the takeback left where it was', () => {
+    const shown = presentBoard({ '0,0': [single('bread'), single('plant')], '1,0': [single('potion')] }, counter())
+    // the plant placed on 0,0 is taken back: 1,0 and the bread under it never moved
+    const after = renameBoard(shown, { '0,0': [single('bread')], '1,0': [single('potion')] }, counter())
+    expect(idsOf(after)).toEqual({ '0,0': [shown['0,0']![0]!.id], '1,0': [shown['1,0']![0]!.id] })
+  })
+
+  it('names anew only the token that changed, and whatever sits on top of it', () => {
+    const shown = presentBoard({ '0,0': [single('bread'), single('plant'), single('iron')] }, counter())
+    const fresh = counter()
+    const after = renameBoard(shown, { '0,0': [single('bread'), single('potion'), single('iron')] }, fresh)
+    // the bread below is untouched; the potion is not the plant, so it and the iron above it are new
+    expect(idsOf(after)).toEqual({ '0,0': [shown['0,0']![0]!.id, 't1', 't2'] })
+  })
+
+  it('gives a token that was not on screen a name of its own', () => {
+    const after = renameBoard({}, { '0,0': [single('bread')] }, counter())
+    expect(idsOf(after)).toEqual({ '0,0': ['t1'] })
+  })
+
+  it('leaves the board the engine speaks untouched', () => {
+    const board = { '0,0': [single('bread')], '2,0': [single('iron'), single('meat')] }
+    expect(toBoard(renameBoard(presentBoard({ '0,0': [single('bread')] }, counter()), board, counter()))).toEqual(board)
+  })
 })
 
 describe('memoryFromView', () => {
