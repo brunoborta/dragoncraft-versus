@@ -7,7 +7,9 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('../motion.js', async (original) => ({ ...(await original<typeof import('../motion.js')>()), useReducedMotion: () => false }))
 import type { PresentationEvent } from '../game/presentation.js'
 import { Board } from './Board.js'
-import { BoardMoment, arrivals, landingLife } from './Moments.js'
+import { hexCenter } from '../geometry.js'
+import { TOKEN_RADIUS } from './HexCell.js'
+import { BoardMoment, UndoMoment, UnplaceFlight, arrivals, landingLife } from './Moments.js'
 
 const at = (q: number, r: number) => ({ q, r })
 const entry: LogEntry = { seat: 1, action: { type: 'endTurn' } }
@@ -176,6 +178,141 @@ describe('Board, under an event', () => {
       const lone: PresentationEvent = { ...stackMove, board: { '1,0': [{ token: single('meat'), id: 'm' }] } }
       render(<Board board={{ '1,0': [single('meat')] }} ids={ids2} event={lone} viewer={1} highlights={{}} onSelectHex={() => {}} />)
       expect(screen.getByLabelText('1,0: Meat, stack of 1').querySelector('.token-arrive-before')).toBeNull()
+    })
+  })
+})
+
+describe('a takeback', () => {
+  /*
+   * A screen with both pillows and a board, each placed by hand: jsdom lays
+   * nothing out. The board maps a board unit to 2px, offset by (10, 20).
+   */
+  function table() {
+    const within = document.createElement('div')
+    within.innerHTML = `
+      <div class="held-slot" data-side="you"><div class="held-anchor"></div></div>
+      <div class="held-slot" data-side="opponent"><div class="held-anchor"></div></div>
+      <svg class="board"></svg>`
+    const rect = (node: Element, left: number, top: number, size: number) => {
+      node.getBoundingClientRect = () =>
+        ({ left, top, width: size, height: size, right: left + size, bottom: top + size, x: left, y: top, toJSON: () => ({}) }) as DOMRect
+    }
+    rect(within, 0, 0, 1000)
+    rect(within.querySelector('[data-side="you"] .held-anchor')!, 200, 700, 48)
+    rect(within.querySelector('[data-side="opponent"] .held-anchor')!, 20, 40, 48)
+    ;(within.querySelector('svg.board') as unknown as { getScreenCTM: () => DOMMatrix }).getScreenCTM = () =>
+      ({ a: 2, b: 0, c: 0, d: 2, e: 10, f: 20 }) as DOMMatrix
+    document.body.append(within)
+    return within
+  }
+
+  /** Where a drawn element is and how big, from the style motion writes. */
+  function placed(node: Element | null | undefined) {
+    const style = (node as HTMLElement | null)?.style
+    const transform = style?.transform ?? ''
+    return {
+      x: Number(/translateX\((-?[\d.]+)px\)/.exec(transform)?.[1]),
+      y: Number(/translateY\((-?[\d.]+)px\)/.exec(transform)?.[1]),
+      width: parseFloat(style?.width ?? 'NaN'),
+    }
+  }
+
+  /** The middle of a pillow and the token's size there, as `heldSpot` reads them: 2/3 of the anchor, standing on it. */
+  const pillow = (left: number, top: number) => ({ x: left + 24, y: top + 48 - 48 * 0.12 - (32 * 1.075) / 2, size: 32 })
+  const yours = pillow(200, 700)
+  const theirs = pillow(20, 40)
+  /** A space on the board, in px, and a token's size there. */
+  const space = (q: number, r: number) => {
+    const c = hexCenter(at(q, r))
+    return { x: 2 * c.x + 10, y: 2 * c.y + 20, size: TOKEN_RADIUS * 2 * 2 }
+  }
+
+  const undoEntry: LogEntry = { seat: 0, action: { type: 'place', at: at(0, 0) } }
+  const undo = (seat: 0 | 1): Extract<PresentationEvent, { kind: 'undo' }> => ({
+    seat,
+    entry: undoEntry,
+    seq: -1,
+    undo: true,
+    kind: 'undo',
+    board: {},
+  })
+
+  function arrows(seat: 0 | 1) {
+    const within = table()
+    const shown = render(<UndoMoment event={undo(seat)} seat={0} within={within} />)
+    const found = [...document.querySelectorAll('.undo-spinning')].map(placed)
+    shown.unmount()
+    within.remove()
+    return found
+  }
+
+  const expectAt = (found: ReturnType<typeof placed> | undefined, spot: { x: number; y: number; size: number }) => {
+    expect(found?.x).toBeCloseTo(spot.x)
+    expect(found?.y).toBeCloseTo(spot.y)
+    expect(found?.width).toBeCloseTo(spot.size)
+  }
+
+  describe('the arrow', () => {
+    it("turns on your pillow when you took it back, and on theirs when they did, at the pillow token's size", () => {
+      expect(arrows(0)).toHaveLength(1)
+      expectAt(arrows(0)[0], yours)
+      expectAt(arrows(1)[0], theirs)
+    })
+
+    it('is the arrow alone: no disc behind it to hide the pillow', () => {
+      const within = table()
+      render(<UndoMoment event={undo(0)} seat={0} within={within} />)
+      const arrow = document.querySelector('.undo-spinning') as HTMLElement
+      expect(arrow.style.background).toBe('')
+      expect(arrow.style.border).toBe('')
+      expect(arrow.querySelector('svg')).not.toBeNull()
+    })
+
+    it('shows nothing when it has no screen to measure', () => {
+      render(<UndoMoment event={undo(0)} seat={0} within={null} />)
+      expect(document.querySelector('.undo-spinning')).toBeNull()
+    })
+  })
+
+  describe('a placement flying home', () => {
+    const unplace = (seat: 0 | 1): Extract<PresentationEvent, { kind: 'unplace' }> => ({
+      seat,
+      entry: undoEntry,
+      seq: -2,
+      undo: true,
+      kind: 'unplace',
+      at: at(1, 0),
+      id: 'p1',
+      token: single('meat'),
+      board: {},
+      held: single('meat'),
+    })
+
+    function flight(seat: 0 | 1) {
+      const within = table()
+      const shown = render(<UnplaceFlight event={unplace(seat)} seat={0} within={within} />)
+      const token = document.querySelector('.unplace-flight')
+      const side = document.querySelector('.draw-flight')?.getAttribute('data-side')
+      const found = placed(token)
+      shown.unmount()
+      within.remove()
+      return { found, side }
+    }
+
+    it('lifts off the space it was placed on, drawn at the size of the pillow it is going to', () => {
+      const { found, side } = flight(0)
+      expect(side).toBe('you')
+      expect(found.x).toBeCloseTo(space(1, 0).x)
+      expect(found.y).toBeCloseTo(space(1, 0).y)
+      expect(found.width).toBeCloseTo(yours.size)
+    })
+
+    it("flies to the opponent's pillow when it was theirs", () => {
+      expect(flight(1).side).toBe('opponent')
+    })
+
+    it('shows itself on the board as a space with what was under it, from the first frame', () => {
+      expect(arrivals(unplace(0))).toEqual({ '1,0': 'uncover' })
     })
   })
 })

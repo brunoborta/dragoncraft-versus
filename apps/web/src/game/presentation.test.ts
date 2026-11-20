@@ -17,7 +17,10 @@ import {
   renameBoard,
   sameBoard,
   script,
+  takeBack,
+  takenBack,
   toBoard,
+  unscript,
 } from './presentation.js'
 
 function counter() {
@@ -188,6 +191,145 @@ describe('renameBoard', () => {
   })
 })
 
+describe('takenBack', () => {
+  const draw = entry({ type: 'draw', token: single('meat') })
+  const place = entry({ type: 'place', at: at(0, 0) })
+  const skip = entry({ type: 'skipFireUp' })
+
+  it('is what a takeback cut off the end of the log', () => {
+    expect(takenBack([draw, place, skip], [draw])).toEqual([place, skip])
+  })
+
+  it('is nothing when the log grew or stayed the same: that is a play, not a takeback', () => {
+    expect(takenBack([draw], [draw, place])).toBeNull()
+    expect(takenBack([draw, place], [draw, place])).toBeNull()
+  })
+
+  it('is nothing when the shorter log is not the same game: a new table, not a takeback', () => {
+    expect(takenBack([draw, place], [entry({ type: 'draw', token: single('iron') })])).toBeNull()
+  })
+})
+
+describe('unscript', () => {
+  const seqs = () => {
+    let n = 0
+    return () => -++n
+  }
+
+  it('lifts a placement off its space and gives the token back to the hand, keeping its name', () => {
+    const start = presentBoard({ '0,0': [single('bread'), single('meat')] }, counter())
+    const { events, board } = unscript(start, [entry({ type: 'place', at: at(0, 0) })], seqs())
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({ kind: 'unplace', at: at(0, 0), id: 't2', token: single('meat'), held: single('meat'), undo: true })
+    // the bread under it never moved, so it keeps its name
+    expect(idsOf(board)).toEqual({ '0,0': ['t1'] })
+  })
+
+  it('slides a move back where it came from, the same token travelling', () => {
+    const start = presentBoard({ '1,0': [single('iron')] }, counter())
+    const { events, board } = unscript(start, [entry({ type: 'ironMove', from: at(0, 0), to: at(1, 0) })], seqs())
+    expect(events[0]).toMatchObject({ kind: 'move', from: at(1, 0), to: at(0, 0), id: 't1', by: 'iron' })
+    expect(idsOf(board)).toEqual({ '0,0': ['t1'] })
+  })
+
+  it('swaps a swap back', () => {
+    const start = presentBoard({ '0,0': [single('potion')], '1,0': [single('plant')] }, counter())
+    const { events, board } = unscript(start, [entry({ type: 'potionSwap', a: at(0, 0), b: at(1, 0) })], seqs())
+    expect(events[0]).toMatchObject({ kind: 'swap', a: at(0, 0), b: at(1, 0), ids: ['t1', 't2'] })
+    expect(toBoard(board)).toEqual({ '0,0': [single('plant')], '1,0': [single('potion')] })
+  })
+
+  it('runs a whole play backwards, last thing first', () => {
+    // placed on 0,0, fired up, the meat moved to 1,0: back, the move goes first, then the placement
+    const start = presentBoard({ '1,0': [single('meat')] }, counter())
+    const undone = [
+      entry({ type: 'place', at: at(0, 0) }),
+      entry({ type: 'fireUp', ability: 'meat' }),
+      entry({ type: 'meatMove', from: at(0, 0), to: at(1, 0) }),
+    ]
+    const { events, board } = unscript(start, undone, seqs())
+    expect(events.map((event) => event.kind)).toEqual(['move', 'unplace'])
+    expect(board).toEqual({})
+  })
+
+  it('plays nothing for what leaves the board and the hand alone: the answers, a discard', () => {
+    const start = presentBoard({ '0,0': [single('bread')] }, counter())
+    const undone = [entry({ type: 'skipFireUp' }), entry({ type: 'ironDone' }), entry({ type: 'coinDiscard', cardIds: ['a', 'b'] })]
+    const { events, board } = unscript(start, undone, seqs())
+    expect(events).toEqual([])
+    expect(board).toBe(start)
+  })
+
+  it('gives every event a negative seq of its own: the log positions are about to be reused', () => {
+    const start = presentBoard({ '1,0': [single('meat')] }, counter())
+    const undone = [entry({ type: 'place', at: at(0, 0) }), entry({ type: 'meatMove', from: at(0, 0), to: at(1, 0) })]
+    expect(unscript(start, undone, seqs()).events.map((event) => event.seq)).toEqual([-1, -2])
+  })
+})
+
+describe('takeBack', () => {
+  const seqs = () => {
+    let n = 0
+    return () => -++n
+  }
+
+  it('turns the arrow over the board as it was, then runs the play backwards, then settles the hand', () => {
+    const start = presentBoard({ '0,0': [single('meat')], '1,0': [single('bread')] }, counter())
+    const { events, board } = takeBack(start, [entry({ type: 'place', at: at(0, 0) })], { board: { '1,0': [single('bread')] }, held: single('meat'), draws: [] }, counter(), seqs())
+
+    expect(events.map((event) => event.kind)).toEqual(['undo', 'unplace', 'other'])
+    expect(events.every((event) => event.undo)).toBe(true)
+    // the arrow turns over the board before anything goes back
+    expect(events[0]).toMatchObject({ kind: 'undo', board: start })
+    expect(events[0]!.held).toBeUndefined()
+    // and the hand ends as the view has it
+    expect(events[2]).toMatchObject({ held: single('meat'), board })
+    // the bread was never part of it: it keeps its name the whole way
+    expect(idsOf(board)).toEqual({ '1,0': ['t2'] })
+  })
+
+  it('slides a move back where it came from, after the arrow', () => {
+    const start = presentBoard({ '1,0': [single('meat')] }, counter())
+    const { events } = takeBack(start, [entry({ type: 'meatMove', from: at(0, 0), to: at(1, 0) })], { board: { '0,0': [single('meat')] }, held: null, draws: [] }, counter(), seqs())
+    expect(events.map((event) => event.kind)).toEqual(['undo', 'move', 'other'])
+    expect(events[1]).toMatchObject({ from: at(1, 0), to: at(0, 0) })
+  })
+
+  it("runs a crystal's pick backwards: the kept token back to the arch, the others out of the bag", () => {
+    const start = presentBoard({ '0,0': [single('bread')] }, counter())
+    const draws = [single('iron'), single('plant'), single('potion')]
+    const { events, board } = takeBack(
+      start,
+      [entry({ type: 'crystalPick', index: 1 })],
+      { board: { '0,0': [single('bread')] }, held: null, draws },
+      counter(),
+      seqs(),
+    )
+    expect(events.map((event) => event.kind)).toEqual(['undo', 'crystalUnkeep', 'other'])
+    // the kept token leaves the cushion with the flight back
+    expect(events[1]).toMatchObject({ tokens: draws, index: 1, held: null })
+    expect(board).toBe(start)
+  })
+
+  it('still turns the arrow when a pick cannot be run backwards, the draws it offered being unknown', () => {
+    const start = presentBoard({ '0,0': [single('bread')] }, counter())
+    const { events } = takeBack(start, [entry({ type: 'crystalPick', index: 1 })], { board: { '0,0': [single('bread')] }, held: null, draws: [] }, counter(), seqs())
+    expect(events.map((event) => event.kind)).toEqual(['undo', 'other'])
+    expect(events[1]!.held).toBeNull()
+  })
+
+  it('still turns the arrow, then simply goes back, when the play cannot be run backwards onto the view', () => {
+    const start = presentBoard({ '0,0': [single('meat')], '1,0': [single('bread')] }, counter())
+    // the view disagrees with what taking the placement back would leave
+    const target = { '1,0': [single('bread')], '2,0': [single('iron')] }
+    const { events, board } = takeBack(start, [entry({ type: 'place', at: at(0, 0) })], { board: target, held: null, draws: [] }, counter(), seqs())
+    expect(events.map((event) => event.kind)).toEqual(['undo', 'other'])
+    expect(toBoard(board)).toEqual(target)
+    // even then, what the takeback left alone keeps its name
+    expect(idsOf(board)['1,0']).toEqual(['t2'])
+  })
+})
+
 describe('memoryFromView', () => {
   it('knows the token in hand from the open placement', () => {
     expect(memoryFromView({ pending: [{ kind: 'place', token: single('bread'), fireUpAllowed: true }] }).held).toEqual(single('bread'))
@@ -200,6 +342,20 @@ describe('memoryFromView', () => {
 })
 
 describe('eventDuration', () => {
+  it('gives the Undo arrow its turn, the same for both sides, and a placement taken back its flight home', () => {
+    expect(eventDuration({ kind: 'undo', seat: 0 }, 0, false)).toBe(HOLD.undo)
+    expect(eventDuration({ kind: 'undo', seat: 1 }, 0, false)).toBe(HOLD.undo)
+    expect(eventDuration({ kind: 'unplace', seat: 1 }, 0, false)).toBeGreaterThan(FLIGHT)
+    // under reduced motion both are short, but the arrow still long enough to be seen
+    expect(eventDuration({ kind: 'undo', seat: 0 }, 0, true)).toBe(HOLD.reduced * 2)
+    expect(eventDuration({ kind: 'unplace', seat: 0 }, 0, true)).toBe(HOLD.reduced)
+  })
+
+  it("gives a pick taken back the pick's own time, on the drawer's screen only: the other side has no arch", () => {
+    expect(eventDuration({ kind: 'crystalUnkeep', seat: 0 }, 0, false)).toBe(HOLD.crystalKeep)
+    expect(eventDuration({ kind: 'crystalUnkeep', seat: 1 }, 0, false)).toBe(0)
+  })
+
   it('gives the bag its moment on a draw, shorter for the opponent', () => {
     const mine = eventDuration({ kind: 'draw', seat: 0, crystal: false }, 0, false)
     const theirs = eventDuration({ kind: 'draw', seat: 1, crystal: false }, 0, false)

@@ -13,6 +13,8 @@ import {
   renameBoard,
   sameBoard,
   script,
+  takeBack,
+  takenBack,
   toBoard,
 } from './presentation.js'
 import type { Held, PresentationEvent, PresentedBoard, ScriptMemory } from './presentation.js'
@@ -62,7 +64,8 @@ export type PresentationOptions = {
  * Plays the difference between views as a queue of events.
  *
  * The truth — what can be tapped, what the game accepts — is always the
- * current view; this only decides how the board gets there. Undo, a
+ * current view; this only decides how the board gets there. A takeback plays
+ * too: the Undo arrow, then the play run backwards (`takeBack`). A
  * reconnection or anything the script cannot explain snaps straight to the
  * view. Under test every event takes no time, so the board is always the real
  * one and nothing a test does has to wait.
@@ -71,6 +74,9 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
   const reduced = useReducedMotion()
   const counter = useRef(0)
   const nextId = useCallback(() => `p${++counter.current}`, [])
+  // a takeback's events count down from -1: the log positions they play back will be reused
+  const undoCounter = useRef(0)
+  const nextSeq = useCallback(() => -++undoCounter.current, [])
   const gate = useRef(options.gate)
   gate.current = options.gate
 
@@ -101,10 +107,31 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
     const added = newEntries(before.log, view.log)
 
     const snap = () => {
-      // named against the board on screen: what the takeback left alone stays put
+      // named against the board on screen: whatever the jump left alone stays put
       const board = renameBoard(shownNow.current, view.board, nextId)
       consumed.current = { log: view.log, board, memory: memoryFromView(view) }
       setState({ shown: board, held: heldFromView(view), queue: [], event: null, announcement: '' })
+    }
+
+    const undone = takenBack(before.log, view.log)
+    if (undone !== null) {
+      const landing = { board: view.board, held: heldFromView(view)?.token ?? null, draws: memoryFromView(view).draws }
+      const taken = takeBack(before.board, undone, landing, nextId, nextSeq)
+      consumed.current = { log: view.log, board: taken.board, memory: memoryFromView(view) }
+      const theirs = undone[0]?.seat !== view.seat
+      const announcement = theirs ? 'Opponent: Took back their last play' : ''
+      setState((current) => {
+        if (ANIMATIONS_OFF) {
+          return { shown: taken.board, held: heldFromView(view), queue: [], event: null, announcement: announcement || current.announcement }
+        }
+        /*
+         * Whatever was still playing gives way: the takeback starts from the
+         * board the plays it takes back left behind. Nothing of those plays is
+         * worth finishing just to watch it run backwards.
+         */
+        return { ...current, shown: before.board, queue: taken.events, event: null, announcement: announcement || current.announcement }
+      })
+      return
     }
 
     if (added === null) return snap()
@@ -139,7 +166,7 @@ export function usePresentation(view: PlayerView, options: PresentationOptions =
       }
       return { ...current, queue: [...current.queue, ...played.events], announcement: announcement || current.announcement }
     })
-  }, [view, nextId])
+  }, [view, nextId, nextSeq])
 
   /*
    * The player: with nothing on screen, put the next event up (its board

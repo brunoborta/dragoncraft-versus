@@ -1405,15 +1405,18 @@ body {
 
 /* ---------- takebacks and giving up ---------- */
 
-/* the Undo arrow, turning backwards in the middle of the board */
+/*
+ * the Undo arrow, turning backwards on a pillow before a takeback plays: the
+ * arrow alone — no disc, no ring — at the size of the token that rests there
+ * (width, height and margin come with the spot). A dark outline and a shadow
+ * are all it needs to read over the pillow and whatever is on it.
+ */
 .undo-moment { position: absolute; inset: 0; z-index: 14; pointer-events: none; overflow: hidden; }
 .undo-spinning {
   position: absolute;
-  width: 72px;
-  height: 72px;
-  margin: -36px 0 0 -36px;
+  display: grid;
+  place-items: center;
   color: var(--brass-200);
-  /* the icon alone, no disc: a dark outline and shadow keep it readable on the pale stones */
   filter: drop-shadow(0 0 1.5px rgb(16 33 26 / 0.95)) drop-shadow(0 0 1.5px rgb(16 33 26 / 0.95))
     drop-shadow(0 4px 8px rgb(0 0 0 / 0.55));
 }

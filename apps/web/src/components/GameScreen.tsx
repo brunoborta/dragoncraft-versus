@@ -8,7 +8,7 @@ import { ANIMATIONS_OFF, useReducedMotion } from '../motion.js'
 import { DEFAULT_TABLE_OPTIONS } from '../game/settings.js'
 import type { GameOptions, TableOptions } from '../game/settings.js'
 import { usePresentation } from '../game/usePresentation.js'
-import { HOLD } from '../game/presentation.js'
+import { FLIGHT, HOLD } from '../game/presentation.js'
 import { Ambience } from './Ambience.js'
 import { Bag, BagDialog, DeckCount } from './Bag.js'
 import { Board } from './Board.js'
@@ -19,7 +19,16 @@ import { Hand } from './Hand.js'
 import { keepCount } from './CardView.js'
 import type { Highlight } from './HexCell.js'
 import { LogDialog } from './LogDialog.js'
-import { CoinMoment, CrystalKeepMoment, DrawFlight, PlaceFlight, ScoreMoment, UNDO_REVEAL_MS, UndoMoment, landingDelay } from './Moments.js'
+import {
+  CoinMoment,
+  CrystalKeepMoment,
+  DrawFlight,
+  PlaceFlight,
+  ScoreMoment,
+  UndoMoment,
+  UnplaceFlight,
+  landingDelay,
+} from './Moments.js'
 import { FireChoice } from './FireChoice.js'
 import { HeldSlot } from './HeldToken.js'
 import { PlayerBar } from './PlayerBar.js'
@@ -41,7 +50,7 @@ const ANSWERS_A_TAP = '.hex-cell, button, [role="button"], .fire-choice, .stack-
  */
 export function GameScreen({
   table,
-  view: liveView,
+  view,
   label,
   detail,
   restartLabel,
@@ -89,39 +98,6 @@ export function GameScreen({
   // the cards marked to stay in hand after a coin: the rest, always two, go back under the deck
   const [keeping, setKeeping] = useState<string[]>([])
 
-  /*
-   * A takeback, whoever made it, plays like a spent coin: the Undo arrow
-   * leaves its button (the opponent's plate, when it was theirs), turns
-   * backwards in the middle of the board, and only then does the board go
-   * back. Until then the screen keeps the board as it was before the undo and
-   * offers nothing: the arrow is the news, the board its result. Keyed by the
-   * count, so two quick ones play twice; the count a screen opens with is
-   * history, not news. Read during render, so not one frame shows the board
-   * already back before the arrow.
-   */
-  const [undosSeen, setUndosSeen] = useState(table.undos)
-  const [undoArrow, setUndoArrow] = useState<{ key: number; mine: boolean } | null>(null)
-  const [undoHeld, setUndoHeld] = useState<PlayerView | null>(null)
-  const lastView = useRef(liveView)
-  if (table.undos !== undosSeen) {
-    setUndosSeen(table.undos)
-    if (!ANIMATIONS_OFF) {
-      // after a takeback the turn is the one who took it back
-      setUndoArrow({ key: table.undos, mine: liveView.current === liveView.seat })
-      setUndoHeld((held) => held ?? lastView.current)
-    }
-  }
-  useEffect(() => {
-    lastView.current = liveView
-  })
-  useEffect(() => {
-    if (!undoArrow) return
-    const timer = setTimeout(() => setUndoHeld(null), UNDO_REVEAL_MS)
-    return () => clearTimeout(timer)
-  }, [undoArrow])
-  const undoDone = useCallback(() => setUndoArrow(null), [])
-  const view = undoHeld ?? liveView
-
   const ended = view.phase === 'ended'
   // a new turn starts with every stack shut: what was looked at belonged to the last one
   useEffect(() => setInspecting(null), [view.current])
@@ -168,12 +144,18 @@ export function GameScreen({
   const yourDrawLanding = presentation.remaining.some(
     (queued) => queued.seat === view.seat && (queued.kind === 'draw' || queued.kind === 'crystalKeep'),
   )
-  const catchingUp = !ANIMATIONS_OFF && (theirsLanding || yourDrawLanding || turnBanner.pending || undoHeld !== null)
+  /*
+   * A takeback plays as moves do (`takeBack`): the arrow turns, then the play
+   * runs backwards. Until the last of it has played, the board shows the
+   * position being left, so nothing is offered on it — whoever asked.
+   */
+  const undoer = presentation.remaining.find((queued) => queued.undo)?.seat ?? null
+  const catchingUp = !ANIMATIONS_OFF && (theirsLanding || yourDrawLanding || turnBanner.pending || undoer !== null)
   const actions = catchingUp ? [] : table.actions
   const myTurn = actions.length > 0
 
-  // the machine waits for the screen: it never moves under a banner, a landing move or a menu
-  const busy = menuOpen || (!ANIMATIONS_OFF && (presentation.playing || turnBanner.pending || undoHeld !== null))
+  // the machine waits for the screen: it never moves under a banner, a landing move, a takeback or a menu
+  const busy = menuOpen || (!ANIMATIONS_OFF && (presentation.playing || turnBanner.pending))
   useEffect(() => table.setScreenBusy?.(busy), [busy, table.setScreenBusy])
 
   const targets = boardTargets(actions, selected)
@@ -207,10 +189,20 @@ export function GameScreen({
    * where the tokens stood.
    */
   const keepEvent = presentation.event?.kind === 'crystalKeep' && presentation.event.seat === view.seat ? presentation.event : null
+  /*
+   * Your pick taken back: the view has the pick open again at once, but the
+   * arch shows nothing until the Undo arrow is done, and then each token as
+   * its flight back lands in its slot.
+   */
+  const unkeep = presentation.remaining.find(
+    (queued): queued is Extract<typeof queued, { kind: 'crystalUnkeep' }> => queued.kind === 'crystalUnkeep' && queued.seat === view.seat,
+  )
+  const unkeepEvent = unkeep && unkeep === presentation.event ? unkeep : null
   const crystalTokens =
     pending?.kind === 'crystalPick' && view.current === view.seat ? pending.tokens : (keepEvent?.tokens ?? null)
   const crystalArrival = (index: number): number => {
     if (keepEvent) return -1
+    if (unkeep) return unkeepEvent ? HOLD.crystalKeep : -1
     const queued = presentation.remaining.find(
       (candidate) => candidate.kind === 'draw' && candidate.crystal && candidate.drawIndex === index,
     )
@@ -275,13 +267,15 @@ export function GameScreen({
   const yourHeld = held?.seat === view.seat ? held.token : null
   const theirHeld = held?.seat === opponentSeat ? held.token : null
   const drawingFor = event?.kind === 'draw' && !event.crystal ? event.seat : null
-  // the bag also shakes while your crystal pulls its three out of it
-  const bagDrawing = event?.kind === 'draw' && (!event.crystal || event.seat === view.seat)
+  // the bag also shakes while your crystal pulls its three out of it, and while a pick taken back gives two back
+  const bagDrawing = (event?.kind === 'draw' && (!event.crystal || event.seat === view.seat)) || unkeepEvent !== null
   const arrivingIn = (seat: number) => {
     if (reduced) return 0
     if (drawingFor === seat) return seat === view.seat ? HOLD.draw : HOLD.drawTheirs
     // the kept token is still sliding from the arch: the cushion waits for it
     if (keepEvent && seat === view.seat) return HOLD.crystalKeep
+    // a placement taken back is flying home: the pillow waits for it
+    if (event?.kind === 'unplace' && event.seat === seat) return FLIGHT
     return 0
   }
 
@@ -395,8 +389,8 @@ export function GameScreen({
       const theirCoin = view.current !== view.seat && pending?.kind === 'coinDiscard'
       // their crystal: the pick is theirs, and the panel says a token is being chosen
       const theirCrystal = view.current !== view.seat && pending?.kind === 'crystalPick'
-      // a takeback says so until the board goes back; then the panel is the play before it
-      if (undoHeld) return <OpponentThinking mode="undoing" side={undoArrow?.mine === false ? 'opponent' : 'you'} />
+      // a takeback says so until it has played; then the panel is the play before it
+      if (undoer !== null) return <OpponentThinking mode="undoing" side={undoer === view.seat ? 'you' : 'opponent'} />
       const mode = theirsLanding
         ? 'playing'
         : catchingUp && view.current === view.seat
@@ -522,7 +516,7 @@ export function GameScreen({
           actions={actions}
           myTurn={myTurn && !ended}
           onAct={handleAct}
-          canUndo={table.canUndo && undoHeld === null}
+          canUndo={table.canUndo}
           onUndo={undo}
         />
       </footer>
@@ -563,13 +557,19 @@ export function GameScreen({
       ) : null}
       {/* the pick resolving: the kept token to the cushion, the others back into the bag */}
       {keepEvent ? <CrystalKeepMoment key={keepEvent.seq} event={keepEvent} within={screenRef.current} /> : null}
+      {/* the pick taken back: the same flights, the other way */}
+      {unkeepEvent ? <CrystalKeepMoment key={unkeepEvent.seq} event={unkeepEvent} within={screenRef.current} /> : null}
       {event?.kind === 'place' && event.seat !== view.seat ? (
         <PlaceFlight key={event.seq} event={event} within={screenRef.current} />
       ) : null}
       {event?.kind === 'score' ? <ScoreMoment key={event.seq} event={event} seat={view.seat} within={screenRef.current} /> : null}
       {event?.kind === 'coin' ? <CoinMoment key={event.seq} event={event} seat={view.seat} within={screenRef.current} /> : null}
-      {undoArrow !== null ? (
-        <UndoMoment key={undoArrow.key} within={screenRef.current} mine={undoArrow.mine} onDone={undoDone} />
+      {/* a takeback: the arrow first, then the placement it takes back flying home */}
+      {event?.kind === 'undo' ? (
+        <UndoMoment key={event.seq} event={event} seat={view.seat} within={screenRef.current} />
+      ) : null}
+      {event?.kind === 'unplace' ? (
+        <UnplaceFlight key={event.seq} event={event} seat={view.seat} within={screenRef.current} />
       ) : null}
       <TurnBanner banner={turnBanner.banner} onDismiss={turnBanner.dismiss} />
       {ended && !viewingBoard ? (

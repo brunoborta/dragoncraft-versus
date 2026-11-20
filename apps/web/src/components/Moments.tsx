@@ -149,15 +149,21 @@ export function DrawFlight({
  * the others fly back into the bag, getting smaller until they vanish behind
  * it. The arch keeps its slots mounted but hidden while this plays, so each
  * flight starts exactly where its token stood.
+ *
+ * Taken back (`crystalUnkeep`), the same moment runs backwards: the kept token
+ * rises off the cushion and settles into its slot, the others come out of the
+ * bag, growing back to their size. Each slot shows its token as its flight
+ * lands there.
  */
 export function CrystalKeepMoment({
   event,
   within,
 }: {
-  event: Extract<PresentationEvent, { kind: 'crystalKeep' }>
+  event: Extract<PresentationEvent, { kind: 'crystalKeep' | 'crystalUnkeep' }>
   within: HTMLElement | null
 }) {
   const reduced = useReducedMotion()
+  const backwards = event.kind === 'crystalUnkeep'
   type Leg = { from: Point; to: Point; size: number; end: number; kept: boolean }
   const [legs, setLegs] = useState<Leg[] | null>(null)
 
@@ -187,9 +193,31 @@ export function CrystalKeepMoment({
           key={index}
           className="draw-token"
           style={{ left: 0, top: 0, width: leg.size, height: leg.size * 1.075, margin: `${-leg.size / 2}px 0 0 ${-leg.size / 2}px` }}
-          initial={{ x: leg.from.x, y: leg.from.y, scale: 1, opacity: 1 }}
+          initial={
+            backwards
+              ? { x: leg.to.x, y: leg.to.y, scale: leg.end, opacity: leg.kept ? 1 : 0 }
+              : { x: leg.from.x, y: leg.from.y, scale: 1, opacity: 1 }
+          }
           animate={
-            leg.kept
+            backwards
+              ? leg.kept
+                ? {
+                    // off the cushion, up and big over the arch, then down into its slot
+                    x: [leg.to.x, (leg.from.x + leg.to.x) / 2, leg.from.x],
+                    y: [leg.to.y, leg.from.y - 24, leg.from.y],
+                    scale: [leg.end, 1.55, 1],
+                    opacity: 1,
+                    transition: { duration: hold, times: [0, 0.55, 1], ease: 'easeInOut' },
+                  }
+                : {
+                    // out of the bag, growing back to the size of a slot
+                    x: [leg.to.x, leg.to.x, leg.from.x],
+                    y: [leg.to.y, leg.to.y, leg.from.y],
+                    scale: [leg.end, leg.end, 1],
+                    opacity: [0, 0.9, 1],
+                    transition: { duration: hold, times: [0, 0.18, 1], ease: 'easeInOut' },
+                  }
+              : leg.kept
               ? {
                   // the keep, celebrated: it rises and grows, then settles onto the cushion at its resting size
                   x: [leg.from.x, (leg.from.x + leg.to.x) / 2, leg.to.x],
@@ -536,6 +564,9 @@ export function arrivals(event: PresentationEvent | null, viewer?: Seat): Record
       return { [k(event.to)]: 'slide', [k(event.from)]: 'uncover' }
     case 'swap':
       return { [k(event.a)]: 'swap', [k(event.b)]: 'swap' }
+    case 'unplace':
+      // a placement taken back: what it covered was there all along
+      return { [k(event.at)]: 'uncover' }
     default:
       return {}
   }
@@ -686,73 +717,128 @@ export function CoinMoment({
   )
 }
 
-/** How long the takeback shows: the flight to the middle, then one slow turn there. */
-export const UNDO_MS = 900
+/* ---------------------------------------------------------- takebacks ----- */
+
+type Spot = { x: number; y: number; size: number }
 
 /**
- * When the board goes back, like a coin's cards arriving after the coin: the
- * turn is nearly done and the arrow is fading. Until then the screen keeps
- * the board as it was and offers nothing.
+ * Where the Undo arrow turns: on the pillow of whoever asked — yours under
+ * the board, the opponent's under their portrait — at the size of a token
+ * resting there. A placement taken back then lands exactly where the arrow
+ * just was, which is why the pillow is the place and not the token itself.
  */
-export const UNDO_REVEAL_MS = 730
+function undoSpot(event: Extract<PresentationEvent, { kind: 'undo' }>, seat: Seat, within: HTMLElement | null): Spot | null {
+  const pillow = heldSpot(event.seat === seat ? 'you' : 'opponent', within)
+  if (pillow) return pillow
+  const middle = centreOf('.board-area svg.board', within)
+  return middle ? { ...middle, size: 48 } : null
+}
 
 /**
- * A takeback, told like a spent coin: the Undo arrow leaves the button that
- * asked for it (the opponent's plate, when it was theirs), crosses to the
- * middle of the board, turns once backwards — a rewind — and goes. Every
- * part eases in and out, with no stops on the way. Both seats see it online,
- * since the board changes under the one who did not ask. It plays over the
- * board as it was; the screen shows the takeback's result as the turn ends
- * (`UNDO_REVEAL_MS`).
+ * A takeback announced (`kind: 'undo'`): the arrow alone — no disc, no ring —
+ * turns once backwards on the pillow of whoever asked, and fades. Until it is
+ * gone the board stays as it was; only then does the play run backwards, so
+ * the arrow is never in the way of the token coming home. Both seats see it
+ * online, since the board changes under the one who did not ask.
+ *
+ * Drawn for as long as the event holds the screen (`HOLD.undo`); its own
+ * timing fills exactly that.
  */
-export function UndoMoment({ within, mine, onDone }: { within: HTMLElement | null; mine: boolean; onDone: () => void }) {
+export function UndoMoment({
+  event,
+  seat,
+  within,
+}: {
+  event: Extract<PresentationEvent, { kind: 'undo' }>
+  seat: Seat
+  within: HTMLElement | null
+}) {
   const reduced = useReducedMotion()
-  const [path, setPath] = useState<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null)
+  const [spot, setSpot] = useState<Spot | null>(null)
 
-  useLayoutEffect(() => {
-    const to = centreOf('.board-area svg.board', within) ?? centreOf('.board-area', within)
-    const from = centreOf(mine ? '.undo-button' : '.top-row .plate-stats', within) ?? to
-    setPath(from && to ? { from, to } : null)
-  }, [within, mine])
+  useLayoutEffect(() => setSpot(undoSpot(event, seat, within)), [event, seat, within])
 
-  useEffect(() => {
-    const timer = setTimeout(onDone, UNDO_MS)
-    return () => clearTimeout(timer)
-  }, [onDone])
-
-  if (!path) return null
-  const { from, to } = path
-  const hold = UNDO_MS / 1000
-  // the flight takes the first part, the turn the rest; each starts slow and ends slow
-  const landed = 0.42
+  const hold = (reduced ? HOLD.reduced * 2 : HOLD.undo) / 1000
   return (
     <div className="undo-moment" aria-hidden="true">
+      {spot ? (
+        <motion.div
+          className="undo-spinning"
+          style={{ left: 0, top: 0, x: spot.x, y: spot.y, width: spot.size, height: spot.size, margin: `${-spot.size / 2}px 0 0 ${-spot.size / 2}px` }}
+          // there from the first frame: the tap and the arrow are one gesture
+          initial={{ scale: reduced ? 1 : 0.7, rotate: 0, opacity: reduced ? 0 : 1 }}
+          animate={
+            reduced
+              ? { opacity: [0, 1, 0], transition: { duration: hold } }
+              : {
+                  // a short swell, so it catches the eye without leaving its place
+                  scale: [0.7, 1.15, 1],
+                  rotate: [0, -360, -360],
+                  opacity: [1, 1, 0],
+                  transition: {
+                    scale: { duration: hold, times: [0, 0.6, 1], ease: 'easeOut' },
+                    rotate: { duration: hold, times: [0, 0.8, 1], ease: 'easeInOut' },
+                    opacity: { duration: hold, times: [0, 0.75, 1], ease: 'easeIn' },
+                  },
+                }
+          }
+        >
+          <UndoIcon />
+        </motion.div>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * A placement taken back (`kind: 'unplace'`): the token lifts off its space
+ * and flies home to its owner's pillow — the opponent's placement run
+ * backwards, for either side. The space shows what was under it from the
+ * first frame (`uncover`), the pillow shows the token once this lands
+ * (`arriving`, `FLIGHT`): one token, travelling.
+ */
+export function UnplaceFlight({
+  event,
+  seat,
+  within,
+}: {
+  event: Extract<PresentationEvent, { kind: 'unplace' }>
+  seat: Seat
+  within: HTMLElement | null
+}) {
+  const reduced = useReducedMotion()
+  const side = event.seat === seat ? 'you' : 'opponent'
+  const [path, setPath] = useState<{ from: Point; to: Point; size: number; start: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const from = hexOnScreen(within?.querySelector<SVGSVGElement>('svg.board'), within, event.at)
+    const home = heldSpot(side, within)
+    // drawn at the pillow's size, so it lands at exactly the size the pillow shows it
+    if (from && home) setPath({ from, to: { x: home.x, y: home.y }, size: home.size, start: (TOKEN_RADIUS * 2 * from.unit) / home.size })
+  }, [within, event.at, side])
+
+  if (!path || reduced) return null
+  const { from, to, size, start } = path
+  const lift = Math.max(40, Math.abs(to.x - from.x) * 0.25)
+  return (
+    <div className="draw-flight" data-side={side} aria-hidden="true">
       <motion.div
-        className="undo-spinning"
-        style={{ left: 0, top: 0 }}
-        // visible on the button from the first frame: the tap and the arrow are one gesture
-        initial={{ x: reduced ? to.x : from.x, y: reduced ? to.y : from.y, scale: reduced ? 1 : 0.4, rotate: 0, opacity: reduced ? 0 : 1 }}
-        animate={
-          reduced
-            ? { opacity: [0, 1, 0], scale: 1.6, transition: { duration: hold } }
-            : {
-                x: [from.x, to.x, to.x],
-                y: [from.y, to.y, to.y],
-                // from the size of the button's icon to big in the middle of the board
-                scale: [0.4, 2, 1.7],
-                rotate: [0, 0, -360],
-                opacity: [1, 1, 0],
-                transition: {
-                  x: { duration: hold, times: [0, landed, 1], ease: ['easeInOut', 'linear'] },
-                  y: { duration: hold, times: [0, landed, 1], ease: ['easeInOut', 'linear'] },
-                  scale: { duration: hold, times: [0, landed, 1], ease: ['easeInOut', 'easeInOut'] },
-                  rotate: { duration: hold, times: [0, landed, 1], ease: ['linear', 'easeInOut'] },
-                  opacity: { duration: hold, times: [0, 0.85, 1], ease: 'easeInOut' },
-                },
-              }
-        }
+        className="draw-token unplace-flight"
+        style={{ left: 0, top: 0, width: size, height: size * 1.075, margin: `${-size / 2}px 0 0 ${-size / 2}px` }}
+        initial={{ x: from.x, y: from.y, scale: start, opacity: 1 }}
+        animate={{
+          x: [from.x, (from.x + to.x) / 2, to.x, to.x],
+          y: [from.y, Math.min(from.y, to.y) - lift, to.y, to.y],
+          // off the board a little bigger, as if picked up, then down to the pillow's size
+          scale: [start, Math.max(start, 1) * 1.25, 1, 1],
+          // solid all the way; it hands over to the pillow's token only as it arrives
+          opacity: [1, 1, 1, 0],
+          transition: { duration: FLIGHT / 1000, times: [0, 0.5, 0.96, 1], ease: 'easeInOut' },
+        }}
       >
-        <UndoIcon />
+        <svg viewBox="-10 -10 20 21.5">
+          <TokenGlyph token={event.token} radius={9} />
+        </svg>
       </motion.div>
     </div>
   )

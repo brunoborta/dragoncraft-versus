@@ -23,10 +23,20 @@ export type PresentedBoard = Record<string, PresentedToken[]>
  */
 /**
  * `seq` is the entry's position in the log: the one stable identity an event has.
+ * A takeback's events get negative ones, since the log positions they play
+ * back are about to be reused by whatever is played next.
  * `held` is the token the acting seat holds once the event is done — what its
  * tray or slot shows from then on; absent where the script did not say.
+ * `undo` marks the events of a takeback: the arrow, and the play run backwards.
  */
-export type PresentationEvent = { seat: Seat; entry: LogEntry; seq: number; board: PresentedBoard; held?: Token | null } & (
+export type PresentationEvent = {
+  seat: Seat
+  entry: LogEntry
+  seq: number
+  board: PresentedBoard
+  held?: Token | null
+  undo?: true
+} & (
   /**
    * `crystal`: one of the three a crystal drew — it flies to the arch of
    * choices over the board, not to the tray. `drawIndex` is its place in the
@@ -38,6 +48,12 @@ export type PresentationEvent = { seat: Seat; entry: LogEntry; seq: number; boar
    * its arch slot onto the tray's cushion, the others shrink back into the bag.
    */
   | { kind: 'crystalKeep'; tokens: Token[]; index: number }
+  /**
+   * The crystal's pick taken back — `crystalKeep` run backwards: the kept
+   * token (`tokens[index]`) leaves the cushion for its slot in the arch, and
+   * the others come out of the bag back to theirs. The pick is open again.
+   */
+  | { kind: 'crystalUnkeep'; tokens: Token[]; index: number }
   | { kind: 'place'; at: Hex; id: string; token: Token }
   /**
    * `at` is the token that fired; null when the script cannot tell (a fire-up
@@ -51,6 +67,13 @@ export type PresentationEvent = { seat: Seat; entry: LogEntry; seq: number; boar
   | { kind: 'score'; cardId: string; card: ShopCard | null; hexes: Hex[] }
   | { kind: 'coin' }
   | { kind: 'endTurn' }
+  /**
+   * A takeback announced: the Undo arrow turns once on the pillow of whoever
+   * asked. The board stays as it was until the arrow is gone.
+   */
+  | { kind: 'undo' }
+  /** A placement taken back: the token lifts off `at` and flies home to its owner's pillow. */
+  | { kind: 'unplace'; at: Hex; id: string; token: Token }
   | { kind: 'other' }
 )
 
@@ -320,6 +343,133 @@ export function script(
 }
 
 /**
+ * The entries a takeback removed: `next` is `previous` cut short, the rest of
+ * it intact. Null when the log did not shrink, or shrank into something else —
+ * a new game, a reconnection to another table. Only the last kept entry is
+ * compared, as `newEntries` does: a log is never rewritten in the middle.
+ */
+export function takenBack(previous: readonly LogEntry[], next: readonly LogEntry[]): LogEntry[] | null {
+  if (next.length >= previous.length) return null
+  const last = next.length - 1
+  if (last >= 0 && JSON.stringify(previous[last]) !== JSON.stringify(next[last])) return null
+  return previous.slice(next.length)
+}
+
+/**
+ * A play run backwards: the entries a takeback removed, last first, each
+ * undone on the presented board with the same push and pop the script uses —
+ * so every token keeps its name, and the board goes back exactly as it came.
+ *
+ * - a placement lifts off its space and goes back to its owner's hand;
+ * - a move slides back where it came from (`from` and `to` exchanged);
+ * - a swap swaps back;
+ * - a crystal's pick goes back to the arch it was made from: `draws` are the
+ *   tokens it offered, which the log does not repeat — the view the takeback
+ *   lands on has them, in its open pick.
+ *
+ * Everything else leaves the board alone — the answers (fire up or not, done
+ * moving, which neighbour a plant borrows), a discard — and plays nothing. A
+ * draw is never taken back, nor a scored card: undo stops at either.
+ *
+ * Throws when an entry does not fit the board, like `script`.
+ */
+export function unscript(
+  start: PresentedBoard,
+  undone: readonly LogEntry[],
+  nextSeq: () => number,
+  draws: readonly Token[] = [],
+): { events: PresentationEvent[]; board: PresentedBoard } {
+  let board = start
+  const events: PresentationEvent[] = []
+
+  for (let index = undone.length - 1; index >= 0; index -= 1) {
+    const entry = undone[index]
+    const { seat, action } = entry
+    const base = { seat, entry, undo: true as const }
+    switch (action.type) {
+      case 'place': {
+        const lifted = pop(board, action.at)
+        board = lifted.board
+        const { id, token } = lifted.entry
+        events.push({ ...base, seq: nextSeq(), kind: 'unplace', at: action.at, id, token, board, held: token })
+        break
+      }
+      case 'meatMove':
+      case 'ironMove': {
+        const lifted = pop(board, action.to)
+        board = push(lifted.board, action.from, lifted.entry)
+        const by = action.type === 'meatMove' ? 'meat' : 'iron'
+        events.push({ ...base, seq: nextSeq(), kind: 'move', from: action.to, to: action.from, id: lifted.entry.id, by, board })
+        break
+      }
+      case 'potionSwap': {
+        // a swap is its own inverse
+        const a = pop(board, action.a)
+        const b = pop(a.board, action.b)
+        board = push(push(b.board, action.a, b.entry), action.b, a.entry)
+        events.push({ ...base, seq: nextSeq(), kind: 'swap', a: action.a, b: action.b, ids: [a.entry.id, b.entry.id], board })
+        break
+      }
+      case 'crystalPick': {
+        if (!draws[action.index]) throw new Error('presentation: a pick taken back with nothing to pick from')
+        // the kept token leaves the hand: the cushion is empty again, the choice open
+        events.push({ ...base, seq: nextSeq(), kind: 'crystalUnkeep', tokens: [...draws], index: action.index, board, held: null })
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  return { events, board }
+}
+
+/**
+ * A takeback as the screen tells it. First the Undo arrow turns, over the
+ * board as it was. Then the play runs backwards (`unscript`). Last, a step
+ * with no time of its own puts the hand where the view says it is, and lands
+ * the board exactly on the view.
+ *
+ * `to` is that view: its board, the token in hand, and the crystal's draws
+ * when the takeback reopens a pick.
+ *
+ * When the play cannot be run backwards onto the view, the arrow still turns,
+ * and then the board simply goes back: named against the board on screen
+ * (`renameBoard`), so only what changed is redrawn.
+ */
+export function takeBack(
+  start: PresentedBoard,
+  undone: readonly LogEntry[],
+  to: { board: Board; held: Token | null; draws: readonly Token[] },
+  nextId: () => string,
+  nextSeq: () => number,
+): { events: PresentationEvent[]; board: PresentedBoard } {
+  const last = undone[undone.length - 1]
+  if (!last) return { events: [], board: start }
+  const base = { seat: last.seat, entry: last, undo: true as const }
+  const announced = nextSeq()
+
+  let backwards: ReturnType<typeof unscript> | null
+  try {
+    backwards = unscript(start, undone, nextSeq, to.draws)
+  } catch {
+    backwards = null
+  }
+  if (backwards && !sameBoard(toBoard(backwards.board), to.board)) backwards = null
+
+  const steps = backwards?.events ?? []
+  const board = backwards?.board ?? renameBoard(start, to.board, nextId)
+  return {
+    board,
+    events: [
+      { ...base, seq: announced, kind: 'undo', board: start },
+      ...steps,
+      { ...base, seq: nextSeq(), kind: 'other', board, held: to.held },
+    ],
+  }
+}
+
+/**
  * Marks the last `count` draw events as a crystal's. For when the pick is still
  * open in the view (the player's own crystal): the draws arrived in this batch,
  * the pick has not happened yet, and they belong to the arch of choices — they
@@ -370,6 +520,13 @@ export const HOLD = {
   vine: 850,
   score: 1400,
   coin: 1200,
+  /** The Undo arrow's turn, before the play runs backwards. */
+  undo: 680,
+  /**
+   * A placement taken back: the flight home, then the pillow's own landing
+   * (260ms, `held-arrive`) finishing before anything else moves.
+   */
+  unplace: FLIGHT + 300,
   reduced: 160,
 } as const
 
@@ -395,6 +552,7 @@ export function eventDuration(
       if (event.crystal) return mine && !reduced ? HOLD.crystalDraw : 0
       return reduced ? HOLD.reduced * 2 : mine ? HOLD.draw : HOLD.drawTheirs
     case 'crystalKeep':
+    case 'crystalUnkeep':
       // only the drawer's screen has an arch to resolve; the other side sees the pick in the slot
       return mine && !reduced ? HOLD.crystalKeep : 0
     case 'place':
@@ -412,6 +570,11 @@ export function eventDuration(
     case 'coin':
       // the same length for both sides: the opponent's coin is easy to miss, and it changes their hand
       return reduced ? HOLD.reduced * 2 : HOLD.coin
+    case 'undo':
+      // the same for both sides: it is the one sign that the next moves are a takeback, not a play
+      return reduced ? HOLD.reduced * 2 : HOLD.undo
+    case 'unplace':
+      return reduced ? HOLD.reduced : HOLD.unplace
     default:
       return 0
   }

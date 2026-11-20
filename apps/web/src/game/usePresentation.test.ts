@@ -105,6 +105,49 @@ describe('usePresentation, animation on', () => {
     expect(result.current.playing).toBe(false)
   })
 
+  it('plays a takeback: the arrow over the board as it was, then the token flies home, then the view', () => {
+    const bread = { [at10]: [single('bread')] }
+    const placed = after([drawMeat, placeMeat], { [at00]: [single('meat')], ...bread })
+    const { result, rerender } = renderHook(({ view }) => usePresentation(view), { initialProps: { view: placed } })
+    const bystander = result.current.ids[at10]
+
+    // the opponent takes the placement back: the meat is in their hand again
+    const takenBack: PlayerView = { ...after([drawMeat], bread), current: 1, pending: [{ kind: 'place', token: single('meat'), fireUpAllowed: true }] }
+    rerender({ view: takenBack })
+    act(() => vi.advanceTimersByTime(1))
+
+    // first the arrow, and nothing has gone back yet
+    expect(result.current.event?.kind).toBe('undo')
+    expect(result.current.board).toEqual({ [at00]: [single('meat')], ...bread })
+    expect(result.current.held).toBeNull()
+
+    // then the token lifts off and goes home to their pillow
+    act(() => vi.advanceTimersByTime(HOLD.undo + 1))
+    expect(result.current.event).toMatchObject({ kind: 'unplace', at: { q: 0, r: 0 } })
+    expect(result.current.board).toEqual(bread)
+    expect(result.current.held).toEqual({ seat: 1, token: single('meat') })
+
+    act(() => vi.advanceTimersByTime(HOLD.unplace + 1))
+    act(() => vi.advanceTimersByTime(1))
+    expect(result.current.playing).toBe(false)
+    expect(result.current.board).toEqual(bread)
+    expect(result.current.held).toEqual({ seat: 1, token: single('meat') })
+    // the bread was never part of it: not redrawn at any point
+    expect(result.current.ids[at10]).toEqual(bystander)
+  })
+
+  it('lets a tap skip a takeback to its end, like any other moves', () => {
+    const placed = after([drawMeat, placeMeat], { [at00]: [single('meat')] })
+    const { result, rerender } = renderHook(({ view }) => usePresentation(view), { initialProps: { view: placed } })
+    rerender({ view: after([drawMeat], {}) })
+    act(() => vi.advanceTimersByTime(1))
+    expect(result.current.event?.kind).toBe('undo')
+
+    act(() => result.current.skip())
+    expect(result.current.playing).toBe(false)
+    expect(result.current.board).toEqual({})
+  })
+
   it("puts the drawn token in the drawer's hand with the draw, and takes it away with the placement", () => {
     const { result, rerender } = renderHook(({ view }) => usePresentation(view), { initialProps: { view: empty } })
     expect(result.current.held).toBeNull()
