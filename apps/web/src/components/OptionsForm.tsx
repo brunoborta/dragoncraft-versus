@@ -10,7 +10,7 @@ const OPTIONS: { name: keyof GameOptions; label: string; note: string; machine?:
   {
     name: 'cardGlow',
     label: 'Light up the cards you can complete',
-    note: 'While a token hovers over a space, a card it would complete glows; once a card can be scored, it rises with a Score tab. The printed game leaves both for you to spot.',
+    note: 'While a token hovers over a space, a card it would complete glows; once a card can be scored, it rises with a Score tab, and End turn turns green only when nothing is left to score. The printed game leaves all of it for you to spot: off, End turn does not react to your cards, and turns green only once you have scored both.',
   },
   {
     name: 'showReputation',

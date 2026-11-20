@@ -840,11 +840,21 @@ body {
   border: 2px solid #fff0b8;
   box-shadow: 0 0 0 2px #8a6a26, 0 0 14px rgb(255 210 110 / 0.55);
 }
-/* M12: the turn is played out — the button breathes, the way Hearthstone's does */
-.end-turn[data-glow='true'] { animation: end-turn-glow 1.6s ease-in-out infinite; }
-@keyframes end-turn-glow {
-  0%, 100% { box-shadow: 0 0 0 2px #8a6a26, 0 0 12px rgb(255 210 110 / 0.5); }
-  50% { box-shadow: 0 0 0 3px #ffe7a0, 0 0 28px rgb(255 210 110 / 0.95); }
+/*
+ * M12: the turn is played out — nothing left but to end it. The button turns
+ * green and breathes, the way Hearthstone's does; gold means there is still
+ * something you could do first.
+ */
+.end-turn[data-state='ready'][data-done='true'] {
+  background: linear-gradient(180deg, #9fe08f, #5bb653 55%, #43993d);
+  color: #0c2a0c;
+  border: 2px solid #dcffd2;
+  box-shadow: 0 0 0 2px #2f6a2b, 0 0 14px rgb(130 225 110 / 0.55);
+  animation: end-turn-done 1.6s ease-in-out infinite;
+}
+@keyframes end-turn-done {
+  0%, 100% { box-shadow: 0 0 0 2px #2f6a2b, 0 0 12px rgb(130 225 110 / 0.5); }
+  50% { box-shadow: 0 0 0 3px #dcffd2, 0 0 28px rgb(130 225 110 / 0.95); }
 }
 .end-turn[data-state='locked'] { background: linear-gradient(180deg, #7a6a46, #5e5034); color: #f1e6c8; border: 2px solid #9a8452; }
 .end-turn[data-state='waiting'] { background: #4a4f55; color: #c9cdd2; border: 2px solid #5f656c; }
@@ -1236,7 +1246,7 @@ body {
 
 /* reduced motion: nothing loops, nothing turns; the glow and banner stay, still */
 @media (prefers-reduced-motion: reduce) {
-  .end-turn[data-glow='true'] { animation: none; box-shadow: 0 0 0 3px #ffe7a0, 0 0 22px rgb(255 210 110 / 0.85); }
+  .end-turn[data-state='ready'][data-done='true'] { animation: none; box-shadow: 0 0 0 3px #dcffd2, 0 0 22px rgb(130 225 110 / 0.85); }
   .turn-banner-rays { animation: none; }
   .held-glyph, .held-glyph[data-arriving], .fire-up, .fire-slot, .token-info { animation: none; }
   .crystal-slot[data-waiting], .crystal-slot[data-arriving] { animation: none; opacity: 1; }

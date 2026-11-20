@@ -1,5 +1,5 @@
 import { createGame, toPlayerView } from '@dcv/engine'
-import type { Action } from '@dcv/engine'
+import type { Action, PlayerView } from '@dcv/engine'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { Hand } from './Hand.js'
@@ -64,9 +64,43 @@ describe('PlayerBar', () => {
   })
 
   it('agrees with the engine on when ending is allowed', () => {
-    expect(endTurnState(false, [{ type: 'endTurn' }])).toBe('waiting')
-    expect(endTurnState(true, [{ type: 'spendCoin' }])).toBe('locked')
-    expect(endTurnState(true, [{ type: 'spendCoin' }, { type: 'endTurn' }])).toBe('ready')
+    expect(endTurnState(false, view, [{ type: 'endTurn' }])).toBe('waiting')
+    expect(endTurnState(true, view, [{ type: 'spendCoin' }])).toBe('locked')
+    expect(endTurnState(true, view, [{ type: 'spendCoin' }, { type: 'endTurn' }])).toBe('ready')
+  })
+
+  describe('as soon as the token is placed, with "Fire up this token?" open', () => {
+    const asking: PlayerView = { ...view, pending: [{ kind: 'mayFireUp', at: { q: 0, r: 0 } }] }
+    const answers: Action[] = [{ type: 'skipFireUp' }, { type: 'fireUp', ability: 'meat' }]
+
+    it('opens End turn, gold: there is still the fire-up to decide', () => {
+      render(<PlayerBar view={asking} actions={answers} myTurn onAct={() => {}} />)
+      const button = screen.getByRole('button', { name: 'End turn' }) as HTMLButtonElement
+      expect(button.dataset.state).toBe('ready')
+      expect(button.dataset.done).toBeUndefined()
+      expect(button.title).toBe('End your turn without firing up this token')
+    })
+
+    it('declines the fire-up and ends the turn in one tap: the log reads both', () => {
+      const onAct = vi.fn()
+      render(<PlayerBar view={asking} actions={answers} myTurn onAct={onAct} />)
+      fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
+      expect(onAct.mock.calls).toEqual([[{ type: 'skipFireUp' }], [{ type: 'endTurn' }]])
+    })
+
+    it('stays locked inside a chain, where declining would leave the chain open', () => {
+      // a plant's chain still open under the question (the stack's top is last)
+      const chained: PlayerView = { ...asking, pending: [{ kind: 'plant', at: { q: 1, r: 0 }, activated: [{ q: 1, r: 0 }] }, ...asking.pending] }
+      expect(endTurnState(true, chained, answers)).toBe('locked')
+    })
+  })
+
+  it('turns green when the turn is played out, and stays gold with the hints off', () => {
+    const { unmount } = render(<PlayerBar view={view} actions={[{ type: 'endTurn' }]} myTurn onAct={() => {}} />)
+    expect((screen.getByRole('button', { name: 'End turn' }) as HTMLButtonElement).dataset.done).toBe('true')
+    unmount()
+    render(<PlayerBar view={view} actions={[{ type: 'endTurn' }]} myTurn onAct={() => {}} revealsScoring={false} />)
+    expect((screen.getByRole('button', { name: 'End turn' }) as HTMLButtonElement).dataset.done).toBeUndefined()
   })
 })
 

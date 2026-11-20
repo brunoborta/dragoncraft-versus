@@ -518,6 +518,7 @@ export function GameScreen({
           onAct={handleAct}
           canUndo={table.canUndo}
           onUndo={undo}
+          revealsScoring={options.cardGlow}
         />
       </footer>
       {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}

@@ -1,4 +1,4 @@
-import type { Action } from '@dcv/engine'
+import type { Action, PlayerView } from '@dcv/engine'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nothingLeft } from './PlayerBar.js'
@@ -67,14 +67,29 @@ describe('nothingLeft (M12)', () => {
   const end: Action = { type: 'endTurn' }
   const coin: Action = { type: 'spendCoin' }
   const score: Action = { type: 'scoreCard', cardId: 'tri-bread' }
+  const skip: Action = { type: 'skipFireUp' }
+  const card = { id: 'tri-bread' } as PlayerView['you']['hand'][number]
+  const holding = (cards: number) => ({ you: { hand: Array.from({ length: cards }, () => card) } }) as Pick<PlayerView, 'you'>
 
-  it('lights End turn when ending, or at most spending a coin, is all that is left', () => {
-    expect(nothingLeft([end])).toBe(true)
-    expect(nothingLeft([coin, end])).toBe(true)
+  it('turns End turn green when ending, or at most spending a coin, is all that is left', () => {
+    expect(nothingLeft(holding(2), [end])).toBe(true)
+    expect(nothingLeft(holding(2), [coin, end])).toBe(true)
   })
 
-  it('stays dark while a card can still be scored, or before ending is allowed', () => {
-    expect(nothingLeft([score, end])).toBe(false)
-    expect(nothingLeft([coin])).toBe(false)
+  it('keeps it gold while a card can still be scored, while the fire-up is still open, or before ending is allowed', () => {
+    expect(nothingLeft(holding(2), [score, end])).toBe(false)
+    expect(nothingLeft(holding(2), [skip, { type: 'fireUp', ability: 'meat' }])).toBe(false)
+    expect(nothingLeft(holding(2), [coin])).toBe(false)
+  })
+
+  describe("with the cards' hints off", () => {
+    it('does not react to the cards: gold with nothing to score, so it gives nothing away', () => {
+      expect(nothingLeft(holding(2), [end], false)).toBe(false)
+      expect(nothingLeft(holding(1), [coin, end], false)).toBe(false)
+    })
+
+    it('turns green once both cards are scored: an empty hand gives nothing away', () => {
+      expect(nothingLeft(holding(0), [end], false)).toBe(true)
+    })
   })
 })

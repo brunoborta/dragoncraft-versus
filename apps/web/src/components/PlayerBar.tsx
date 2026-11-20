@@ -5,7 +5,8 @@ import { CardIcon, ChevronsIcon, CoinIcon, LockIcon, StarIcon, UndoIcon } from '
 import { Stat } from './TopBar.js'
 
 /**
- * - `ready`: your turn, and ending it is legal. Gold, lit.
+ * - `ready`: your turn, and the button can end it. Gold — green once the turn
+ *   is played out (`nothingLeft`).
  * - `locked`: your turn, but something is still open — the token is not placed
  *   yet, or an ability has not resolved. The engine only accepts ending the
  *   turn once nothing is pending, and that rule stays (plan 1.1, Spielbrett-5).
@@ -14,20 +15,42 @@ import { Stat } from './TopBar.js'
 export type EndTurnState = 'ready' | 'locked' | 'waiting'
 
 /**
- * Nothing useful is left: ending the turn is legal, and the only other thing
- * on offer is spending a coin. That is when Hearthstone lights its End Turn
- * button (plan M12) — the turn has been played out.
+ * What a tap on End turn plays, or null while it cannot end the turn.
+ *
+ * Ending is legal once nothing is pending. And as in Hearthstone, where a
+ * turn can be ended with things still unplayed, it opens as soon as the
+ * token is placed: while "Fire up this token?" is the only thing open, the
+ * tap answers it — no — and ends the turn, which the log reads as just that:
+ * "don't fire up", then "end turn". Inside a chain (the second token of a
+ * bread, say) declining leaves the chain open, so there it stays locked.
  */
-export function nothingLeft(actions: readonly Action[]): boolean {
-  return (
-    actions.some((action) => action.type === 'endTurn') &&
-    actions.every((action) => action.type === 'endTurn' || action.type === 'spendCoin')
-  )
+export function endTurnActions(view: Pick<PlayerView, 'pending'>, actions: readonly Action[]): Action[] | null {
+  const endTurn = actions.find((action) => action.type === 'endTurn')
+  if (endTurn) return [endTurn]
+  const skip = actions.find((action) => action.type === 'skipFireUp')
+  const onlyQuestion = view.pending.length === 1 && view.pending[0]?.kind === 'mayFireUp'
+  return skip && onlyQuestion ? [skip, { type: 'endTurn' }] : null
 }
 
-export function endTurnState(myTurn: boolean, actions: readonly Action[]): EndTurnState {
+/**
+ * The turn is played out: the fire-up is answered, and no card is left that
+ * could be scored. That is when the button turns green, as Hearthstone's does
+ * (plan M12). A coin does not count — spending one is never needed.
+ *
+ * With the cards' hints off (`revealsScoring` false) the screen does not say
+ * which cards can be scored, and the button must not say it either: it stays
+ * gold, and turns green only once the hand is empty — both cards scored —
+ * when there is nothing left to give away.
+ */
+export function nothingLeft(view: Pick<PlayerView, 'you'>, actions: readonly Action[], revealsScoring = true): boolean {
+  if (!actions.some((action) => action.type === 'endTurn')) return false
+  if (!revealsScoring) return view.you.hand.length === 0
+  return actions.every((action) => action.type === 'endTurn' || action.type === 'spendCoin')
+}
+
+export function endTurnState(myTurn: boolean, view: Pick<PlayerView, 'pending'>, actions: readonly Action[]): EndTurnState {
   if (!myTurn) return 'waiting'
-  return actions.some((action) => action.type === 'endTurn') ? 'ready' : 'locked'
+  return endTurnActions(view, actions) ? 'ready' : 'locked'
 }
 
 /**
@@ -45,6 +68,7 @@ export function PlayerBar({
   reputationShown,
   canUndo = false,
   onUndo,
+  revealsScoring = true,
 }: {
   view: PlayerView
   actions: readonly Action[]
@@ -55,9 +79,13 @@ export function PlayerBar({
   /** One action back, within your own turn and never across a draw. */
   canUndo?: boolean
   onUndo?: () => void
+  /** The table shows which cards can be scored (the card-glow option): only then may the button react to them. */
+  revealsScoring?: boolean
 }) {
-  const state = endTurnState(myTurn, actions)
-  const endTurn = actions.find((action) => action.type === 'endTurn')
+  const state = endTurnState(myTurn, view, actions)
+  const ending = endTurnActions(view, actions)
+  // the tap would also decline the fire-up: say so to whoever hovers or reads it
+  const declining = ending?.length === 2
   const reputation = bankedReputation(view.you)
 
   return (
@@ -82,11 +110,17 @@ export function PlayerBar({
         type="button"
         className="end-turn"
         data-state={state}
-        data-glow={state === 'ready' && nothingLeft(actions) ? 'true' : undefined}
+        data-done={state === 'ready' && nothingLeft(view, actions, revealsScoring) ? 'true' : undefined}
         disabled={state !== 'ready'}
-        title={state === 'locked' ? 'Place your token and finish its abilities first' : undefined}
+        title={
+          state === 'locked'
+            ? 'Place your token and finish its abilities first'
+            : declining
+              ? 'End your turn without firing up this token'
+              : undefined
+        }
         onClick={() => {
-          if (endTurn) onAct(endTurn)
+          for (const action of ending ?? []) onAct(action)
         }}
       >
         {state === 'locked' ? <LockIcon /> : <ChevronsIcon />}

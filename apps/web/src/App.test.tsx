@@ -197,6 +197,29 @@ describe('App', () => {
     expect(dialog.textContent).not.toMatch(/Player/)
   })
 
+  it('ends the turn straight from "Fire up this token?", which the log reads as declining it first', () => {
+    startGame()
+    const endTurn = () => screen.getByRole('button', { name: 'End turn' }) as HTMLButtonElement
+    // before the token is placed there is nothing to end yet
+    expect(endTurn().disabled).toBe(true)
+
+    stackTwoOnInnerRing()
+    expect(screen.getByText('Fire up this token?')).toBeDefined()
+    expect(endTurn().disabled).toBe(false)
+    fireEvent.click(endTurn())
+
+    // the turn has passed: the question is gone, and the machine is to move
+    expect(screen.queryByText('Fire up this token?')).toBeNull()
+    expect(endTurn().dataset.state).toBe('waiting')
+    fireEvent.click(screen.getByText('Full log'))
+    // your turn's lines, in order: the placement, then the two the tap played
+    const yours = [...screen.getByLabelText('Move log').querySelectorAll('li li')].map((line) => line.textContent)
+    const declined = yours.indexOf('Do not fire up')
+    expect(declined).toBeGreaterThan(0)
+    expect(yours[declined - 1]).toMatch(/^Place on 1,0/)
+    expect(yours[declined + 1]).toBe('End turn')
+  })
+
   it('closes the full log', () => {
     startGame()
     fireEvent.click(screen.getByText('Full log'))
