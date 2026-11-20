@@ -7,6 +7,7 @@ const draw = (seat: Seat): LogEntry => ({ seat, action: { type: 'draw', token: s
 const move = (seat: Seat): LogEntry => ({ seat, action: { type: 'skipFireUp' } })
 const coin = (seat: Seat): LogEntry => ({ seat, action: { type: 'spendCoin' } })
 const discard = (seat: Seat): LogEntry => ({ seat, action: { type: 'coinDiscard', cardIds: ['a', 'b'] } })
+const score = (seat: Seat): LogEntry => ({ seat, action: { type: 'scoreCard', cardId: 'a' } })
 
 /** Builds the history as a running log, one state per entry appended. */
 function history(entries: LogEntry[], seats: Seat[]): UndoableState[] {
@@ -34,6 +35,13 @@ describe('undoFloor', () => {
     const states = history([draw(0), move(0), coin(0), discard(0)], [0, 0, 0, 0])
     // index 2 is the state the spend produced: the discard may be re-chosen, the spend may not
     expect(undoFloor(states)).toBe(2)
+  })
+
+  it('stops at a scored card: a card once scored stays scored', () => {
+    const states = history([draw(0), move(0), move(0), score(0)], [0, 0, 0, 0])
+    // index 3 is the state the score produced: nothing before it can be taken back
+    expect(undoFloor(states)).toBe(3)
+    expect(undoTarget(states)).toBeNull()
   })
 
   it('stops at the start of your turn, so the machine keeps what it did', () => {

@@ -6,15 +6,16 @@ export type UndoableState = { current: Seat; log: readonly LogEntry[] }
 /**
  * The oldest state undo may return to.
  *
- * Three things stop it. The start of your turn, because what the other side
+ * Four things stop it. The start of your turn, because what the other side
  * did is history. A draw from the bag, because stepping back across one would
  * hand you information you had not paid for: the generator is deterministic,
  * so the same token comes back, and undoing the fire-up that drew it would
  * leave you knowing what comes next without having spent the ability to learn
- * it. And a spent coin, for the same reason with cards instead of tokens: the
+ * it. A spent coin, for the same reason with cards instead of tokens: the
  * two cards it drew from the deck are seen, and undoing the spend would hand
- * the coin back with the knowledge kept. Everything since is yours to take
- * back — which is why meat, iron and potion, none of which reveal anything,
+ * the coin back with the knowledge kept. And a scored card, which is final:
+ * scoring is what a turn does last, on its way to ending, so a card once
+ * scored stays scored. Everything since is yours to take back — which is why meat, iron and potion, none of which reveal anything,
  * can be undone in full, and why the pick after a crystal or the discard
  * after a coin can be re-chosen: that information is already paid for.
  */
@@ -27,9 +28,10 @@ export function undoFloor(history: readonly UndoableState[]): number {
 
     const added = current.log.slice(previous.log.length)
     const revealed = added.some((entry) => entry.action.type === 'draw' || entry.action.type === 'spendCoin')
+    const scored = added.some((entry) => entry.action.type === 'scoreCard')
     const changedHands = current.current !== previous.current
 
-    if (revealed || changedHands) floor = index
+    if (revealed || scored || changedHands) floor = index
   }
 
   return floor
@@ -45,8 +47,8 @@ const ANSWERS: ReadonlySet<string> = new Set(['fireUp', 'skipFireUp', 'ironDone'
 
 /**
  * Where one Undo lands: one play back, never below `undoFloor`. A play is
- * what the player did to the table — a placement, a token moved, a pick, a
- * card scored — with the answers that followed it. `null` when there is
+ * what the player did to the table — a placement, a token moved, a pick —
+ * with the answers that followed it. `null` when there is
  * nothing to take back.
  */
 export function undoTarget(history: readonly UndoableState[]): number | null {
