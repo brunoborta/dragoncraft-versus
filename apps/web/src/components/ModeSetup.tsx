@@ -7,9 +7,11 @@ import type { GameOptions, TableOptions } from '../game/settings.js'
 import { OptionsForm } from './OptionsForm.js'
 
 export type Start =
-  | { kind: 'computer'; level: Difficulty; options: GameOptions }
+  /** `opponent`: who sits at the top, when it is someone — Professor Maple, for the warm-up after the tutorial. */
+  | { kind: 'computer'; level: Difficulty; options: GameOptions; opponent?: string }
   | { kind: 'create'; options: TableOptions }
   | { kind: 'join'; pin: string }
+  | { kind: 'tutorial' }
 
 export const LEVELS: { value: Difficulty; label: string; blurb: string }[] = [
   { value: 'easy', label: 'Easy', blurb: 'Plays for the same things as Medium, then fumbles about half of them' },
@@ -81,6 +83,10 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
               <span className="action-effect">
                 {online ? 'Play a friend on another device with a PIN' : 'Not available in this build'}
               </span>
+            </button>
+            <button type="button" className="level-choice" onClick={() => onStart({ kind: 'tutorial' })}>
+              <span className="action-name">Tutorial</span>
+              <span className="action-effect">Professor Maple shows you how to play, one step at a time</span>
             </button>
           </>
         ) : null}

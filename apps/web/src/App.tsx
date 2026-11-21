@@ -14,6 +14,9 @@ import type { GameOptions, TableOptions } from './game/settings.js'
 import { serverUrl } from './game/serverUrl.js'
 import { useLocalTable } from './game/useLocalTable.js'
 import { useRemoteTable } from './game/useRemoteTable.js'
+import { useTutorialTable } from './game/tutorial/useTutorialTable.js'
+import { Coach } from './components/Coach.js'
+import type { Lesson } from './game/tutorial/script.js'
 import type { Connect } from './game/useRemoteTable.js'
 
 /**
@@ -27,7 +30,15 @@ export function App({
   debug,
   server,
   connect,
-}: { seed?: number; debug?: boolean; server?: string | null; connect?: Connect } = {}) {
+  lessons,
+}: {
+  seed?: number
+  debug?: boolean
+  server?: string | null
+  connect?: Connect
+  /** A shorter course than Maple's, for a test to reach the end of. */
+  lessons?: readonly Lesson[]
+} = {}) {
   const debugging = debug ?? isDebugEnabled(globalThis.location?.hash ?? '')
   const url = server === undefined ? serverUrl() : server
   const [route, setRoute] = useState(() => parseRoute(globalThis.location?.hash ?? ''))
@@ -47,6 +58,23 @@ export function App({
       history.replaceState(null, '', location.pathname + location.search)
       setRoute({ kind: 'home' })
     }
+  }
+
+  if (start?.kind === 'tutorial') {
+    return (
+      <TutorialApp
+        lessons={lessons}
+        onExit={() => setStart(null)}
+        onWarmUp={() =>
+          setStart({
+            kind: 'computer',
+            level: 'easy',
+            options: { ...loadTableOptions(), cardGlow: true },
+            opponent: MAPLE,
+          })
+        }
+      />
+    )
   }
 
   if (url !== null) {
@@ -73,6 +101,7 @@ export function App({
       seed={given}
       level={start?.kind === 'computer' ? start.level : null}
       chosenOptions={start?.kind === 'computer' ? start.options : null}
+      opponentName={start?.kind === 'computer' ? start.opponent : undefined}
       debugging={debugging}
       online={url !== null}
       onStart={setStart}
@@ -89,7 +118,9 @@ function LocalApp({
   online,
   onStart,
   onNewGame,
+  opponentName,
 }: {
+  opponentName?: string
   seed?: number
   level: Difficulty | null
   /** What the options screen gave; editable during the game, against the machine. */
@@ -164,9 +195,67 @@ function LocalApp({
           paused={level === null}
           options={options}
           onOptionsChange={setOptions}
+          opponentName={opponentName}
         />
       ) : null}
       {level === null ? <ModeSetup online={online} onStart={onStart} /> : null}
+    </>
+  )
+}
+
+const MAPLE = 'Professor Maple'
+
+/**
+ * Professor Maple's lesson: the real game screen on the tutorial's table, with
+ * her coach over it. Nothing in it is a real game until the warm-up, which
+ * leaves for an ordinary one against the machine on Easy, with her name on
+ * the plate.
+ */
+function TutorialApp({
+  lessons,
+  onExit,
+  onWarmUp,
+}: {
+  lessons?: readonly Lesson[]
+  onExit: () => void
+  onWarmUp: () => void
+}) {
+  const tutorial = useTutorialTable(onExit, lessons)
+  // the lesson shows what it teaches: the cards rise, the bag can be opened, the professor does not dawdle
+  const [options, setOptions] = useState<GameOptions>(() => ({
+    ...loadTableOptions(),
+    cardGlow: true,
+    bagComposition: true,
+    opponentThinks: false,
+  }))
+  const { view } = tutorial.table
+  return (
+    <>
+      {view ? (
+        <GameScreen
+          key={tutorial.lessonKey}
+          table={tutorial.table}
+          view={view}
+          label="Your teacher"
+          detail=""
+          restartLabel="Leave the tutorial"
+          onRestart={onExit}
+          options={options}
+          onOptionsChange={setOptions}
+          opponentName={MAPLE}
+          onUi={tutorial.ui}
+          openingBanner={tutorial.act !== 1}
+        />
+      ) : null}
+      <Coach
+        act={tutorial.act}
+        step={tutorial.step}
+        busy={tutorial.busy}
+        onNext={tutorial.next}
+        onSkip={onExit}
+        onPlay={onWarmUp}
+        onMenu={onExit}
+      />
     </>
   )
 }
