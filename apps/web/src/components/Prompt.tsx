@@ -44,16 +44,19 @@ const WAITING_TEXT = {
 export function OpponentThinking({
   mode = 'thinking',
   side,
+  name = 'Opponent',
 }: {
   mode?: keyof typeof WAITING_TEXT
   /** Whose moment it is, when the mode alone does not say (a takeback is either side's). */
   side?: 'you' | 'opponent'
+  /** Who the other side is: "Professor Maple is thinking…" in the tutorial and its warm-up. */
+  name?: string
 }) {
   return (
     <section className="prompt" data-side={side ?? (mode === 'drawing' ? 'you' : 'opponent')} aria-label="Current decision">
       <div className="prompt-head">
         <p className="prompt-text prompt-waiting" aria-live="polite">
-          {WAITING_TEXT[mode]}
+          {WAITING_TEXT[mode].replace(/^Opponent/, name)}
         </p>
       </div>
     </section>

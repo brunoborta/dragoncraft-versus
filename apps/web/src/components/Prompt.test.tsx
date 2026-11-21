@@ -1,6 +1,6 @@
 import { DECK, createGame, dual, single, toPlayerView } from '@dcv/engine'
 import type { Action, Pending, PlayerView, ShopCard } from '@dcv/engine'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { cardName } from '../game/labels.js'
 import { OpponentThinking, Prompt } from './Prompt.js'
@@ -75,6 +75,9 @@ describe('Prompt', () => {
 
 describe('OpponentThinking', () => {
   it('says when the opponent spent a coin and is choosing cards', () => {
+    render(<OpponentThinking mode="thinking" name="Professor Maple" />)
+    expect(screen.getByText('Professor Maple is thinking…')).toBeDefined()
+    cleanup()
     render(<OpponentThinking mode="choosingCards" />)
     expect(screen.getByText('Opponent spent a coin and is choosing cards…')).toBeDefined()
   })

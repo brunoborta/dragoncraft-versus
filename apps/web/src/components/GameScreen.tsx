@@ -428,7 +428,7 @@ export function GameScreen({
             : theirCoin
               ? 'choosingCards'
               : 'thinking'
-      return <OpponentThinking mode={mode} />
+      return <OpponentThinking mode={mode} name={opponentName} />
     }
     return <Prompt view={view} actions={barActions} onAct={handleAct} />
   }
