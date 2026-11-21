@@ -25,6 +25,7 @@ export function Bag({
   bag,
   onOpen,
   drawing = false,
+  spent = false,
 }: {
   bag: readonly Token[]
   /**
@@ -34,6 +35,11 @@ export function Bag({
   onOpen?: () => void
   /** True while a token is being drawn: the bag shakes and glows (M2). */
   drawing?: boolean
+  /**
+   * The bag ran out and set off the end: it wears a cross until the game is
+   * over, even once the six extras are in it and the count climbs again.
+   */
+  spent?: boolean
 }) {
   const art = useArt()
   const inside = (
@@ -44,16 +50,17 @@ export function Bag({
       </span>
     </>
   )
-  const label = `Bag, ${bag.length} tokens left`
+  const label = `Bag, ${bag.length} tokens left${spent ? ', ran out: the game ends this turn' : ''}`
+  const marks = { 'data-drawing': drawing || undefined, 'data-spent': spent || undefined }
   if (!onOpen) {
     return (
-      <p className="bag" data-drawing={drawing || undefined} aria-label={label} role="img">
+      <p className="bag" {...marks} aria-label={label} role="img">
         {inside}
       </p>
     )
   }
   return (
-    <button type="button" className="bag" data-drawing={drawing || undefined} onClick={onOpen} aria-label={label}>
+    <button type="button" className="bag" {...marks} onClick={onOpen} aria-label={label}>
       {inside}
     </button>
   )
@@ -64,9 +71,14 @@ export function Bag({
  * end: the game is over once either runs out, so the figure sits right above
  * the bag. Only the count is public — never which cards.
  */
-export function DeckCount({ count }: { count: number }) {
+export function DeckCount({ count, spent = false }: { count: number; /** The deck ran out: crossed until the end. */ spent?: boolean }) {
   return (
-    <p className="deck-count" role="img" aria-label={`Deck, ${count} cards left`}>
+    <p
+      className="deck-count"
+      role="img"
+      data-spent={spent || undefined}
+      aria-label={`Deck, ${count} cards left${spent ? ', none left: the game ends this turn' : ''}`}
+    >
       <CardIcon />
       <span aria-hidden="true">{count}</span>
     </p>

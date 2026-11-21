@@ -37,6 +37,8 @@ import { HelpDialog } from './HelpDialog.js'
 import { SettingsDialog } from './SettingsDialog.js'
 import { StackPeek } from './StackPeek.js'
 import { TurnBanner, useTurnBanner } from './TurnBanner.js'
+import { EndBanner, useEndBanner } from './EndBanner.js'
+import { endCause, endMarks } from '../game/endSignal.js'
 import { TopBar } from './TopBar.js'
 
 /** What a tap can land on and mean something: the rest of the screen is "beside the board". */
@@ -110,6 +112,9 @@ export function GameScreen({
    * other's result.
    */
   const bannerPending = useRef(false)
+  // the final-turn banner: the plays from its trigger on wait behind it, and so does the next turn's banner after a deck ran out
+  const endHolds = useRef<(seq: number) => boolean>(() => false)
+  const endBeforeTurn = useRef(false)
   const [wake, setWake] = useState(0)
   /*
    * A menu (settings, help, log, bag) covers the whole game. Against the
@@ -121,17 +126,26 @@ export function GameScreen({
   const canFreeze = table.setScreenBusy !== undefined
   const menuOver = paused || (menuOpen && canFreeze)
   const presentation = usePresentation(view, {
-    gate: (event) => menuOver || (event.seat === view.current && bannerPending.current),
+    gate: (event) => menuOver || (event.seat === view.current && bannerPending.current) || endHolds.current(event.seq),
     wake: wake,
   })
   const turnBanner = useTurnBanner({
     current: view.current,
     seat: view.seat,
     ended: view.phase === 'ended',
-    blocked: menuOver || presentation.remaining.some((event) => event.seat !== view.current),
+    blocked: menuOver || presentation.remaining.some((event) => event.seat !== view.current) || endBeforeTurn.current,
   })
   bannerPending.current = turnBanner.pending
-  useEffect(() => setWake((n) => n + 1), [turnBanner.pending, menuOver])
+  const endBanner = useEndBanner({
+    view,
+    remaining: presentation.remaining,
+    menuOver,
+    turn: { pending: turnBanner.pending, up: turnBanner.banner !== null },
+  })
+  endHolds.current = endBanner.holds
+  endBeforeTurn.current = endBanner.pending && endBanner.cause === 'deck'
+  const ranOut = endMarks(view, endBanner.revealed)
+  useEffect(() => setWake((n) => n + 1), [turnBanner.pending, endBanner.pending, menuOver])
   /*
    * The screen catches up before it offers anything. While the opponent's
    * moves are still landing, while a turn banner is up, and while your own
@@ -150,12 +164,13 @@ export function GameScreen({
    * position being left, so nothing is offered on it — whoever asked.
    */
   const undoer = presentation.remaining.find((queued) => queued.undo)?.seat ?? null
-  const catchingUp = !ANIMATIONS_OFF && (theirsLanding || yourDrawLanding || turnBanner.pending || undoer !== null)
+  const catchingUp =
+    !ANIMATIONS_OFF && (theirsLanding || yourDrawLanding || turnBanner.pending || endBanner.pending || undoer !== null)
   const actions = catchingUp ? [] : table.actions
   const myTurn = actions.length > 0
 
   // the machine waits for the screen: it never moves under a banner, a landing move, a takeback or a menu
-  const busy = menuOpen || (!ANIMATIONS_OFF && (presentation.playing || turnBanner.pending))
+  const busy = menuOpen || (!ANIMATIONS_OFF && (presentation.playing || turnBanner.pending || endBanner.pending))
   useEffect(() => table.setScreenBusy?.(busy), [busy, table.setScreenBusy])
 
   const targets = boardTargets(actions, selected)
@@ -417,6 +432,7 @@ export function GameScreen({
       onPointerDownCapture={() => {
         if (presentation.playing) presentation.skip()
         if (turnBanner.banner) turnBanner.dismiss()
+        if (endBanner.banner) endBanner.dismiss()
       }}
       // a tap beside the board, where nothing answers it, lets go of a picked-up token or a chosen space
       onClick={(event) => {
@@ -425,6 +441,12 @@ export function GameScreen({
     >
       <p className="sr-only" aria-live="polite">
         {presentation.announcement}
+      </p>
+      {/* the final turn, said once it is on screen: the banner itself is decorative */}
+      <p className="sr-only" aria-live="polite">
+        {endBanner.revealed && view.endTriggered && view.phase !== 'ended'
+          ? `Final turn: the ${endCause(view)} is empty`
+          : ''}
       </p>
       <Ambience />
       <TopBar
@@ -497,8 +519,13 @@ export function GameScreen({
           ) : null}
           {/* the two things that run out and end the game: the bag, the deck under it */}
           <div className="bag-corner">
-            <Bag bag={view.bag} onOpen={options.bagComposition ? () => setBagOpen(true) : undefined} drawing={bagDrawing} />
-            <DeckCount count={view.deckCount} />
+            <Bag
+              bag={view.bag}
+              onOpen={options.bagComposition ? () => setBagOpen(true) : undefined}
+              drawing={bagDrawing}
+              spent={ranOut.bag}
+            />
+            <DeckCount count={view.deckCount} spent={ranOut.deck} />
           </div>
         </div>
         <Hand
@@ -573,6 +600,7 @@ export function GameScreen({
         <UnplaceFlight key={event.seq} event={event} seat={view.seat} within={screenRef.current} />
       ) : null}
       <TurnBanner banner={turnBanner.banner} onDismiss={turnBanner.dismiss} />
+      <EndBanner banner={endBanner.banner} onDismiss={endBanner.dismiss} />
       {ended && !viewingBoard ? (
         // a tap outside the result puts it away, the same as its X
         <div
