@@ -1555,3 +1555,98 @@ body {
   color: var(--brass-200);
 }
 .modal-close .icon { width: 16px; height: 16px; }
+
+/* ---------- the tutorial: Professor Maple over the game ---------- */
+
+/* over everything, the menus included: the class opens the settings and lights what is inside */
+.coach { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+.coach[data-shown] { animation: coach-in 200ms ease-out; }
+@keyframes coach-in { from { opacity: 0; } to { opacity: 1; } }
+.coach-dim { position: absolute; inset: 0; }
+.coach-shade { fill: rgb(4 9 6 / 0.85); }
+.coach-ring { fill: none; stroke: var(--brass-200); stroke-width: 2; filter: drop-shadow(0 0 6px rgb(243 223 162 / 0.7)); }
+.coach-catcher { position: absolute; inset: 0; pointer-events: auto; }
+.coach[data-kind='say'] .coach-catcher { cursor: pointer; }
+
+.coach-ribbon-wrap {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  pointer-events: auto;
+  max-width: 480px;
+  margin: 0 auto;
+}
+/* in the lessons Maple sits at the top: the ribbon hangs under her plate */
+.coach[data-act='2'] .coach-ribbon-wrap { top: 72px; transform: none; }
+.coach-portrait {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--brass-400);
+  background: radial-gradient(circle at 35% 30%, #8e3346, var(--wine-700) 75%);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.6);
+}
+.coach-ribbon {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 18px 10px;
+  border-radius: 18px;
+  color: var(--brass-200);
+  background: linear-gradient(180deg, #3f7a4e, var(--forest-600) 55%, #1f3f2b);
+  border: 3px solid var(--brass-400);
+  box-shadow: inset 0 0 0 2px rgb(243 223 162 / 0.35), 0 10px 30px rgb(0 0 0 / 0.6), 0 0 30px rgb(155 225 93 / 0.25);
+}
+.coach[data-kind='say'] .coach-ribbon { cursor: pointer; padding-right: 44px; }
+.coach-line {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+.coach-next {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: none;
+  color: var(--brass-200);
+  font-size: 22px;
+  animation: coach-nudge 1.2s ease-in-out infinite;
+}
+@keyframes coach-nudge { 50% { transform: translate(3px, -50%); } }
+.coach-skip { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }
+.coach-skip button { padding: 2px 10px; border-radius: 999px; border: 1px solid rgb(243 223 162 / 0.5); background: rgb(6 14 10 / 0.4); color: var(--brass-200); font-size: 13px; }
+.coach-skip .coach-skip-link { border: 0; background: none; padding: 0; text-decoration: underline; opacity: 0.8; }
+.coach-offer { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+
+/* the class is over: Maple flies to the opponent's seat */
+.coach-flight {
+  position: fixed;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  z-index: 41;
+  animation-name: coach-fly;
+  animation-timing-function: cubic-bezier(0.5, 0, 0.3, 1);
+  animation-fill-mode: forwards;
+}
+@keyframes coach-fly {
+  from { transform: translate(var(--from-x), var(--from-y)); width: var(--from-size); height: var(--from-size); }
+  to { transform: translate(var(--to-x), var(--to-y)); width: var(--to-size); height: var(--to-size); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coach[data-shown], .coach-next { animation: none; }
+}
