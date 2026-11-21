@@ -10,7 +10,8 @@ import { useCallback, useMemo, useState } from 'react'
 export type LocalGame = {
   state: GameState
   actions: Action[]
-  perform: (action: Action) => void
+  /** `prepare` reshapes the state just before the action applies: the tutorial rigs the bag with it. */
+  perform: (action: Action, prepare?: (state: GameState) => GameState) => void
   /** Takes back one play — a placement or a move with the answers after it — never past the floor. */
   undo: () => void
   canUndo: boolean
@@ -27,15 +28,18 @@ export type LocalGame = {
  * The whole state layer. Because engine states are immutable, keeping the
  * history is all undo needs — no inverse operations, no snapshots to build.
  */
-export function useGame(seed: number): LocalGame {
-  const [history, setHistory] = useState<GameState[]>(() => [createGame(seed)])
+export function useGame(seed: number, start?: () => GameState): LocalGame {
+  const [history, setHistory] = useState<GameState[]>(() => [start ? start() : createGame(seed)])
   const [undos, setUndos] = useState(0)
 
   const state = history[history.length - 1]
   const actions = useMemo(() => legalActions(state), [state])
 
-  const perform = useCallback((action: Action) => {
-    setHistory((past) => [...past, applyAction(past[past.length - 1], action)])
+  const perform = useCallback((action: Action, prepare?: (state: GameState) => GameState) => {
+    setHistory((past) => {
+      const last = past[past.length - 1]
+      return [...past, applyAction(prepare ? prepare(last) : last, action)]
+    })
   }, [])
 
   const target = useMemo(() => undoTarget(history), [history])
