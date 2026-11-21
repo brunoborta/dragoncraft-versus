@@ -1,6 +1,7 @@
 import type { Seat } from '@dcv/engine'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ANIMATIONS_OFF, DURATION, EXIT_FACTOR, useReducedMotion } from '../motion.js'
 
 /** How long the banner stays up, in milliseconds (plan M1: one to two seconds). */
@@ -62,17 +63,40 @@ export function useTurnBanner({
  * live line in the top bar — and absent under test for the same reason.
  */
 export function TurnBanner({ banner, onDismiss }: { banner: Banner | null; onDismiss: () => void }) {
+  return (
+    <BannerLayer side={banner?.side ?? 'you'} bannerKey={banner?.key ?? null} onDismiss={onDismiss}>
+      {banner?.side === 'opponent' ? "Opponent's Turn" : 'Your Turn'}
+    </BannerLayer>
+  )
+}
+
+/**
+ * The layer every banner shares: the dimmed screen, the rays, the ribbon
+ * springing in, a tap to put it away. `bannerKey` null is no banner; a new key
+ * is a new banner, played afresh.
+ */
+export function BannerLayer({
+  side,
+  bannerKey,
+  onDismiss,
+  children,
+}: {
+  side: 'you' | 'opponent' | 'end'
+  bannerKey: number | null
+  onDismiss: () => void
+  children: ReactNode
+}) {
   const reduced = useReducedMotion()
   if (ANIMATIONS_OFF) return null
   const enter = DURATION.show / 1000
 
   return (
     <AnimatePresence>
-      {banner ? (
+      {bannerKey !== null ? (
         <motion.div
-          key={banner.key}
+          key={bannerKey}
           className="turn-banner-layer"
-          data-side={banner.side}
+          data-side={side}
           aria-hidden="true"
           onPointerDown={onDismiss}
           initial={{ opacity: 0 }}
@@ -88,7 +112,7 @@ export function TurnBanner({ banner, onDismiss }: { banner: Banner | null; onDis
             exit={reduced ? { opacity: 0 } : { y: -24, scale: 0.92, opacity: 0 }}
             transition={reduced ? { duration: 0.15 } : { type: 'spring', stiffness: 380, damping: 16 }}
           >
-            {banner.side === 'you' ? 'Your Turn' : "Opponent's Turn"}
+            {children}
           </motion.div>
         </motion.div>
       ) : null}
