@@ -1,0 +1,61 @@
+import type { Action, GameState, HexKey } from '@dcv/engine'
+import type { TokenSpec } from './scenario.js'
+
+/** What the screen does that the engine never hears about. */
+export type UiEvent = { kind: 'openSettings' } | { kind: 'closeSettings' } | { kind: 'inspect'; hex: HexKey }
+
+/** One thing a `do` step waits for: an action (matched partially), a tap on the screen, or Undo. */
+export type Expect = { action: Partial<Action> } | { ui: UiEvent } | { undo: true }
+
+/**
+ * A line of the lesson (spec, "Roteiro"). `say`: Maple talks, a tap goes on.
+ * `do`: the player does exactly what `expect` lists, in order. `play`: Maple
+ * makes one scripted move. `spots` are the CSS selectors the spotlight opens
+ * on; `draws` are the tokens the step's first action must bring out of the bag.
+ */
+export type Step =
+  | { kind: 'say'; text: string; spots?: string[] }
+  | { kind: 'do'; text: string; spots?: string[]; expect: Expect[]; draws?: TokenSpec[] }
+  | { kind: 'play'; action: Action; spots?: string[]; draws?: TokenSpec[] }
+
+export type Lesson = { id: string; act: 1 | 2; build: () => GameState; steps: Step[] }
+
+function same(have: unknown, want: unknown): boolean {
+  if (Array.isArray(want)) {
+    if (!Array.isArray(have) || have.length !== want.length) return false
+    // a coin's two cards are a pair, not a sequence
+    if (want.every((item) => typeof item === 'string')) return [...have].sort().join() === [...want].sort().join()
+    return want.every((item, i) => same(have[i], item))
+  }
+  if (want !== null && typeof want === 'object') {
+    if (have === null || typeof have !== 'object') return false
+    return Object.entries(want).every(([k, v]) => same((have as Record<string, unknown>)[k], v))
+  }
+  return have === want
+}
+
+/** True when every field `want` names has the same value in `action`. */
+export function matches(action: Action, want: Partial<Action>): boolean {
+  return same(action, want)
+}
+
+export function uiMatches(event: UiEvent, want: UiEvent): boolean {
+  return same(event, want)
+}
+
+/**
+ * What the screen offers on this step. A `do` step: exactly the actions that
+ * answer what it waits for next. A `say` step: what the next step will offer,
+ * shown but not tappable (the coach covers the screen), so the End turn button
+ * or the fire-up choice Maple is talking about is already there. Anything
+ * else: nothing.
+ */
+export function offered(steps: readonly Step[], index: number, done: number, actions: readonly Action[]): Action[] {
+  const step = steps[index]
+  if (!step) return []
+  if (step.kind === 'say') return offered(steps, index + 1, 0, actions)
+  if (step.kind !== 'do') return []
+  const want = step.expect[done]
+  if (!want || !('action' in want)) return []
+  return actions.filter((action) => matches(action, want.action))
+}
