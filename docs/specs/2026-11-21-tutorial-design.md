@@ -1,4 +1,4 @@
-# Tutorial — design e roteiro
+﻿# Tutorial — design e roteiro
 
 Data: 2026-11-21 · Status: rascunho para aprovação
 
@@ -127,6 +127,8 @@ passo: o motor, não a gente. A camada de apresentação que já existe
 
 ## Roteiro
 
+Posições nunca aparecem escritas: a casa certa brilha no tabuleiro (spotlight), tanto pro jogador quanto pro Maple. As coordenadas abaixo são só pra quem implementa.
+
 Notação: **[say]** fala com toque pra continuar · **[do]** o jogador faz ·
 **[play]** o Maple faz · 🔦 = spotlight em. Casas em coordenada axial
 (`0,0` é o centro); as casas exatas são sugestão, o que importa é o
@@ -165,14 +167,14 @@ interno), tudo escuro.
 
 **Cena 1.4 — A sua plaquinha.**
 
-1. [say] 🔦 sua plaquinha — "This is you."
+1. [say] 🔦 sua plaquinha — "This is you. You look good in this picture."
 2. [say] 🔦 ícone de cartas — "How many cards you're holding. Always two at
    the start of your turn."
 3. [say] 🔦 ícone de moeda — "Coins. You start with three. I'll show you
    what they buy later."
 4. [say] 🔦 estrela — "And your reputation, as promised."
 
-**Cena 1.5 — A plaquinha do oponente.**
+**Cena 1.5 — A plaquinha do oponente.** Fundida com a 1.4: os dois passos abaixo acendem a plaquinha de baixo e a de cima ao mesmo tempo (dois spotlights).
 
 1. [say] 🔦 plaquinha de cima — "Your opponent sits up here, with the same
    three numbers: cards, coins, reputation."
@@ -197,7 +199,8 @@ interno), tudo escuro.
 4. [say] 🔦 as opções — "How the table looks: hints on your cards, the
    opponent's reputation, what's left in the bag."
 5. [say] 🔦 "Hold to give up" — "And if a game goes badly wrong, you can
-   give up here. You have to hold it, so you never do it by accident."
+   give up here. You have to hold it, so you never do it by accident.
+   But don't give up! Winners don't use drugs. And you don't use drugs, right? Right?"
 6. [do] 🔦 o X — "Close it, and let's play."
 
 **Cena 1.8 — Undo e End turn.**
@@ -230,8 +233,8 @@ Pão (seu), Ferro (do Maple).
 4. [say] 🔦 "Fire up?" — "Each token you place may fire up its ability,
    once. We'll try that soon — for now, skip it."
 5. [do] 🔦 End turn (dourado) — "Tapping End turn skips it and ends your
-   turn."
-6. Banner "Opponent's turn". [play] o Maple saca o Ferro e põe em `-1,1`,
+   turn and my turn will start!"
+6. Banner "Professor's turn". [play] o Maple saca o Ferro e põe em `-1,1`,
    sem fire up.
 7. [say] "See? Same thing, my side. Draw, place, maybe fire up, end."
 
@@ -243,12 +246,12 @@ Planta.
 1. [say] 🔦 a carta — "Three Plants in a row. Look at the board…"
 2. [do] 🔦 casa `1,1` — "Finish the row."
 3. A carta sobe com a aba "Score". [say] "When a card's shape is on the
-   board, it rises. Tap Score to claim it."
+   board, it can be scored. One of the settings makes it rise, too. Tap Score to claim it."
 4. [do] 🔦 aba Score → a carta voa, a estrela conta.
 5. [say] 🔦 estrela — "Three of a kind is worth 3. A mix of tokens is
    worth 2."
 6. [say] 🔦 ícone de cartas — "When your turn ends, your hand fills back
-   up to two."
+   up to two cards."
 7. [do] End turn → a mão volta a ter 2 cartas (do baralho montado).
 
 **Lição 2.3 — Pão.**
@@ -256,9 +259,9 @@ Estado: poucos tokens no centro; saco: Pão, Poção.
 
 1. [say] 🔦 Pão na mão — "Bread: when you fire it up, you draw another
    token and place it."
-2. [do] coloque o Pão em `0,0`.
+2. [do] coloque o Pão em `0,0`. 
 3. [do] 🔦 "Fire up" — "Fire it up!" → sai a Poção.
-4. [say] "A second token, same turn. And that one could fire up too!"
+4. [say] "A second token, same turn. Usually you only play one token a turn, but Bread lets you play another. And that one could fire up too!"
 5. [do] coloque a Poção onde o spotlight indica; [say] "Let's keep it
    simple and skip this one." → [do] End turn.
 
@@ -269,7 +272,7 @@ Estado: poucos tokens; saco: Cristal, depois Carne, Ferro, Planta.
 2. [do] coloque o Cristal; [do] fire up → abre o arco de três tokens.
 3. [say] 🔦 o arco — "Pick one. The other two go back in the bag."
 4. [do] 🔦 a Carne → coloque onde o spotlight indica.
-5. [say] "The token you keep doesn't fire up. Crystals are generous, not
+5. [say] "The token you keep doesn't fire up. Crystals are generous, but not
    that generous."
 
 **Lição 2.5 — Carne (mover pra qualquer lugar).** *A cena que tu
@@ -361,12 +364,12 @@ duplo Carne/Poção.
 **Lição 2.11 — Undo.**
 Estado: tu tens uma Carne pra colocar; a casa errada é óbvia.
 
-1. [do] 🔦 casa errada — "Put it here. Trust me." 
+1. [do] 🔦 casa errada — "Put it here. Trust me."
 2. [say] "…Hm. That was a terrible spot. My fault."
 3. [do] 🔦 Undo — "Undo takes it back."
 4. [do] coloque no lugar certo.
 5. [say] "Undo works inside your own turn. It can't take back a draw — the
-   bag doesn't forget — and a card you've scored stays scored."
+   bag doesn't forget — and a card you've scored stays scored." O lugar certo fecha **duas** cartas de uma vez: [do] Score, [do] Score.
 
 **Lição 2.12 — Moedas.**
 Estado: sua mão com duas cartas impossíveis no tabuleiro atual; baralho
@@ -374,26 +377,47 @@ montado com duas boas no topo.
 
 1. [say] 🔦 suas cartas — "Neither of these is going to happen."
 2. [do] 🔦 a moeda — "Spend a coin."
-3. [say] "You draw two cards, then choose two to put back under the deck."
+3. [say] "You draw two cards, then choose two to put back under the deck. Hopefully you'll find something good."
 4. [do] 🔦 as duas ruins → devolver.
 5. [say] 🔦 a moeda — "Once a turn, at most. And every coin you still hold
    at the end is worth 1 reputation — so don't splash them around."
 
 **Lição 2.13 — Como o jogo acaba.**
-Estado: saco quase vazio (contador baixo), baralho com 1 carta.
+A regra (motor e spec original, `bag.ts` / §Fim de jogo): o fim
+**dispara no instante em que o último token sai do saco**, ou a última
+carta sai do baralho. O turno em curso termina inteiro. Se esse turno ainda
+precisar puxar tokens (um Pão, um Cristal), os 6 extras — um de cada tipo —
+entram no saco **uma vez, só pra fechar a compra**; o fim continua
+anunciado mesmo com o saco cheio de novo. Depois, o outro jogador tem a
+última chance: pode marcar cartas e gastar uma moeda, mais nada.
 
-1. [say] 🔦 saco — "When the bag runs dry, six spare tokens are poured in,
-   once. When those run out too, the game ends."
-2. [say] 🔦 baralho — "Same with the deck: the moment the last card is
-   drawn, the end begins."
-3. [do] marque uma carta e End turn → a mão puxa a última carta do
-   baralho. [say] "That was the last card!"
-4. [say] "Whoever didn't trigger the end gets one last chance to score —
-   no token, just cards already on the board. That's me."
-5. [play] o Maple marca uma carta roteirizada.
-6. Tela de fim de jogo (roteirizada, ganhando o jogador). [say] "Most
-   reputation wins — your coins count now, one each. If it's a tie, whoever
-   scored more cards wins."
+Depende do **sinal de fim de jogo** (seção abaixo): sem ele, a cena não tem
+o que mostrar.
+
+Estado: saco com **3** tokens (Cristal + 2), baralho com várias cartas;
+sua mão com uma carta que o token certo do Cristal fecha. A carta do
+Maple já está fechada no tabuleiro.
+
+1. [say] 🔦 saco — "Only three tokens left in the bag. Watch closely."
+2. Você saca o Cristal (saco: 2). [do] coloque; [do] fire up.
+3. O Cristal puxa os 2 últimos → o saco zera → **o sinal de fim dispara**.
+   [say] 🔦 saco — "That's it — the bag is empty, so this is the last
+   turn of the game."
+4. Os 6 extras entram no saco e o Cristal puxa o terceiro token.
+   [say] "My Crystal still needed one more, so six spare tokens are poured
+   in — just to finish the draw. The end is still coming."
+5. [do] escolha, coloque, Score.
+6. [say] 🔦 baralho — "The deck works the same way: the moment its last
+   card is drawn, the end begins."
+7. [do] End turn → banner. [say] "Now I get one last chance: I can score
+   and spend a coin, but I can't place anything."
+8. [play] o Maple marca a carta dele.
+9. Tela de fim de jogo (ganhando o jogador). [say] "Most reputation wins —
+   unspent coins count now, one each. If it's a tie, whoever scored more
+   cards wins."
+
+> Nota: com o saco vazio e os extras já usados, um Pão ou Cristal
+> simplesmente não puxa nada. Isso não precisa entrar no tutorial.
 
 ---
 
@@ -404,6 +428,27 @@ Estado: saco quase vazio (contador baixo), baralho com 1 carta.
 2. Dois botões na faixa: **"Let's play"** → começa uma **partida real no
    Easy**, com o avatar e o nome do Maple na plaquinha do oponente.
    **"Back to menu"** → tela inicial.
+
+## Dependência: sinal de fim de jogo (fora do tutorial)
+
+Hoje o jogo **não avisa** quando o fim dispara. `PlayerView` já carrega
+`endTriggered`, mas a tela só usa o fim na fase final ("Last chance to
+score", `labels.ts`). Quem joga não fica sabendo que o turno atual é o
+último, nem por quê. Isso é um recurso do jogo real, a ser feito **antes**
+do tutorial (a lição 2.13 depende dele) e com spec própria.
+
+Proposta inicial (a detalhar naquela spec):
+
+- Um momento na fila da apresentação, no instante em que `endTriggered`
+  vira `true`: o saco (ou o baralho, conforme a causa) é destacado e
+  aparece um aviso curto — "The bag is empty — last turn!" / "Last card
+  drawn — last turn!".
+- O saco/baralho fica marcado até o fim do jogo, pra quem olhar depois
+  entender.
+- Se os extras entram, a entrada deles é mostrada (os 6 caindo no saco),
+  sem apagar o aviso.
+- A causa (saco ou baralho) não está na view hoje; vai precisar ser
+  derivada ou adicionada.
 
 ## Partes do "como" já decididas
 
