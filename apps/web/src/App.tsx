@@ -5,7 +5,7 @@ import { GameScreen } from './components/GameScreen.js'
 import { LEVEL_LABEL, ModeSetup } from './components/ModeSetup.js'
 import type { Start } from './components/ModeSetup.js'
 import { RoomLobby } from './components/RoomLobby.js'
-import { findGame, isDebugEnabled, type Outcome } from './game/debug.js'
+import { findGame, findNearEnd, isDebugEnabled, type Outcome } from './game/debug.js'
 import { parseRoute, roomHash } from './game/route.js'
 import { HUMAN_SEAT } from './game/seats.js'
 import { randomSeed } from './game/seed.js'
@@ -150,6 +150,14 @@ function LocalApp({
     table.load(found.state)
   }
 
+  /** Your turn, a few tokens before the bag runs out: the Final Round banner is a draw or two away. */
+  function jumpToLastTokens(): void {
+    const found = findNearEnd(HUMAN_SEAT, randomSeed())
+    if (!found) return
+    setSeed(found.seed)
+    table.load(found.state)
+  }
+
   function restart(): void {
     // `given` pins the opening game only; every game after it draws its own
     const next = randomSeed()
@@ -176,6 +184,9 @@ function LocalApp({
       </button>
       <button type="button" onClick={() => jumpTo('draw')}>
         Draw now
+      </button>
+      <button type="button" onClick={jumpToLastTokens}>
+        Last tokens
       </button>
     </div>
   ) : null

@@ -9,13 +9,13 @@ export function isDebugEnabled(hash: string): boolean {
 
 const MAX_STEPS = 5000
 
-/** Plays a whole game with both seats on the easy strategy. */
-export function playOut(seed: number): GameState {
+/** Plays a whole game with both seats on the easy strategy, or until `stop` says so. */
+export function playOut(seed: number, stop: (state: GameState) => boolean = () => false): GameState {
   const strategy = createStrategy('easy')
   let state = createGame(seed)
   let rng = seedFrom(`debug-${seed}`)
 
-  for (let step = 0; state.phase !== 'ended' && step < MAX_STEPS; step += 1) {
+  for (let step = 0; state.phase !== 'ended' && step < MAX_STEPS && !stop(state); step += 1) {
     const actions = legalActions(state)
     if (actions.length === 0) break
     const chosen = strategy.chooseAction(toPlayerView(state, state.current), actions, rng)
@@ -24,6 +24,31 @@ export function playOut(seed: number): GameState {
   }
 
   return state
+}
+
+/** Tokens left in the bag where the jump to the end of the bag lands. */
+const NEAR_END = 3
+
+/**
+ * A real game stopped at the start of `seat`'s turn with the bag a few draws
+ * from empty and the end not yet set off — to watch the Final Round banner
+ * and the crossed bag without playing forty turns. Like `findGame`, the state
+ * is one the rules really produce.
+ */
+export function findNearEnd(seat: Seat, from: number): { seed: number; state: GameState } | null {
+  const near = (state: GameState) =>
+    state.current === seat &&
+    !state.endTriggered &&
+    state.bag.length > 0 &&
+    state.bag.length <= NEAR_END &&
+    state.pending.length === 1 &&
+    state.pending[0].kind === 'place'
+  for (let offset = 0; offset < MAX_SEEDS; offset += 1) {
+    const seed = from + offset
+    const state = playOut(seed, near)
+    if (near(state)) return { seed, state }
+  }
+  return null
 }
 
 export type Outcome = 'win' | 'lose' | 'draw'

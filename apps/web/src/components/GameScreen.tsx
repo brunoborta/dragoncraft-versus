@@ -458,7 +458,7 @@ export function GameScreen({
       {/* the final turn, said once it is on screen: the banner itself is decorative */}
       <p className="sr-only" aria-live="polite">
         {endBanner.revealed && view.endTriggered && view.phase !== 'ended'
-          ? `Final turn: the ${endCause(view)} is empty`
+          ? `Final round: the ${endCause(view)} is empty`
           : ''}
       </p>
       <Ambience />

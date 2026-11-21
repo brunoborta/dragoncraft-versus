@@ -7,13 +7,8 @@ import { BANNER_HOLD, BannerLayer } from './TurnBanner.js'
 type Due = { cause: EndCause; point: number }
 type Up = Due & { key: number }
 
-export const END_LINE: Record<EndCause, string> = {
-  bag: 'The bag is empty',
-  deck: 'The deck is empty',
-}
-
 /**
- * "Final turn!" the moment the end of the game goes off (spec
+ * "Final Round!" the moment the end of the game goes off (spec
  * 2026-11-21-end-banner-design). The view knows ahead of the screen, so the
  * banner is owed when `endTriggered` flips and goes up at the point of the play
  * that set it off: once every queued event before that point has played. The
@@ -107,12 +102,15 @@ export function useEndBanner({
   }
 }
 
-/** The ember banner: "Final turn!" and why. Decorative, as the turn banner is: the live line says it. */
+/**
+ * The ember banner: "Final Round!", nothing more — a second line is not read
+ * at the speed a banner passes. Why it ends is on the crossed bag or deck, and
+ * in the live line. Decorative, as the turn banner is.
+ */
 export function EndBanner({ banner, onDismiss }: { banner: Up | null; onDismiss: () => void }) {
   return (
     <BannerLayer side="end" bannerKey={banner?.key ?? null} onDismiss={onDismiss}>
-      Final turn!
-      {banner ? <span className="turn-banner-sub">{END_LINE[banner.cause]}</span> : null}
+      Final Round!
     </BannerLayer>
   )
 }

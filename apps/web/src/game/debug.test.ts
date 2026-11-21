@@ -1,12 +1,25 @@
 import { winner } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
-import { findGame, isDebugEnabled, playOut } from './debug.js'
+import { findGame, findNearEnd, isDebugEnabled, playOut } from './debug.js'
 
 describe('isDebugEnabled', () => {
   it('is off unless the fragment asks for it', () => {
     expect(isDebugEnabled('')).toBe(false)
     expect(isDebugEnabled('#seed=4')).toBe(false)
     expect(isDebugEnabled('#debug')).toBe(true)
+  })
+})
+
+describe('findNearEnd', () => {
+  it("stops a real game at the start of the seat's turn, a few tokens before the bag runs out", () => {
+    const found = findNearEnd(0, 1)
+    expect(found).not.toBeNull()
+    const state = found!.state
+    expect(state.current).toBe(0)
+    expect(state.pending).toMatchObject([{ kind: 'place' }])
+    expect(state.endTriggered).toBe(false)
+    expect(state.bag.length).toBeGreaterThan(0)
+    expect(state.bag.length).toBeLessThanOrEqual(3)
   })
 })
 
