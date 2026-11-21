@@ -37,7 +37,14 @@ describe('offered', () => {
   it('previews the next step while Maple talks', () => {
     expect(offered(steps, 0, 0, actions)).toEqual([place(0, 1)])
   })
-  it('offers nothing while the step waits on the screen, or Maple plays', () => {
+  it('previews the next step while waiting on the screen', () => {
+    const waiting: Step[] = [
+      { kind: 'do', text: 'Tap the gear.', expect: [{ ui: { kind: 'openSettings' } }] },
+      { kind: 'do', text: 'Put it here.', expect: [{ action: { type: 'place', at: { q: 0, r: 1 } } }] },
+    ]
+    expect(offered(waiting, 0, 0, actions)).toEqual([place(0, 1)])
+  })
+  it('offers nothing while the step waits on the screen before Maple plays, or Maple plays', () => {
     expect(offered(steps, 2, 0, actions)).toEqual([])
     expect(offered(steps, 3, 0, actions)).toEqual([])
     expect(offered(steps, 4, 0, actions)).toEqual([])

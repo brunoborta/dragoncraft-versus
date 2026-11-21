@@ -84,8 +84,17 @@ export function offered(
   }
   if (step.kind !== 'do') return []
   const want = step.expect[done]
-  if (!want || !('action' in want)) return []
-  const wanted = [want.action, ...(done === 0 ? (step.show ?? []) : [])]
+  if (!want) return []
+  const shown = done === 0 ? (step.show ?? []) : []
+  if (!('action' in want)) {
+    // waiting on the screen (the gear, Undo, a stack): the turn still shows as yours, as a line does
+    const preview = [
+      ...actions.filter((action) => shown.some((w) => matches(action, w))),
+      ...offered(steps, index + 1, 0, actions),
+    ]
+    return preview.length ? preview : fallback()
+  }
+  const wanted = [want.action, ...shown]
   return actions.filter((action) => wanted.some((w) => matches(action, w)))
 }
 

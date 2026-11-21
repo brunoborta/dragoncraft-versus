@@ -84,6 +84,16 @@ describe('useTutorialTable', () => {
     expect(now().step).toMatchObject({ text: 'Look.' })
   })
 
+  it('does not wait on a busy screen while the settings are open: they are part of the class', () => {
+    const { now } = setup()
+    act(() => now().table.setScreenBusy?.(true))
+    expect(now().busy).toBe(true)
+    act(() => now().ui({ kind: 'openSettings' }))
+    expect(now().busy).toBe(false)
+    act(() => now().ui({ kind: 'closeSettings' }))
+    expect(now().busy).toBe(true)
+  })
+
   it('changes the key of the screen when a lesson loads', () => {
     const { now } = setup()
     const first = now().lessonKey

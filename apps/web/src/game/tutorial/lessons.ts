@@ -281,7 +281,12 @@ const PLANT: Lesson = {
     say('Plant: it borrows the ability of a neighbour.', SPOT.held),
     putHere('1,0', 'Put it next to the Meat.'),
     fire('plant', 'Fire it up.'),
-    doIt('Borrow the Meat’s.', [SPOT.hex('2,-1')], { type: 'plantTarget', at: hex('2,-1'), ability: 'meat' }),
+    // a tap on the neighbour opens its flame beside it: both are lit
+    doIt('Tap the Meat, then its flame, to borrow its ability.', [SPOT.hex('2,-1'), SPOT.fire], {
+      type: 'plantTarget',
+      at: hex('2,-1'),
+      ability: 'meat',
+    }),
     doIt(
       'The Meat moves one of its own neighbours: bring that Crystal down here.',
       [SPOT.hex('2,-2'), SPOT.hex('1,1')],
@@ -344,7 +349,14 @@ const UNDO: Lesson = {
   steps: [
     putHere('-2,0', 'Put it here. Trust me.'),
     say('…Hm. That was a terrible spot. My fault.'),
-    { kind: 'do', text: 'Undo takes it back.', spots: [SPOT.undo], expect: [{ undo: true }] },
+    {
+      kind: 'do',
+      text: 'Undo takes it back.',
+      spots: [SPOT.undo],
+      expect: [{ undo: true }],
+      // the fire-up question stays on screen, so the turn still reads as yours
+      show: [{ type: 'skipFireUp' }, { type: 'fireUp' }],
+    },
     putHere('1,1', 'Now put it here.'),
     skipFire('No fire-up this time.'),
     scoreIt('line-meat', 'Look at that — two cards at once. Score the first…'),
@@ -399,7 +411,7 @@ const THE_END: Lesson = {
     say('Only two tokens left in the bag. Watch closely.', SPOT.bag),
     putHere('-1,2', 'Put the Crystal here.'),
     { ...(fire('crystal', 'And fire it up.') as Extract<Step, { kind: 'do' }>), draws: ['meat', 'plant'] },
-    say('That’s it — the bag ran out, so this is the last turn of the game.', SPOT.bag),
+    say('That’s it — the bag ran out, so this is the final round. See the cross on it?', SPOT.bag),
     say('My Crystal still needed one more, so six spare tokens were poured in — just to finish the draw. The end is still coming.', SPOT.bag),
     doIt('Keep the Meat.', [SPOT.slot(0)], { type: 'crystalPick', index: 0 }),
     putHere('1,1'),

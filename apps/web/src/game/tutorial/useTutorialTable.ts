@@ -47,7 +47,14 @@ export function useTutorialTable(onExit: () => void, lessons: readonly Lesson[] 
   const cursorRef = useRef<Cursor>({ lesson: 0, step: 0, done: 0 })
   const [cursor, setCursorState] = useState<Cursor>(cursorRef.current)
   const [lessonKey, setLessonKey] = useState(0)
-  const [busy, setScreenBusy] = useState(false)
+  const [screenBusy, setScreenBusy] = useState(false)
+  /*
+   * The screen counts an open menu as busy — the machine must not move under
+   * it. The class opens the settings and talks about what is inside, so with
+   * them open the coach does not wait: the game is frozen under them anyway.
+   */
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const busy = screenBusy && !settingsOpen
 
   const setCursor = useCallback((next: Cursor) => {
     cursorRef.current = next
@@ -85,6 +92,8 @@ export function useTutorialTable(onExit: () => void, lessons: readonly Lesson[] 
 
   const ui = useCallback(
     (event: UiEvent) => {
+      if (event.kind === 'openSettings') setSettingsOpen(true)
+      if (event.kind === 'closeSettings') setSettingsOpen(false)
       const c = cursorRef.current
       const current = lessons[c.lesson]?.steps[c.step]
       if (current?.kind !== 'do') return
@@ -115,6 +124,8 @@ export function useTutorialTable(onExit: () => void, lessons: readonly Lesson[] 
     (index: number) => {
       const target = lessons[index]
       if (target) game.load(target.build())
+      // a new lesson is a new screen: whatever menu was open closed with the old one
+      setSettingsOpen(false)
       setCursor({ lesson: index, step: 0, done: 0 })
       setLessonKey((key) => key + 1)
     },

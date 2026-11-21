@@ -1562,26 +1562,27 @@ body {
 .coach[data-shown] { animation: coach-in 200ms ease-out; }
 @keyframes coach-in { from { opacity: 0; } to { opacity: 1; } }
 .coach-dim { position: absolute; inset: 0; }
-.coach-shade { fill: rgb(4 9 6 / 0.85); }
+.coach-shade { fill: rgb(4 9 6 / 0.9); }
 .coach-ring { fill: none; stroke: var(--brass-200); stroke-width: 2; filter: drop-shadow(0 0 6px rgb(243 223 162 / 0.7)); }
 .coach-catcher { position: absolute; inset: 0; pointer-events: auto; }
+.coach-catcher-holes { pointer-events: none; }
+.coach-catcher-holes rect { fill: transparent; pointer-events: fill; }
 .coach[data-kind='say'] .coach-catcher { cursor: pointer; }
 
 .coach-ribbon-wrap {
   position: absolute;
   left: 16px;
   right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  /* placed by the coach where it covers no lit spot; until measured, the middle */
+  top: 40%;
   display: grid;
   justify-items: center;
   gap: 10px;
   pointer-events: auto;
   max-width: 480px;
   margin: 0 auto;
+  transition: top 250ms ease-out;
 }
-/* in the lessons Maple sits at the top: the ribbon hangs under her plate */
-.coach[data-act='2'] .coach-ribbon-wrap { top: 72px; transform: none; }
 .coach-portrait {
   width: 132px;
   height: 132px;
@@ -1629,6 +1630,18 @@ body {
 .coach-skip button { padding: 2px 10px; border-radius: 999px; border: 1px solid rgb(243 223 162 / 0.5); background: rgb(6 14 10 / 0.4); color: var(--brass-200); font-size: 13px; }
 .coach-skip .coach-skip-link { border: 0; background: none; padding: 0; text-decoration: underline; opacity: 0.8; }
 .coach-offer { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.coach-offer button {
+  min-height: 44px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  border: 1.5px solid var(--brass-400);
+  background: rgb(6 14 10 / 0.45);
+  color: var(--brass-200);
+}
+.coach-offer button.primary { background: linear-gradient(180deg, var(--brass-200), var(--brass-400)); color: var(--parchment-ink); }
 
 /* the class is over: Maple flies to the opponent's seat */
 .coach-flight {

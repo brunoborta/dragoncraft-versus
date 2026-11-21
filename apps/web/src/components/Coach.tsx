@@ -51,26 +51,54 @@ function useHoles(spots: readonly string[], active: boolean): Hole[] {
   return holes
 }
 
-/** A rounded rectangle as path data, for the catcher's clip. */
-function roundedRect({ x, y, w, h }: Hole): string {
-  const r = Math.min(RADIUS, w / 2, h / 2)
-  return `M${x + r},${y}H${x + w - r}A${r},${r} 0 0 1 ${x + w},${y + r}V${y + h - r}A${r},${r} 0 0 1 ${x + w - r},${y + h}H${x + r}A${r},${r} 0 0 1 ${x},${y + h - r}V${y + r}A${r},${r} 0 0 1 ${x + r},${y}Z`
+/**
+ * What blocks a tap while something is to be done: the screen cut into a grid
+ * along every hole's edges, keeping the cells outside all holes. Overlapping
+ * holes (a space and the token hovering over it are found twice) stay open —
+ * a fill rule would close them again where they overlap.
+ */
+export function blockers(holes: readonly Hole[], width: number, height: number): Hole[] {
+  const edges = (lo: number, hi: number, cuts: number[]) =>
+    [...new Set([lo, hi, ...cuts.map((c) => Math.min(hi, Math.max(lo, c)))])].sort((a, b) => a - b)
+  const xs = edges(0, width, holes.flatMap((h) => [h.x, h.x + h.w]))
+  const ys = edges(0, height, holes.flatMap((h) => [h.y, h.y + h.h]))
+  const open = (x: number, y: number) => holes.some((h) => x > h.x && x < h.x + h.w && y > h.y && y < h.y + h.h)
+  const cells: Hole[] = []
+  for (let j = 0; j < ys.length - 1; j++) {
+    for (let i = 0; i < xs.length - 1; i++) {
+      const cell = { x: xs[i], y: ys[j], w: xs[i + 1] - xs[i], h: ys[j + 1] - ys[j] }
+      if (cell.w > 0 && cell.h > 0 && !open(cell.x + cell.w / 2, cell.y + cell.h / 2)) cells.push(cell)
+    }
+  }
+  return cells
 }
 
-/** Where the ribbon hangs in act 2: just under the opponent's plate. */
-function useRibbonTop(act: 1 | 2 | 3): number | null {
-  const [top, setTop] = useState<number | null>(null)
-  useEffect(() => {
-    if (act !== 2) return
-    const measure = () => {
-      const bar = document.querySelector('.top-bar')
-      setTop(bar ? bar.getBoundingClientRect().bottom + 6 : null)
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [act])
-  return top
+const EDGE = 16
+
+/**
+ * Where the ribbon goes: the first of its places that covers none of the lit
+ * spots — or, if each covers one, the one that covers least. In the class and
+ * at the offer, the middle first, then the foot and the top of the screen; in
+ * the lessons, under Maple's plate first, then the foot.
+ */
+export function ribbonTop(
+  holes: readonly Hole[],
+  act: 1 | 2 | 3,
+  ribbon: number,
+  screen: number,
+  underPlate: number,
+): number {
+  const places =
+    act === 2 ? [underPlate, screen - ribbon - EDGE] : [(screen - ribbon) / 2, screen - ribbon - EDGE, EDGE]
+  const covered = (top: number) =>
+    holes.reduce((sum, hole) => sum + Math.max(0, Math.min(top + ribbon, hole.y + hole.h) - Math.max(top, hole.y)), 0)
+  return places.reduce((best, top) => (covered(top) < covered(best) ? top : best), places[0])
+}
+
+/** The bottom of the opponent's plate: where the ribbon hangs in the lessons. */
+function plateBottom(): number {
+  const bar = document.querySelector('.top-bar')
+  return bar ? bar.getBoundingClientRect().bottom + 6 : 72
 }
 
 /**
@@ -103,7 +131,12 @@ export function Coach({
   const [asking, setAsking] = useState(false)
   const shown = !busy && (step !== null || act === 3)
   const holes = useHoles(step?.spots ?? [], shown)
-  const ribbonTop = useRibbonTop(act)
+  const wrap = useRef<HTMLElement>(null)
+  const [ribbonHeight, setRibbonHeight] = useState(0)
+  useEffect(() => {
+    const height = wrap.current?.offsetHeight ?? 0
+    if (height !== ribbonHeight) setRibbonHeight(height)
+  })
 
   // the class is over: Maple flies to her seat
   const [flying, setFlying] = useState<{ from: DOMRect; to: DOMRect } | null>(null)
@@ -137,7 +170,6 @@ export function Coach({
         : ''
   const width = typeof window === 'undefined' ? 0 : window.innerWidth
   const height = typeof window === 'undefined' ? 0 : window.innerHeight
-  const clip = `path(evenodd, "M0,0H${width}V${height}H0Z ${holes.map(roundedRect).join(' ')}")`
 
   const skip = (
     <div className="coach-skip" onClick={(event) => event.stopPropagation()}>
@@ -178,18 +210,26 @@ export function Coach({
             ))}
           </svg>
           {/* what a tap outside the lit spots meets: a line to read goes on; a thing to do lets only the spots through */}
-          <div
-            className="coach-catcher"
-            data-testid="coach-catcher"
-            style={kind === 'do' && holes.length ? { clipPath: clip } : undefined}
-            onClick={() => {
-              if (kind === 'say') onNext()
-            }}
-          />
+          {kind === 'do' && holes.length ? (
+            <svg className="coach-catcher coach-catcher-holes" data-testid="coach-catcher" width="100%" height="100%">
+              {blockers(holes, width, height).map((cell, i) => (
+                <rect key={i} x={cell.x} y={cell.y} width={cell.w} height={cell.h} />
+              ))}
+            </svg>
+          ) : (
+            <div
+              className="coach-catcher"
+              data-testid="coach-catcher"
+              onClick={() => {
+                if (kind === 'say') onNext()
+              }}
+            />
+          )}
           {line ? (
             <section
+              ref={wrap}
               className="coach-ribbon-wrap"
-              style={act === 2 && ribbonTop !== null ? { top: ribbonTop } : undefined}
+              style={ribbonHeight ? { top: ribbonTop(holes, act, ribbonHeight, height, plateBottom()) } : undefined}
               aria-label="Professor Maple"
             >
               {act !== 2 ? <img ref={portrait} className="coach-portrait" src={art.avatarOpponent} alt="" draggable={false} /> : null}

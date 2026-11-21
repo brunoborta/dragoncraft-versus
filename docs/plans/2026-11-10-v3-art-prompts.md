@@ -161,3 +161,15 @@ Mesmo bloco de estilo, mesmas regras de entrega (PNG ≥1024 de largura, fundo l
 > The same small round cushion in the same low hammered-gold ring, same shape, same angle and same size in the frame, but the velvet is a deep wine-red crimson instead of green. The same raised gold leaves around the ring, the same thick twisted golden rope along the seam, the same smooth, plain top with nothing resting on it and a soft velvet sheen catching warm light. Seen from slightly above at about 25 degrees, a wide oval roughly three times wider than it is tall. Front view, perfectly centered and symmetrical, filling about 85% of the frame's width. Isolated on a plain flat solid light grey background, no cast shadow, no floor, no other objects.
 
 **Fundo:** pelo que o recorte aprendeu na terceira rodada, nada de prata, branco ou cinza na bandeja — o recorte levaria junto. Ouro e veludo colorido saem limpos.
+
+## Quinta rodada — Professor Maple — 2026-11-21
+
+O professor do tutorial (spec `docs/specs/2026-11-21-tutorial-design.md`). Hoje o tutorial usa o retrato do oponente como placeholder (`avatar-opponent`), no centro da tela (~130 px) e na plaquinha de cima (~48 px). Precisa de um retrato só, que funcione nos dois tamanhos: no pequeno vale a silhueta — a cabeça de dragão, os óculos e a gola branca do jaleco.
+
+Mesmo bloco de estilo e mesmas regras de entrega das rodadas anteriores (PNG ≥1024, fundo liso, sem recortar). Salve em `designs/art/` como `avatar-maple.png`. Dica: use `avatar-opponent.png` como referência de enquadramento, para ele caber no mesmo círculo.
+
+### 16 · Professor Maple — `avatar-maple.png`
+
+> A friendly, scholarly dragon professor, head and shoulders portrait, facing right. Warm autumn-red and amber scales like maple leaves, small curled horns, kind amber eyes behind round gold-rimmed spectacles perched on the snout. He wears a crisp white laboratory coat over a moss-green waistcoat, with a small maple-leaf pin on the lapel and a pencil tucked behind one horn. Expression: delighted, encouraging, slightly mischievous, the look of a favourite university teacher. Painterly fantasy illustration, rich and warm, soft rim light, the same style as the other dragon portraits. Centered, head and collar filling the frame, cropped at the chest so it reads inside a circle. Isolated on a plain flat solid light grey background, no cast shadow, no other objects.
+
+**Fundo:** o jaleco é branco — cuidado com o recorte (a lição da terceira rodada). Se o recorte comer o jaleco, gere com fundo verde-escuro liso em vez de cinza.

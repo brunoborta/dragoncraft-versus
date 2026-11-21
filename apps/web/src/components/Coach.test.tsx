@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Step } from '../game/tutorial/script.js'
-import { Coach, measureHoles } from './Coach.js'
+import { Coach, blockers, measureHoles, ribbonTop } from './Coach.js'
 
 const say: Step = { kind: 'say', text: 'Hello, apprentice.' }
 const doIt: Step = { kind: 'do', text: 'Tap the gear.', spots: ['.gear'], expect: [{ ui: { kind: 'openSettings' } }] }
@@ -55,6 +55,48 @@ describe('Coach', () => {
   it('says nothing during a move of its own', () => {
     coach({ act: 2, step: { kind: 'play', action: { type: 'endTurn' } } })
     expect(screen.queryByRole('region', { name: 'Professor Maple' })).toBeNull()
+  })
+})
+
+describe('blockers', () => {
+  const inside = (cells: { x: number; y: number; w: number; h: number }[], x: number, y: number) =>
+    cells.some((c) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h)
+
+  it('covers everything but the hole', () => {
+    const cells = blockers([{ x: 100, y: 100, w: 50, h: 50 }], 400, 800)
+    expect(inside(cells, 125, 125)).toBe(false)
+    expect(inside(cells, 10, 10)).toBe(true)
+    expect(inside(cells, 125, 300)).toBe(true)
+  })
+  it('keeps two overlapping holes open where they overlap', () => {
+    const holes = [
+      { x: 100, y: 100, w: 50, h: 50 },
+      { x: 110, y: 105, w: 50, h: 50 },
+    ]
+    const cells = blockers(holes, 400, 800)
+    expect(inside(cells, 125, 125)).toBe(false)
+    expect(inside(cells, 155, 150)).toBe(false)
+  })
+})
+
+describe('ribbonTop', () => {
+  const screenHeight = 860
+  it('stands in the middle of the class when nothing lit is there', () => {
+    expect(ribbonTop([], 1, 200, screenHeight, 70)).toBe(330)
+  })
+  it('moves to the foot of the screen when the middle is lit', () => {
+    expect(ribbonTop([{ x: 0, y: 300, w: 100, h: 200 }], 1, 200, screenHeight, 70)).toBe(644)
+  })
+  it('goes to the top when the middle and the foot are both lit', () => {
+    const holes = [
+      { x: 0, y: 300, w: 100, h: 200 },
+      { x: 0, y: 700, w: 100, h: 100 },
+    ]
+    expect(ribbonTop(holes, 1, 200, screenHeight, 70)).toBe(16)
+  })
+  it('hangs under the plate in the lessons, unless that hides the spot', () => {
+    expect(ribbonTop([], 2, 90, screenHeight, 70)).toBe(70)
+    expect(ribbonTop([{ x: 0, y: 100, w: 50, h: 50 }], 2, 90, screenHeight, 70)).toBe(754)
   })
 })
 
