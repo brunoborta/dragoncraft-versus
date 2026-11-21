@@ -56,6 +56,7 @@ export function HexCell({
       role="button"
       tabIndex={0}
       aria-label={label}
+      data-hex={key(hex)}
       data-highlight={highlight ?? 'none'}
       className="hex-cell"
       onClick={() => onSelect(hex)}

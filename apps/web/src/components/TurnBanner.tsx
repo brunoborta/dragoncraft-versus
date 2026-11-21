@@ -22,13 +22,18 @@ export function useTurnBanner({
   seat,
   ended,
   blocked,
+  opening = true,
 }: {
   current: Seat
   seat: Seat
   ended: boolean
   blocked: boolean
+  /** False: no banner owed at the start, only on a change of turn (the tutorial's class has no turn to announce). */
+  opening?: boolean
 }): { banner: Banner | null; pending: boolean; dismiss: () => void } {
-  const [owed, setOwed] = useState<Banner['side'] | null>(ended ? null : current === seat ? 'you' : 'opponent')
+  const [owed, setOwed] = useState<Banner['side'] | null>(
+    ended || !opening ? null : current === seat ? 'you' : 'opponent',
+  )
   const [banner, setBanner] = useState<Banner | null>(null)
   const lastCurrent = useRef(current)
   const count = useRef(0)
@@ -62,10 +67,19 @@ export function useTurnBanner({
  * Decorative for assistive technology — the turn is already announced by the
  * live line in the top bar — and absent under test for the same reason.
  */
-export function TurnBanner({ banner, onDismiss }: { banner: Banner | null; onDismiss: () => void }) {
+export function TurnBanner({
+  banner,
+  onDismiss,
+  opponentTitle = "Opponent's Turn",
+}: {
+  banner: Banner | null
+  onDismiss: () => void
+  /** What the other side's banner says: "Professor's Turn" in the tutorial. */
+  opponentTitle?: string
+}) {
   return (
     <BannerLayer side={banner?.side ?? 'you'} bannerKey={banner?.key ?? null} onDismiss={onDismiss}>
-      {banner?.side === 'opponent' ? "Opponent's Turn" : 'Your Turn'}
+      {banner?.side === 'opponent' ? opponentTitle : 'Your Turn'}
     </BannerLayer>
   )
 }

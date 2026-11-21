@@ -55,6 +55,7 @@ export function CardView({
   return (
     <article
       className="card"
+      data-card={card.id}
       data-scoreable={scoreable}
       data-ready={ready || undefined}
       data-completes={completes || undefined}

@@ -57,6 +57,16 @@ describe('useTurnBanner', () => {
     expect(result.current.banner).toBeNull()
   })
 
+  it('owes nothing at the start when told not to, and still announces the next turn', () => {
+    const { result, rerender } = renderHook((props: Props) => useTurnBanner(props), {
+      initialProps: { ...start, opening: false },
+    })
+    expect(result.current.banner).toBeNull()
+    expect(result.current.pending).toBe(false)
+    rerender({ ...start, opening: false, current: 1 })
+    expect(result.current.banner?.side).toBe('opponent')
+  })
+
   it('stays down once the game is over', () => {
     const { result } = renderHook((props: Props) => useTurnBanner(props), { initialProps: { ...start, ended: true } })
     expect(result.current.banner).toBeNull()

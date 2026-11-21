@@ -26,7 +26,7 @@ export function SettingsDialog({
       <section className="modal" role="dialog" aria-modal="true" aria-label="Settings" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <h2>Settings</h2>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Close settings">
+          <button type="button" className="modal-close" data-coach="settings-close" onClick={onClose} aria-label="Close settings">
             <CrossIcon />
           </button>
         </div>

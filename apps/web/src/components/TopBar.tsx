@@ -62,7 +62,10 @@ export function TopBar({
   reputation,
   label = '',
   detail = '',
+  opponentName = 'Opponent',
 }: {
+  /** Who sits at the top: "Professor Maple" in the tutorial and its warm-up. */
+  opponentName?: string
   view: PlayerView
   onOpenLog: () => void
   onOpenSettings?: () => void
@@ -87,10 +90,10 @@ export function TopBar({
         {turnLine(view)}
       </p>
       <div className="top-row">
-        <section className="plate" data-side="opponent" aria-label="Opponent">
+        <section className="plate" data-side="opponent" aria-label={opponentName}>
           <Avatar side="opponent" active={theirTurn} />
           <div className="plate-body">
-            <span className="plate-name">Opponent</span>
+            <span className="plate-name">{opponentName}</span>
             {/* who this is and which game: the second line of the plate */}
             <p className="level">
               {label ? <span>{label}</span> : null}
@@ -112,18 +115,18 @@ export function TopBar({
           </span>
         </section>
         <div className="top-buttons">
-          <button type="button" className="icon-button" onClick={onOpenLog}>
+          <button type="button" className="icon-button" data-coach="log" onClick={onOpenLog}>
             <LogIcon />
             <span className="sr-only">Full log</span>
           </button>
           {onOpenHelp ? (
-            <button type="button" className="icon-button" onClick={onOpenHelp}>
+            <button type="button" className="icon-button" data-coach="help" onClick={onOpenHelp}>
               <HelpIcon />
               <span className="sr-only">How to play</span>
             </button>
           ) : null}
           {onOpenSettings ? (
-            <button type="button" className="icon-button" onClick={onOpenSettings}>
+            <button type="button" className="icon-button" data-coach="settings" onClick={onOpenSettings}>
               <GearIcon />
               <span className="sr-only">Settings</span>
             </button>

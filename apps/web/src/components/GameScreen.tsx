@@ -38,6 +38,7 @@ import { SettingsDialog } from './SettingsDialog.js'
 import { StackPeek } from './StackPeek.js'
 import { TurnBanner, useTurnBanner } from './TurnBanner.js'
 import { EndBanner, useEndBanner } from './EndBanner.js'
+import type { UiEvent } from '../game/tutorial/script.js'
 import { endCause, endMarks } from '../game/endSignal.js'
 import { TopBar } from './TopBar.js'
 
@@ -62,7 +63,16 @@ export function GameScreen({
   paused = false,
   options = DEFAULT_TABLE_OPTIONS,
   onOptionsChange,
+  opponentName,
+  onUi,
+  openingBanner = true,
 }: {
+  /** Who sits at the top, on the plate and in their turn banner: "Professor Maple" in the tutorial. */
+  opponentName?: string
+  /** Taps the engine never hears about — the settings opening and closing, a stack opened — for the tutorial to follow. */
+  onUi?: (event: UiEvent) => void
+  /** False: no turn banner when the screen opens. */
+  openingBanner?: boolean
   table: Table
   /** The table's view, already known not to be null. */
   view: PlayerView
@@ -134,6 +144,7 @@ export function GameScreen({
     seat: view.seat,
     ended: view.phase === 'ended',
     blocked: menuOver || presentation.remaining.some((event) => event.seat !== view.current) || endBeforeTurn.current,
+    opening: openingBanner,
   })
   bannerPending.current = turnBanner.pending
   const endBanner = useEndBanner({
@@ -342,7 +353,9 @@ export function GameScreen({
   function lookAt(hex: Hex, landing = false): void {
     const open = inspecting !== null && hexEq(inspecting, hex)
     const height = (view.board[key(hex)] ?? []).length
-    setInspecting(!open && height >= (landing ? 1 : 2) ? hex : null)
+    const opens = !open && height >= (landing ? 1 : 2)
+    setInspecting(opens ? hex : null)
+    if (opens) onUi?.({ kind: 'inspect', hex: key(hex) })
   }
 
   function selectHex(hex: Hex): void {
@@ -453,8 +466,12 @@ export function GameScreen({
         view={view}
         label={label}
         detail={detail}
+        opponentName={opponentName}
         onOpenLog={() => setLogOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsOpen(true)
+          onUi?.({ kind: 'openSettings' })
+        }}
         onOpenHelp={() => setHelpOpen(true)}
         showReputation={options.showReputation}
         reputation={bankedReputation(view.opponent) - unlanded(opponentSeat)}
@@ -563,7 +580,10 @@ export function GameScreen({
                   table.forfeit()
                 }
           }
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => {
+            setSettingsOpen(false)
+            onUi?.({ kind: 'closeSettings' })
+          }}
         />
       ) : null}
       {logOpen ? <LogDialog view={view} onClose={() => setLogOpen(false)} /> : null}
@@ -599,7 +619,11 @@ export function GameScreen({
       {event?.kind === 'unplace' ? (
         <UnplaceFlight key={event.seq} event={event} seat={view.seat} within={screenRef.current} />
       ) : null}
-      <TurnBanner banner={turnBanner.banner} onDismiss={turnBanner.dismiss} />
+      <TurnBanner
+        banner={turnBanner.banner}
+        onDismiss={turnBanner.dismiss}
+        opponentTitle={opponentName ? `${opponentName.split(' ')[0]}'s Turn` : undefined}
+      />
       <EndBanner banner={endBanner.banner} onDismiss={endBanner.dismiss} />
       {ended && !viewingBoard ? (
         // a tap outside the result puts it away, the same as its X
