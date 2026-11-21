@@ -1,6 +1,6 @@
 import type { Action } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
-import { matches, offered, uiMatches } from './script.js'
+import { accepts, matches, offered, uiMatches } from './script.js'
 import type { Step } from './script.js'
 
 const place = (q: number, r: number): Action => ({ type: 'place', at: { q, r } })
@@ -41,6 +41,25 @@ describe('offered', () => {
     expect(offered(steps, 2, 0, actions)).toEqual([])
     expect(offered(steps, 3, 0, actions)).toEqual([])
     expect(offered(steps, 4, 0, actions)).toEqual([])
+  })
+  it('shows what a step lists beside what it expects, and accepts only the expected', () => {
+    const step: Step = {
+      kind: 'do',
+      text: 'Skip it.',
+      expect: [{ action: { type: 'skipFireUp' } }],
+      show: [{ type: 'fireUp' }],
+    }
+    const now: Action[] = [{ type: 'skipFireUp' }, { type: 'fireUp', ability: 'bread' }, { type: 'spendCoin' }]
+    expect(offered([step], 0, 0, now)).toEqual([{ type: 'skipFireUp' }, { type: 'fireUp', ability: 'bread' }])
+    expect(accepts(step, 0, { type: 'skipFireUp' })).toBe(true)
+    expect(accepts(step, 0, { type: 'fireUp', ability: 'bread' })).toBe(false)
+  })
+  it('falls back on what the lesson shows while idle', () => {
+    expect(offered([{ kind: 'say', text: 'Hi.' }], 0, 0, actions, { type: 'place' })).toEqual([place(0, 0), place(0, 1)])
+  })
+  it('takes a swap either way round', () => {
+    const swap: Action = { type: 'potionSwap', a: { q: 1, r: 1 }, b: { q: -2, r: 2 } }
+    expect(matches(swap, { type: 'potionSwap', a: { q: -2, r: 2 }, b: { q: 1, r: 1 } })).toBe(true)
   })
   it('moves on through a do step that waits for several actions', () => {
     const two: Step[] = [

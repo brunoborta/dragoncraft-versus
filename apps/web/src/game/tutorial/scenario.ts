@@ -1,4 +1,4 @@
-import { DECK, DRAGON_TYPES, STARTING_COINS, dual, pick, seedFrom, single, tokenId } from '@dcv/engine'
+﻿import { DECK, DRAGON_TYPES, STARTING_COINS, dual, pick, seedFrom, single, tokenId } from '@dcv/engine'
 import type { DragonType, GameState, HexKey, ShopCard, Token } from '@dcv/engine'
 
 /** A token as a lesson writes it: one type, or the two of a dual. */
@@ -28,6 +28,7 @@ export type ScenarioSpec = {
   /** The deck, top first. Defaults to every card in neither hand. */
   deck?: readonly string[]
   coins?: number
+  opponentCoins?: number
 }
 
 /**
@@ -57,7 +58,7 @@ export function scenario(spec: ScenarioSpec): GameState {
     deck,
     players: [
       { hand, scored: [], coins, coinSpentThisTurn: false },
-      { hand: opponentHand, scored: [], coins: STARTING_COINS, coinSpentThisTurn: false },
+      { hand: opponentHand, scored: [], coins: spec.opponentCoins ?? STARTING_COINS, coinSpentThisTurn: false },
     ],
     current: 0,
     phase: 'play',

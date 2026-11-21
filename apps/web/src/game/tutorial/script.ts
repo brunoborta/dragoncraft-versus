@@ -15,10 +15,22 @@ export type Expect = { action: Partial<Action> } | { ui: UiEvent } | { undo: tru
  */
 export type Step =
   | { kind: 'say'; text: string; spots?: string[] }
-  | { kind: 'do'; text: string; spots?: string[]; expect: Expect[]; draws?: TokenSpec[] }
+  | {
+      kind: 'do'
+      text: string
+      spots?: string[]
+      expect: Expect[]
+      draws?: TokenSpec[]
+      /** Shown on screen beside what is expected (the flame next to Skip), but not accepted. */
+      show?: Partial<Action>[]
+    }
   | { kind: 'play'; action: Action; spots?: string[]; draws?: TokenSpec[] }
 
-export type Lesson = { id: string; act: 1 | 2; build: () => GameState; steps: Step[] }
+/**
+ * `idle`: what the screen shows while nothing in particular is asked — in the
+ * class, the token waiting to be placed, so End turn shows its lock.
+ */
+export type Lesson = { id: string; act: 1 | 2; build: () => GameState; steps: Step[]; idle?: Partial<Action> }
 
 function same(have: unknown, want: unknown): boolean {
   if (Array.isArray(want)) {
@@ -34,9 +46,15 @@ function same(have: unknown, want: unknown): boolean {
   return have === want
 }
 
-/** True when every field `want` names has the same value in `action`. */
+/**
+ * True when every field `want` names has the same value in `action`. A swap
+ * is the same swap either way round: the engine lists each pair once, in its
+ * own order.
+ */
 export function matches(action: Action, want: Partial<Action>): boolean {
-  return same(action, want)
+  if (same(action, want)) return true
+  if (action.type !== 'potionSwap' || !('a' in want) || !('b' in want)) return false
+  return same({ ...action, a: action.b, b: action.a }, want)
 }
 
 export function uiMatches(event: UiEvent, want: UiEvent): boolean {
@@ -50,12 +68,30 @@ export function uiMatches(event: UiEvent, want: UiEvent): boolean {
  * or the fire-up choice Maple is talking about is already there. Anything
  * else: nothing.
  */
-export function offered(steps: readonly Step[], index: number, done: number, actions: readonly Action[]): Action[] {
+export function offered(
+  steps: readonly Step[],
+  index: number,
+  done: number,
+  actions: readonly Action[],
+  idle?: Partial<Action>,
+): Action[] {
   const step = steps[index]
-  if (!step) return []
-  if (step.kind === 'say') return offered(steps, index + 1, 0, actions)
+  const fallback = () => (idle ? actions.filter((action) => matches(action, idle)) : [])
+  if (!step) return fallback()
+  if (step.kind === 'say') {
+    const next = offered(steps, index + 1, 0, actions)
+    return next.length ? next : fallback()
+  }
   if (step.kind !== 'do') return []
   const want = step.expect[done]
   if (!want || !('action' in want)) return []
-  return actions.filter((action) => matches(action, want.action))
+  const wanted = [want.action, ...(done === 0 ? (step.show ?? []) : [])]
+  return actions.filter((action) => wanted.some((w) => matches(action, w)))
+}
+
+/** True when `action` answers what the step waits for now: shown-only actions are not. */
+export function accepts(step: Step | undefined, done: number, action: Action): boolean {
+  if (step?.kind !== 'do') return false
+  const want = step.expect[done]
+  return want !== undefined && 'action' in want && matches(action, want.action)
 }
