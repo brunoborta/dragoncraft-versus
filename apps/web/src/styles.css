@@ -1,4 +1,12 @@
 :root {
+  /*
+   * Two shapes, each with a meaning. A button that does something is a pill —
+   * End turn, Keep these, New game, Let's play. A surface, or a choice that
+   * says what it does under its name, is a tile: cards, windows, the
+   * difficulty you pick, a fire-up with its effect.
+   */
+  --radius-pill: 999px;
+  --radius-tile: 12px;
   --bg: #10211a;
   --surface: #1a3127;
   --ink: #e8eef5;
@@ -685,12 +693,14 @@ body {
   gap: 8px;
   min-height: 40px;
   padding: 4px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   font: inherit;
   text-align: left;
   transition: transform var(--t-tap);
 }
 .prompt-actions button:active { transform: scale(0.96); }
+/* a choice that says what it does under its name is a tile, like the ones on the front door */
+.prompt-actions button:has(.action-effect) { border-radius: var(--radius-tile); }
 .action-name { display: block; font-weight: 700; }
 .action-effect { display: block; font-size: 12px; font-weight: 400; }
 
@@ -826,7 +836,7 @@ body {
   min-width: 128px;
   min-height: 48px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font: inherit;
   font-family: var(--font-display);
   font-size: 18px;
@@ -999,7 +1009,7 @@ body {
   text-align: left;
   padding: 12px 16px;
   min-height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-tile);
   color: var(--parchment-ink);
   background-color: var(--parchment);
   background-image: linear-gradient(180deg, rgb(255 250 235 / 0.4), rgb(120 80 30 / 0.1)), var(--art-parchment, none);
@@ -1009,6 +1019,8 @@ body {
   transition: transform var(--t-tap);
 }
 .level-choice:active:not(:disabled) { transform: scale(0.98); }
+/* a tile even inside a window, where the buttons around it are pills */
+.modal > button.level-choice { border-radius: var(--radius-tile); }
 .level-choice .action-name { font-family: var(--font-display); font-size: 18px; }
 .level-choice .action-effect { color: var(--parchment-muted); font-size: 13px; }
 
@@ -1119,7 +1131,7 @@ body {
   min-height: 48px;
   width: 100%;
   border: 1px solid #8a6a26;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   background: var(--completes);
   color: var(--bg);
   font: inherit;
@@ -1128,7 +1140,7 @@ body {
   font-weight: 700;
 }
 .game-over button.btn-secondary { background: #fbf5e4; color: var(--parchment-ink); border-color: #b8913f; font-size: 16px; }
-.prompt-head .btn-secondary { min-height: 44px; padding: 0 14px; border-radius: 10px; font: inherit; font-weight: 700; }
+.prompt-head .btn-secondary { min-height: 44px; padding: 0 14px; border-radius: var(--radius-pill); font: inherit; font-weight: 700; }
 
 /* Only reachable with #debug in the URL: a way to look at the final screen
    without playing a hundred moves. */
@@ -1147,7 +1159,7 @@ body {
 /* ----- online: lobby, PIN, reconnecting ----- */
 .modal > button {
   min-height: 48px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   background: #fbf5e4;
   color: var(--parchment-ink);
   border: 1.5px solid #b8913f;
@@ -1195,7 +1207,7 @@ body {
   border: 1.5px solid var(--brass-400);
   border-radius: 12px;
 }
-.pin-form > button { min-height: 48px; border-radius: 12px; font: inherit; }
+.pin-form > button { min-height: 48px; border-radius: var(--radius-pill); font: inherit; }
 .pin-form > button.primary { background: var(--completes); color: var(--bg); border: 1px solid #8a6a26; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
 .pin-form > button:disabled, .level-choice:disabled { opacity: 0.45; }
 
@@ -1478,7 +1490,7 @@ body {
   position: relative;
   overflow: hidden;
   min-height: 48px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   background: #3a1620;
   color: #f3c9d0;
   border: 1.5px solid #a2384e;
@@ -1707,7 +1719,7 @@ body {
 .coach-next {
   min-height: 36px;
   padding: 4px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 700;
@@ -1719,7 +1731,7 @@ body {
 .coach-back:disabled,
 .coach-next:disabled { opacity: 0.35; }
 .coach-skip { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.coach-skip button { padding: 2px 10px; border-radius: 999px; border: 1px solid rgb(243 223 162 / 0.5); background: rgb(6 14 10 / 0.4); color: var(--brass-200); font-size: 13px; }
+.coach-skip button { padding: 2px 10px; border-radius: var(--radius-pill); border: 1px solid rgb(243 223 162 / 0.5); background: rgb(6 14 10 / 0.4); color: var(--brass-200); font-size: 13px; }
 .coach-skip .coach-skip-link { border: 0; background: none; padding: 0; text-decoration: underline; opacity: 0.8; }
 .coach-offer { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
 
@@ -1751,7 +1763,7 @@ body {
 .coach-offer button {
   min-height: 44px;
   padding: 8px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
