@@ -1,8 +1,38 @@
 import type { Action, GameState, HexKey } from '@dcv/engine'
+import type { MaplePose } from '../../art/poses.js'
 import type { TokenSpec } from './scenario.js'
 
 /** What the screen does that the engine never hears about. */
-export type UiEvent = { kind: 'openSettings' } | { kind: 'closeSettings' } | { kind: 'inspect'; hex: HexKey }
+export type UiEvent =
+  | { kind: 'openSettings' }
+  | { kind: 'closeSettings' }
+  | { kind: 'inspect'; hex: HexKey }
+  /** A space picked on the board, before what is done with it: a Plant's neighbour, before its flame. */
+  | { kind: 'select'; hex: HexKey }
+  /** The cards to keep after a coin, all marked, before the choice is confirmed (in any order). */
+  | { kind: 'keep'; cards: string[] }
+  /** Your token tapped (or held) until what it does came up, and the finger lifted. */
+  | { kind: 'tokenInfo' }
+
+/**
+ * What a page had open that a freshly built screen has shut: the settings, a
+ * stack in the corner, a space picked (a Plant's neighbour, its flame showing),
+ * the cards marked to keep after a coin.
+ */
+export type Reopen = { settings: boolean; inspect: HexKey | null; select: HexKey | null; keep: string[] | null }
+
+/**
+ * Everything a game screen does for the tutorial, in one place — the whole of
+ * what the tutorial may know of the screen's own state or ask of it.
+ */
+export type Coaching = {
+  /** Taps the engine never hears about: the settings opening and closing, a stack opened, a space picked, cards kept. */
+  onUi: (event: UiEvent) => void
+  /** False: no turn banner as the screen opens (the class; a screen rebuilt by Back). */
+  opening: boolean
+  /** What the screen opens with, as the page it comes back to left it. */
+  reopen: Reopen | null
+}
 
 /** One thing a `do` step waits for: an action (matched partially), a tap on the screen, or Undo. */
 export type Expect = { action: Partial<Action> } | { ui: UiEvent } | { undo: true }
@@ -14,11 +44,20 @@ export type Expect = { action: Partial<Action> } | { ui: UiEvent } | { undo: tru
  * on; `draws` are the tokens the step's first action must bring out of the bag.
  */
 export type Step =
-  | { kind: 'say'; text: string; spots?: string[] }
+  | {
+      kind: 'say'
+      text: string
+      spots?: string[]
+      pose?: MaplePose
+      /** The screen left as the player sees it, nothing darkened: to look at everything the line is about. */
+      clear?: boolean
+    }
   | {
       kind: 'do'
       text: string
       spots?: string[]
+      /** How Maple stands while he says it; `explaining` when left out. */
+      pose?: MaplePose
       expect: Expect[]
       draws?: TokenSpec[]
       /** Shown on screen beside what is expected (the flame next to Skip), but not accepted. */

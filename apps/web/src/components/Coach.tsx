@@ -1,77 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { useArt } from '../art/ArtContext.js'
+import type { MaplePose } from '../art/poses.js'
+import { DESSERT } from '../game/tutorial/chapters.js'
 import type { Step } from '../game/tutorial/script.js'
+import type { ChapterCard } from '../game/tutorial/useTutorialTable.js'
 import { useReducedMotion } from '../motion.js'
+import { HoleShape, blockers, useHoles } from './spotlight.js'
+import type { Hole } from './spotlight.js'
 
-/** Room around a lit element, and the roundness of its hole. */
-const PAD = 8
-const RADIUS = 14
-/** How often the holes are measured again: the screen animates under them. */
-const MEASURE_EVERY = 150
 /** How long Maple takes to fly from the class to the opponent's seat. */
 export const FLY_MS = 700
-
-type Hole = { x: number; y: number; w: number; h: number }
-
-/** The holes the spotlight opens: every element each selector finds, padded. Nothing found, no hole. */
-export function measureHoles(spots: readonly string[]): Hole[] {
-  const holes: Hole[] = []
-  for (const selector of spots) {
-    for (const element of document.querySelectorAll(selector)) {
-      const rect = element.getBoundingClientRect()
-      if (rect.width === 0 && rect.height === 0) continue
-      holes.push({ x: rect.left - PAD, y: rect.top - PAD, w: rect.width + PAD * 2, h: rect.height + PAD * 2 })
-    }
-  }
-  return holes
-}
-
-function useHoles(spots: readonly string[], active: boolean): Hole[] {
-  const [holes, setHoles] = useState<Hole[]>([])
-  const key = spots.join('|')
-  useEffect(() => {
-    if (!active) {
-      setHoles([])
-      return
-    }
-    const list = key ? key.split('|') : []
-    const measure = () =>
-      setHoles((current) => {
-        const next = measureHoles(list)
-        return JSON.stringify(next) === JSON.stringify(current) ? current : next
-      })
-    measure()
-    const timer = setInterval(measure, MEASURE_EVERY)
-    window.addEventListener('resize', measure)
-    return () => {
-      clearInterval(timer)
-      window.removeEventListener('resize', measure)
-    }
-  }, [key, active])
-  return holes
-}
-
 /**
- * What blocks a tap while something is to be done: the screen cut into a grid
- * along every hole's edges, keeping the cells outside all holes. Overlapping
- * holes (a space and the token hovering over it are found twice) stay open —
- * a fill rule would close them again where they overlap.
+ * The height the class places Maple and his ribbon by: his bust and a ribbon
+ * of three lines. A line that wraps differently grows the ribbon downwards and
+ * leaves him where he stands.
  */
-export function blockers(holes: readonly Hole[], width: number, height: number): Hole[] {
-  const edges = (lo: number, hi: number, cuts: number[]) =>
-    [...new Set([lo, hi, ...cuts.map((c) => Math.min(hi, Math.max(lo, c)))])].sort((a, b) => a - b)
-  const xs = edges(0, width, holes.flatMap((h) => [h.x, h.x + h.w]))
-  const ys = edges(0, height, holes.flatMap((h) => [h.y, h.y + h.h]))
-  const open = (x: number, y: number) => holes.some((h) => x > h.x && x < h.x + h.w && y > h.y && y < h.y + h.h)
-  const cells: Hole[] = []
-  for (let j = 0; j < ys.length - 1; j++) {
-    for (let i = 0; i < xs.length - 1; i++) {
-      const cell = { x: xs[i], y: ys[j], w: xs[i + 1] - xs[i], h: ys[j + 1] - ys[j] }
-      if (cell.w > 0 && cell.h > 0 && !open(cell.x + cell.w / 2, cell.y + cell.h / 2)) cells.push(cell)
-    }
-  }
-  return cells
-}
+const STANDING_HEIGHT = 320
+/** How long the screen must have been still before Maple speaks. */
+export const SETTLE_MS = 150
+/** The longest a line waits for what it lights to be there. */
+export const SPOT_PATIENCE = 1000
+/** How long his portrait shows as the seat portrait before it lifts off. */
+export const SWAP_MS = 450
 
 const EDGE = 16
 
@@ -117,7 +67,18 @@ export function Coach({
   onSkip,
   onPlay,
   onMenu,
+  page = null,
+  canBack = false,
+  onBack = () => {},
+  card = null,
+  onDismissCard = () => {},
+  departing = false,
+  onLanded = () => {},
 }: {
+  /** The class is over: Maple flies from over the ribbon to his seat at the top. */
+  departing?: boolean
+  /** He is in his seat (at once under reduced motion). */
+  onLanded?: () => void
   act: 1 | 2 | 3
   step: Step | null
   busy: boolean
@@ -125,12 +86,51 @@ export function Coach({
   onSkip: () => void
   onPlay: () => void
   onMenu: () => void
+  /** Where the line stands in its chapter: "Ch. 4 · Main Course", "2/7". */
+  page?: { chapter: { number: number; title: string }; page: number; pages: number } | null
+  canBack?: boolean
+  onBack?: () => void
+  /** A chapter's title card, on the way in. */
+  card?: ChapterCard | null
+  onDismissCard?: () => void
 }) {
   const art = useArt()
   const reduced = useReducedMotion()
   const [asking, setAsking] = useState(false)
-  const shown = !busy && (step !== null || act === 3)
-  const holes = useHoles(step?.spots ?? [], shown)
+  /*
+   * The screen says it is busy a frame or two after a move — the banner a move
+   * owes is only known on the next render. Appearing the moment it reads idle
+   * would flash the coach for that frame, so it waits for the screen to have
+   * been still a moment; it goes away at once.
+   */
+  const [settled, setSettled] = useState(!busy)
+  useEffect(() => {
+    if (busy) {
+      setSettled(false)
+      return
+    }
+    const timer = setTimeout(() => setSettled(true), SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [busy])
+  // Maple's own moves are watched as the player will see them in a game: nothing of the coach on screen
+  const speaking = !busy && settled && ((step !== null && step.kind !== 'play') || act === 3)
+  const spots = step?.spots ?? []
+  const holes = useHoles(spots, speaking)
+  /*
+   * A line that lights something waits for it to be there: an answer still
+   * fading in, or not yet in its place, would otherwise be ringed where it is
+   * not. Never longer than a moment — a spot that does not come does not hold
+   * the lesson up.
+   */
+  const [waitedOut, setWaitedOut] = useState(false)
+  useEffect(() => {
+    setWaitedOut(false)
+    if (!speaking || spots.length === 0) return
+    const timer = setTimeout(() => setWaitedOut(true), SPOT_PATIENCE)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the wait is per line, not per spot list identity
+  }, [speaking, step])
+  const shown = speaking && (spots.length === 0 || holes.length > 0 || waitedOut)
   const wrap = useRef<HTMLElement>(null)
   const [ribbonHeight, setRibbonHeight] = useState(0)
   useEffect(() => {
@@ -138,33 +138,57 @@ export function Coach({
     if (height !== ribbonHeight) setRibbonHeight(height)
   })
 
-  // the class is over: Maple flies to her seat
+  /*
+   * The class is over: over his last line, Maple's portrait turns into his
+   * round seat portrait, and that flies from where it stands to the
+   * opponent's plate. Once it lands the lessons begin (`onLanded`).
+   */
   const [flying, setFlying] = useState<{ from: DOMRect; to: DOMRect } | null>(null)
-  const lastAct = useRef(act)
+  const [gone, setGone] = useState(false)
   const portrait = useRef<HTMLImageElement>(null)
-  // where the portrait last stood: it is gone by the time act 2 renders
-  const lastPortrait = useRef<DOMRect | null>(null)
+  const landed = useRef(onLanded)
+  landed.current = onLanded
   useEffect(() => {
-    if (portrait.current) lastPortrait.current = portrait.current.getBoundingClientRect()
-  })
-  useEffect(() => {
-    const was = lastAct.current
-    lastAct.current = act
-    if (was !== 1 || act !== 2 || reduced) return
-    const seat = document.querySelector('.top-bar .avatar')
-    const from = lastPortrait.current
-    if (!seat || !from) return
-    setFlying({ from, to: seat.getBoundingClientRect() })
-    const timer = setTimeout(() => setFlying(null), FLY_MS)
-    return () => clearTimeout(timer)
-  }, [act, reduced])
+    if (!departing) {
+      // a flight cut short (a jump, a restart) does not leave his portrait hanging over the top bar
+      setGone(false)
+      setFlying(null)
+      return
+    }
+    if (reduced) {
+      const timer = setTimeout(() => landed.current(), 0)
+      return () => clearTimeout(timer)
+    }
+    let landing: ReturnType<typeof setTimeout> | undefined
+    // a beat for the swap to be seen, then the flight
+    const lift = setTimeout(() => {
+      const from = portrait.current?.getBoundingClientRect()
+      const seat = document.querySelector('.top-bar .avatar')
+      if (!from || !seat) {
+        landed.current()
+        return
+      }
+      setFlying({ from, to: seat.getBoundingClientRect() })
+      setGone(true)
+      landing = setTimeout(() => {
+        setFlying(null)
+        landed.current()
+      }, FLY_MS)
+    }, SWAP_MS)
+    return () => {
+      clearTimeout(lift)
+      if (landing) clearTimeout(landing)
+    }
+  }, [departing, reduced])
 
   useEffect(() => setAsking(false), [step])
 
   const kind = act === 3 ? 'offer' : step?.kind ?? 'say'
+  const clear = step?.kind === 'say' && step.clear === true
+  const pose: MaplePose = act === 3 ? 'welcoming' : step && step.kind !== 'play' ? (step.pose ?? 'explaining') : 'explaining'
   const line =
     act === 3
-      ? 'You’ve got the knack of it. Fancy a warm-up game against me? I’ll go easy on you.'
+      ? 'You did it! You’re now a Drachelor of Culinary Arts. Fancy a warm-up game against me? I’ll go easy on you.'
       : step && step.kind !== 'play'
         ? step.text
         : ''
@@ -172,7 +196,7 @@ export function Coach({
   const height = typeof window === 'undefined' ? 0 : window.innerHeight
 
   const skip = (
-    <div className="coach-skip" onClick={(event) => event.stopPropagation()}>
+    <div className="coach-skip">
       {asking ? (
         <>
           <span>Leave the lesson?</span>
@@ -200,14 +224,19 @@ export function Coach({
               <mask id="coach-mask">
                 <rect width="100%" height="100%" fill="white" />
                 {holes.map((hole, i) => (
-                  <rect key={i} className="coach-hole" x={hole.x} y={hole.y} width={hole.w} height={hole.h} rx={RADIUS} fill="black" />
+                  <HoleShape key={i} hole={hole} className="coach-hole" fill="black" />
                 ))}
               </mask>
             </defs>
-            <rect width="100%" height="100%" mask="url(#coach-mask)" className="coach-shade" />
-            {holes.map((hole, i) => (
-              <rect key={i} className="coach-ring" x={hole.x} y={hole.y} width={hole.w} height={hole.h} rx={RADIUS} />
-            ))}
+            {/* a clear line leaves the screen as the player sees it: no shade, no ring */}
+            {clear ? null : (
+              <>
+                <rect width="100%" height="100%" mask="url(#coach-mask)" className="coach-shade" />
+                {holes.map((hole, i) => (
+                  <HoleShape key={i} hole={hole} className={hole.still ? 'coach-ring coach-ring-still' : 'coach-ring'} />
+                ))}
+              </>
+            )}
           </svg>
           {/* what a tap outside the lit spots meets: a line to read goes on; a thing to do lets only the spots through */}
           {kind === 'do' && holes.length ? (
@@ -229,27 +258,51 @@ export function Coach({
             <section
               ref={wrap}
               className="coach-ribbon-wrap"
-              style={ribbonHeight ? { top: ribbonTop(holes, act, ribbonHeight, height, plateBottom()) } : undefined}
+              style={
+                ribbonHeight
+                  ? {
+                      top: ribbonTop(
+                        holes,
+                        act,
+                        // standing in the middle, Maple keeps his place as lines come and go: the block is
+                        // placed by a fixed height, and only a line longer than that moves him
+                        act === 2 ? ribbonHeight : Math.max(ribbonHeight, STANDING_HEIGHT),
+                        height,
+                        plateBottom(),
+                      ),
+                    }
+                  : undefined
+              }
               aria-label="Professor Maple"
             >
-              {act !== 2 ? <img ref={portrait} className="coach-portrait" src={art.avatarOpponent} alt="" draggable={false} /> : null}
+              {/* Maple, in the pose for what he is talking about: large in the class and at dessert, beside the ribbon in the lessons */}
+              <img
+                ref={act === 2 ? undefined : portrait}
+                className={act === 2 ? 'coach-bust' : departing ? 'coach-portrait coach-seat' : 'coach-portrait'}
+                src={departing ? art.mapleAvatar : art.maple[pose]}
+                alt=""
+                draggable={false}
+                data-pose={departing ? 'seat' : pose}
+                style={gone ? { visibility: 'hidden' } : undefined}
+              />
               <div className="coach-ribbon" onClick={kind === 'say' ? onNext : undefined}>
+                <p className="coach-head">
+                  {act === 3 ? (
+                    <span>{DESSERT}</span>
+                  ) : page ? (
+                    <>
+                      <span>
+                        Ch. {page.chapter.number} · {page.chapter.title}
+                      </span>
+                      <span className="coach-page">
+                        {page.page}/{page.pages}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
                 <p className="coach-line" aria-live="polite">
                   {line}
                 </p>
-                {kind === 'say' ? (
-                  <button
-                    type="button"
-                    className="coach-next"
-                    aria-label="Next"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onNext()
-                    }}
-                  >
-                    ▸
-                  </button>
-                ) : null}
                 {kind === 'offer' ? (
                   <div className="coach-offer" onClick={(event) => event.stopPropagation()}>
                     <button type="button" className="primary" onClick={onPlay}>
@@ -260,17 +313,45 @@ export function Coach({
                     </button>
                   </div>
                 ) : (
-                  skip
+                  <div className="coach-foot" onClick={(event) => event.stopPropagation()}>
+                    {skip}
+                    {asking ? null : (
+                      <div className="coach-steps">
+                        <button type="button" className="coach-back" aria-label="Back" disabled={!canBack || departing} onClick={onBack}>
+                          ◂ Back
+                        </button>
+                        {/* a thing to do is done on the board, not skipped: Next waits for it */}
+                        <button
+                          type="button"
+                          className="coach-next"
+                          aria-label="Next"
+                          disabled={kind !== 'say' || departing}
+                          onClick={onNext}
+                        >
+                          Next ▸
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </section>
           ) : null}
         </>
       ) : null}
+      {card ? (
+        // the chapter's title, as a banner is: a beat, or a tap
+        <div className="coach-card-layer" onClick={onDismissCard}>
+          <div className="coach-card">
+            {card.number !== null ? <span className="coach-card-number">Chapter {card.number}</span> : null}
+            <span className="coach-card-title">{card.title}</span>
+          </div>
+        </div>
+      ) : null}
       {flying ? (
         <img
           className="coach-flight"
-          src={art.avatarOpponent}
+          src={art.mapleAvatar}
           alt=""
           aria-hidden="true"
           style={

@@ -1,4 +1,4 @@
-import { applyAction, legalActions, undoTarget, winner } from '@dcv/engine'
+import { applyAction, legalActions, scoreableCards, undoTarget, winner } from '@dcv/engine'
 import type { GameState } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
 import { LESSONS } from './lessons.js'
@@ -77,8 +77,10 @@ describe('the lessons', () => {
     expect(scoredBy(end('undo'), 0)).toEqual(['line-meat', 'tri-meat'])
   })
 
-  it('keeps the two new cards after the coin', () => {
-    expect(end('coins').players[0].hand.map((card) => card.id).sort()).toEqual(['line-plant', 'tri-iron'])
+  it('makes the coin worth it: nothing is ready before it, and the two cards it kept are scored after', () => {
+    const coins = LESSONS.find((lesson) => lesson.id === 'coins')!
+    expect(scoreableCards(coins.build(), 0)).toEqual([])
+    expect(scoredBy(end('coins'), 0)).toEqual(['line-bread-bread-crystal', 'tri-crystal'])
   })
 
   it('ends the last lesson on the bag running out, with the player winning', () => {
@@ -87,6 +89,15 @@ describe('the lessons', () => {
     expect(last.phase).toBe('ended')
     expect(scoredBy(last, 1)).toEqual(['tri-iron'])
     expect(winner(last)).toBe(0)
+  })
+
+  it('never opens a lesson with an empty hand', () => {
+    for (const lesson of LESSONS) expect(lesson.build().players[0].hand, lesson.id).toHaveLength(2)
+  })
+
+  it('keeps the same two cards from the Bread to the page that needs them', () => {
+    const hand = (id: string) => LESSONS.find((lesson) => lesson.id === id)!.build().players[0].hand.map((card) => card.id)
+    for (const id of ['bread', 'crystal', 'meat-alone']) expect(hand(id)).toEqual(hand('meat-card'))
   })
 
   it('opens with the class, alone in act 1', () => {

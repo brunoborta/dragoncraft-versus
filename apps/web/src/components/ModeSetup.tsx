@@ -69,6 +69,11 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
             <div className="modal-head">
               <h2>Who are you playing?</h2>
             </div>
+            {/* first: someone opening the game for the first time should meet the lesson before anything else */}
+            <button type="button" className="level-choice" onClick={() => onStart({ kind: 'tutorial' })}>
+              <span className="action-name">Tutorial</span>
+              <span className="action-effect">Professor Maple shows you how to play, one step at a time</span>
+            </button>
             <button type="button" className="level-choice" onClick={() => setStep('computer')}>
               <span className="action-name">Against the computer</span>
               <span className="action-effect">Pick a difficulty and play on this device</span>
@@ -83,10 +88,6 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
               <span className="action-effect">
                 {online ? 'Play a friend on another device with a PIN' : 'Not available in this build'}
               </span>
-            </button>
-            <button type="button" className="level-choice" onClick={() => onStart({ kind: 'tutorial' })}>
-              <span className="action-name">Tutorial</span>
-              <span className="action-effect">Professor Maple shows you how to play, one step at a time</span>
             </button>
           </>
         ) : null}

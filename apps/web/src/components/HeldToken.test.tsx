@@ -122,3 +122,30 @@ describe('PlayerBar', () => {
     expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
+
+describe('HeldSlot, for the tutorial', () => {
+  it('says a tap showed what the token does, once the finger lifts', () => {
+    const onInfo = vi.fn()
+    render(<HeldSlot side="you" token={single('bread')} onInfo={onInfo} />)
+    const token = screen.getByRole('img', { name: /^Your token: Bread/ })
+    fireEvent.pointerDown(token, { button: 0 })
+    expect(onInfo).not.toHaveBeenCalled()
+    fireEvent.pointerUp(token)
+    fireEvent.click(token)
+    expect(onInfo).toHaveBeenCalledOnce()
+  })
+
+  it('says a hold showed what the token does once it is let go, and only once', () => {
+    const onInfo = vi.fn()
+    render(<HeldSlot side="you" token={single('bread')} onInfo={onInfo} />)
+    const token = screen.getByRole('img', { name: /^Your token: Bread/ })
+    fireEvent.pointerDown(token, { button: 0 })
+    act(() => vi.advanceTimersByTime(HOLD_MS + 10))
+    expect(screen.getByRole('tooltip')).toBeDefined()
+    expect(onInfo).not.toHaveBeenCalled()
+    fireEvent.pointerUp(token)
+    // the click a hold ends with is not a second tap
+    fireEvent.click(token)
+    expect(onInfo).toHaveBeenCalledOnce()
+  })
+})

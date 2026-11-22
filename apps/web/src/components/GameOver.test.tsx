@@ -170,4 +170,18 @@ describe('GameOver after giving up', () => {
     render(<GameOver opponentLabel="Machine" restartLabel="New game" view={finished(['tri-bread'], [])} onRestart={() => {}} />)
     expect(screen.queryByText(/gave up/)).toBeNull()
   })
+
+  it("shows the face of whoever sat across, when it is someone's", () => {
+    const { container } = render(
+      <GameOver
+        opponentLabel="Professor Maple"
+        opponentAvatar="maple.webp"
+        restartLabel="New game"
+        view={finished(['tri-bread'], [])}
+        onRestart={() => {}}
+      />,
+    )
+    expect(screen.getByText('Professor Maple')).toBeDefined()
+    expect(container.querySelector('.final-score[data-side="opponent"] img')?.getAttribute('src')).toBe('maple.webp')
+  })
 })

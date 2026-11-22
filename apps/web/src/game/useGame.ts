@@ -22,6 +22,10 @@ export type LocalGame = {
   reset: (seed: number) => void
   /** Replaces the history with a state from elsewhere, losing what came before. */
   load: (state: GameState) => void
+  /** Every state so far, oldest first: the tutorial keeps a copy at each page to go back to. */
+  history: readonly GameState[]
+  /** Puts back a whole history kept earlier, undo and all. */
+  restore: (history: readonly GameState[]) => void
 }
 
 /**
@@ -65,5 +69,9 @@ export function useGame(seed: number, start?: () => GameState): LocalGame {
     setHistory([state])
   }, [])
 
-  return { state, actions, perform, undo, canUndo: target !== null, undos, forfeit, reset, load }
+  const restore = useCallback((kept: readonly GameState[]) => {
+    setHistory([...kept])
+  }, [])
+
+  return { state, actions, perform, undo, canUndo: target !== null, undos, forfeit, reset, load, history, restore }
 }

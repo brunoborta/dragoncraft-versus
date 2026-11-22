@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Step } from '../game/tutorial/script.js'
-import { Coach, blockers, measureHoles, ribbonTop } from './Coach.js'
+import { Coach, SETTLE_MS, SPOT_PATIENCE, ribbonTop } from './Coach.js'
 
 const say: Step = { kind: 'say', text: 'Hello, apprentice.' }
 const doIt: Step = { kind: 'do', text: 'Tap the gear.', spots: ['.gear'], expect: [{ ui: { kind: 'openSettings' } }] }
@@ -21,11 +21,77 @@ describe('Coach', () => {
     expect(onNext).toHaveBeenCalledTimes(2)
   })
 
-  it('does not go on by a tap when something is to be done', () => {
+  it('does not go on by a tap when something is to be done: Next waits for it', () => {
+    vi.useFakeTimers()
     const { onNext } = coach({ step: doIt })
-    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+    // the gear is not on this test's page: the line waits for it, then speaks anyway
+    act(() => vi.advanceTimersByTime(SPOT_PATIENCE + 1))
+    vi.useRealTimers()
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByTestId('coach-catcher'))
     expect(onNext).not.toHaveBeenCalled()
+  })
+
+  it('heads the line with its chapter and page', () => {
+    coach({ act: 2, page: { chapter: { number: 4, title: 'Main Course' }, page: 2, pages: 7 } })
+    expect(screen.getByText('Ch. 4 · Main Course')).toBeTruthy()
+    expect(screen.getByText('2/7')).toBeTruthy()
+  })
+
+  it('goes back a page, unless there is none', () => {
+    const onBack = vi.fn()
+    coach({ canBack: true, onBack })
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalledOnce()
+  })
+
+  it('keeps Back off on the first page, and a tap on it never moves the line on', () => {
+    const { onNext } = coach({ canBack: false })
+    const back = screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement
+    expect(back.disabled).toBe(true)
+    fireEvent.click(back)
+    expect(onNext).not.toHaveBeenCalled()
+  })
+
+  it("shows a chapter's card, and a tap puts it away", () => {
+    const onDismissCard = vi.fn()
+    coach({ busy: true, card: { number: 4, title: 'Main Course' }, onDismissCard })
+    expect(screen.getByText('Chapter 4')).toBeTruthy()
+    fireEvent.click(screen.getByText('Main Course'))
+    expect(onDismissCard).toHaveBeenCalledOnce()
+  })
+
+  it('stands Maple in the pose of his line, explaining when it names none', () => {
+    const { container, unmount } = render(
+      <Coach act={1} step={{ kind: 'say', text: 'Cards!', pose: 'cards' }} busy={false} onNext={() => {}} onSkip={() => {}} onPlay={() => {}} onMenu={() => {}} />,
+    )
+    expect(container.querySelector('[data-pose]')?.getAttribute('data-pose')).toBe('cards')
+    unmount()
+    const plain = coach()
+    expect(plain).toBeDefined()
+    expect(document.querySelector('[data-pose]')?.getAttribute('data-pose')).toBe('explaining')
+  })
+
+  it('welcomes at dessert', () => {
+    coach({ act: 3, step: null })
+    expect(document.querySelector('[data-pose]')?.getAttribute('data-pose')).toBe('welcoming')
+  })
+
+  it('leaves the screen as the player sees it on a clear line: no shade, no ring, the ribbon still there', () => {
+    vi.useFakeTimers()
+    const { onNext } = coach({ step: { kind: 'say', text: 'Look at both.', clear: true, spots: ['.gear'] } })
+    act(() => vi.advanceTimersByTime(SPOT_PATIENCE + 1))
+    vi.useRealTimers()
+    expect(document.querySelector('.coach-shade')).toBeNull()
+    expect(document.querySelector('.coach-ring')).toBeNull()
+    expect(screen.getByText('Look at both.')).toBeTruthy()
+    fireEvent.click(screen.getByTestId('coach-catcher'))
+    expect(onNext).toHaveBeenCalledOnce()
+  })
+
+  it('heads the warm-up offer as Dessert', () => {
+    coach({ act: 3, step: null })
+    expect(screen.getByText('Dessert')).toBeTruthy()
   })
 
   it('asks before leaving, and leaves on Yes', () => {
@@ -47,35 +113,41 @@ describe('Coach', () => {
     expect(onMenu).toHaveBeenCalledOnce()
   })
 
+  it('waits for what a line lights to be there, and speaks anyway after a moment', () => {
+    vi.useFakeTimers()
+    coach({ step: { kind: 'say', text: 'Look at the gear.', spots: ['.gear'] } })
+    expect(screen.queryByText('Look at the gear.')).toBeNull()
+    act(() => vi.advanceTimersByTime(SPOT_PATIENCE + 1))
+    expect(screen.getByText('Look at the gear.')).toBeTruthy()
+    vi.useRealTimers()
+  })
+
   it('waits while the game is still animating', () => {
     coach({ busy: true })
     expect(screen.queryByText('Hello, apprentice.')).toBeNull()
   })
 
-  it('says nothing during a move of its own', () => {
-    coach({ act: 2, step: { kind: 'play', action: { type: 'endTurn' } } })
+  it('speaks only once the screen has been still a moment, so a banner a frame late does not flash it', () => {
+    vi.useFakeTimers()
+    const props = { act: 2 as const, step: say, onNext: () => {}, onSkip: () => {}, onPlay: () => {}, onMenu: () => {} }
+    const { rerender } = render(<Coach {...props} busy />)
+    rerender(<Coach {...props} busy={false} />)
+    expect(screen.queryByText('Hello, apprentice.')).toBeNull()
+    rerender(<Coach {...props} busy />)
+    act(() => vi.advanceTimersByTime(SETTLE_MS + 1))
+    expect(screen.queryByText('Hello, apprentice.')).toBeNull()
+    rerender(<Coach {...props} busy={false} />)
+    act(() => vi.advanceTimersByTime(SETTLE_MS + 1))
+    expect(screen.getByText('Hello, apprentice.')).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('shows nothing during a move of his own: no line, no shade, no ring', () => {
+    coach({ act: 2, step: { kind: 'play', action: { type: 'endTurn' }, spots: ['.gear'] } })
     expect(screen.queryByRole('region', { name: 'Professor Maple' })).toBeNull()
-  })
-})
-
-describe('blockers', () => {
-  const inside = (cells: { x: number; y: number; w: number; h: number }[], x: number, y: number) =>
-    cells.some((c) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h)
-
-  it('covers everything but the hole', () => {
-    const cells = blockers([{ x: 100, y: 100, w: 50, h: 50 }], 400, 800)
-    expect(inside(cells, 125, 125)).toBe(false)
-    expect(inside(cells, 10, 10)).toBe(true)
-    expect(inside(cells, 125, 300)).toBe(true)
-  })
-  it('keeps two overlapping holes open where they overlap', () => {
-    const holes = [
-      { x: 100, y: 100, w: 50, h: 50 },
-      { x: 110, y: 105, w: 50, h: 50 },
-    ]
-    const cells = blockers(holes, 400, 800)
-    expect(inside(cells, 125, 125)).toBe(false)
-    expect(inside(cells, 155, 150)).toBe(false)
+    expect(document.querySelector('.coach-shade')).toBeNull()
+    expect(document.querySelector('.coach-ring')).toBeNull()
+    expect(screen.queryByTestId('coach-catcher')).toBeNull()
   })
 })
 
@@ -97,16 +169,5 @@ describe('ribbonTop', () => {
   it('hangs under the plate in the lessons, unless that hides the spot', () => {
     expect(ribbonTop([], 2, 90, screenHeight, 70)).toBe(70)
     expect(ribbonTop([{ x: 0, y: 100, w: 50, h: 50 }], 2, 90, screenHeight, 70)).toBe(754)
-  })
-})
-
-describe('measureHoles', () => {
-  it('opens a padded hole on every element found, and none for what is not on screen', () => {
-    const gear = document.createElement('button')
-    gear.className = 'gear'
-    gear.getBoundingClientRect = () => ({ left: 100, top: 20, width: 40, height: 40 }) as DOMRect
-    document.body.append(gear)
-    expect(measureHoles(['.gear', '.missing'])).toEqual([{ x: 92, y: 12, w: 56, h: 56 }])
-    gear.remove()
   })
 })

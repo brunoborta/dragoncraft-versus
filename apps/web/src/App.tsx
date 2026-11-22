@@ -16,6 +16,9 @@ import { useLocalTable } from './game/useLocalTable.js'
 import { useRemoteTable } from './game/useRemoteTable.js'
 import { useTutorialTable } from './game/tutorial/useTutorialTable.js'
 import { Coach } from './components/Coach.js'
+import { TutorialDebug } from './components/TutorialDebug.js'
+import { LESSONS } from './game/tutorial/lessons.js'
+import { useArt } from './art/ArtContext.js'
 import type { Lesson } from './game/tutorial/script.js'
 import type { Connect } from './game/useRemoteTable.js'
 
@@ -64,6 +67,7 @@ export function App({
     return (
       <TutorialApp
         lessons={lessons}
+        debugging={debugging}
         onExit={() => setStart(null)}
         onWarmUp={() =>
           setStart({
@@ -137,6 +141,7 @@ function LocalApp({
     if (chosenOptions) setOptions(chosenOptions)
   }, [chosenOptions])
   const table = useLocalTable({ seed, level, pace: options.opponentThinks ? 'thinking' : 'instant' })
+  const art = useArt()
 
   /**
    * Jumps to a finished game with the outcome asked for, so the final screen
@@ -207,6 +212,8 @@ function LocalApp({
           options={options}
           onOptionsChange={setOptions}
           opponentName={opponentName}
+          // someone in particular in the seat is Maple, after the tutorial
+          opponentAvatar={opponentName === MAPLE ? art.mapleAvatar : undefined}
         />
       ) : null}
       {level === null ? <ModeSetup online={online} onStart={onStart} /> : null}
@@ -223,15 +230,19 @@ const MAPLE = 'Professor Maple'
  * the plate.
  */
 function TutorialApp({
-  lessons,
+  lessons = LESSONS,
   onExit,
   onWarmUp,
+  debugging = false,
 }: {
   lessons?: readonly Lesson[]
   onExit: () => void
   onWarmUp: () => void
+  /** `#debug`: a panel at the side to jump between chapters. */
+  debugging?: boolean
 }) {
   const tutorial = useTutorialTable(onExit, lessons)
+  const art = useArt()
   // the lesson shows what it teaches: the cards rise, the bag can be opened, the professor does not dawdle
   const [options, setOptions] = useState<GameOptions>(() => ({
     ...loadTableOptions(),
@@ -240,6 +251,8 @@ function TutorialApp({
     opponentThinks: false,
   }))
   const { view } = tutorial.table
+  // in the class the seat at the top is an ordinary opponent's; Maple takes it when he flies there
+  const seated = tutorial.act !== 1
   return (
     <>
       {view ? (
@@ -247,15 +260,23 @@ function TutorialApp({
           key={tutorial.lessonKey}
           table={tutorial.table}
           view={view}
-          label="Your teacher"
+          label={seated ? 'Your teacher' : ''}
           detail=""
           restartLabel="Leave the tutorial"
           onRestart={onExit}
           options={options}
           onOptionsChange={setOptions}
-          opponentName={MAPLE}
-          onUi={tutorial.ui}
-          openingBanner={tutorial.act !== 1}
+          opponentName={seated ? MAPLE : undefined}
+          opponentAvatar={seated ? art.mapleAvatar : undefined}
+          // the chapter's card first, then "Your Turn": the banner waits while the card is up
+          paused={tutorial.card !== null}
+          coaching={{
+            onUi: tutorial.ui,
+            // no banner in the class, nor on a screen rebuilt by Back: it comes back as the page left it
+            opening: tutorial.act !== 1 && tutorial.fresh,
+            // after a Back, what that page had open opens again
+            reopen: tutorial.reopen,
+          }}
         />
       ) : null}
       <Coach
@@ -266,7 +287,17 @@ function TutorialApp({
         onSkip={onExit}
         onPlay={onWarmUp}
         onMenu={onExit}
+        page={tutorial.page}
+        canBack={tutorial.canBack}
+        onBack={tutorial.back}
+        card={tutorial.card}
+        onDismissCard={tutorial.dismissCard}
+        departing={tutorial.departing}
+        onLanded={tutorial.land}
       />
+      {debugging ? (
+        <TutorialDebug lessons={lessons} lessonIndex={tutorial.lessonIndex} page={tutorial.page} onJump={tutorial.jump} />
+      ) : null}
     </>
   )
 }

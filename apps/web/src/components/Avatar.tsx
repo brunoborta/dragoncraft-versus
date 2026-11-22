@@ -7,11 +7,20 @@ import { useArt } from '../art/ArtContext.js'
  * `active` lights the ring — on your side, that is one of the things saying it
  * is your turn.
  */
-export function Avatar({ side, active = false }: { side: 'you' | 'opponent'; active?: boolean }) {
+export function Avatar({
+  side,
+  active = false,
+  src,
+}: {
+  side: 'you' | 'opponent'
+  active?: boolean
+  /** Someone else in the seat: Professor Maple, in the tutorial and its warm-up. */
+  src?: string
+}) {
   const art = useArt()
   return (
     <span className="avatar" data-side={side} data-active={active || undefined} aria-hidden="true">
-      <img src={side === 'you' ? art.avatarYou : art.avatarOpponent} alt="" draggable={false} />
+      <img src={src ?? (side === 'you' ? art.avatarYou : art.avatarOpponent)} alt="" draggable={false} />
     </span>
   )
 }

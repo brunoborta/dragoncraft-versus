@@ -1,4 +1,4 @@
-import { bankedReputation, hexEq, key, wouldComplete } from '@dcv/engine'
+import { bankedReputation, hexEq, key, parseKey, wouldComplete } from '@dcv/engine'
 import type { Action, Hex, PlayerView } from '@dcv/engine'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -38,7 +38,7 @@ import { SettingsDialog } from './SettingsDialog.js'
 import { StackPeek } from './StackPeek.js'
 import { TurnBanner, useTurnBanner } from './TurnBanner.js'
 import { EndBanner, useEndBanner } from './EndBanner.js'
-import type { UiEvent } from '../game/tutorial/script.js'
+import type { Coaching } from '../game/tutorial/script.js'
 import { endCause, endMarks } from '../game/endSignal.js'
 import { TopBar } from './TopBar.js'
 
@@ -64,15 +64,15 @@ export function GameScreen({
   options = DEFAULT_TABLE_OPTIONS,
   onOptionsChange,
   opponentName,
-  onUi,
-  openingBanner = true,
+  opponentAvatar,
+  coaching,
 }: {
+  /** Their portrait on the plate, when someone in particular sits there. */
+  opponentAvatar?: string
   /** Who sits at the top, on the plate and in their turn banner: "Professor Maple" in the tutorial. */
   opponentName?: string
-  /** Taps the engine never hears about — the settings opening and closing, a stack opened — for the tutorial to follow. */
-  onUi?: (event: UiEvent) => void
-  /** False: no turn banner when the screen opens. */
-  openingBanner?: boolean
+  /** Present in the tutorial only: all the screen does for it — what it reports, what it opens with. */
+  coaching?: Coaching
   table: Table
   /** The table's view, already known not to be null. */
   view: PlayerView
@@ -99,20 +99,29 @@ export function GameScreen({
   /** Present against the machine; absent online, where the host's choice holds for both. */
   onOptionsChange?: (next: GameOptions) => void
 }) {
-  const [selected, setSelected] = useState<Hex | null>(null)
-  const [inspecting, setInspecting] = useState<Hex | null>(null)
+  // the tutorial's Back rebuilds the screen: it opens with what that page had open
+  const reopen = coaching?.reopen
+  const onUi = coaching?.onUi
+  const [selected, setSelected] = useState<Hex | null>(() => (reopen?.select ? parseKey(reopen.select) : null))
+  const [inspecting, setInspecting] = useState<Hex | null>(() => (reopen?.inspect ? parseKey(reopen.inspect) : null))
   const [logOpen, setLogOpen] = useState(false)
   const [bagOpen, setBagOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(reopen?.settings ?? false)
   const [helpOpen, setHelpOpen] = useState(false)
   // the end screen opens over the board; this puts it away to look at the board
   const [viewingBoard, setViewingBoard] = useState(false)
   // the cards marked to stay in hand after a coin: the rest, always two, go back under the deck
-  const [keeping, setKeeping] = useState<string[]>([])
+  const [keeping, setKeeping] = useState<string[]>(() => reopen?.keep ?? [])
 
   const ended = view.phase === 'ended'
-  // a new turn starts with every stack shut: what was looked at belonged to the last one
-  useEffect(() => setInspecting(null), [view.current])
+  // a new turn starts with every stack shut: what was looked at belonged to the last one —
+  // but not as the screen opens, where a stack may be opened on purpose (`reopen`)
+  const turnSeen = useRef(view.current)
+  useEffect(() => {
+    if (view.current === turnSeen.current) return
+    turnSeen.current = view.current
+    setInspecting(null)
+  }, [view.current])
 
   /*
    * The board as it is being shown: the real one, or a step behind it while
@@ -144,7 +153,7 @@ export function GameScreen({
     seat: view.seat,
     ended: view.phase === 'ended',
     blocked: menuOver || presentation.remaining.some((event) => event.seat !== view.current) || endBeforeTurn.current,
-    opening: openingBanner,
+    opening: coaching?.opening ?? true,
   })
   bannerPending.current = turnBanner.pending
   const endBanner = useEndBanner({
@@ -345,6 +354,12 @@ export function GameScreen({
     })
   }
 
+  // the hand chosen, before it is confirmed: the tutorial lights the confirmation only then
+  useEffect(() => {
+    if (keepWanted > 0 && keeping.length === keepWanted) onUi?.({ kind: 'keep', cards: keeping })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- said once per change of the marked cards
+  }, [keeping])
+
   /**
    * A stack, opened or shut by a tap. Only a space with something buried has
    * anything to show — unless your token is about to land there, when a single
@@ -367,6 +382,7 @@ export function GameScreen({
     }
 
     setSelected(outcome.select)
+    if (outcome.select) onUi?.({ kind: 'select', hex: key(outcome.select) })
     /*
      * Whatever the board is being used for, a tap on a stack also shows what
      * is buried in it: choosing a space to place on, picking a token up to
@@ -467,6 +483,7 @@ export function GameScreen({
         label={label}
         detail={detail}
         opponentName={opponentName}
+        opponentAvatar={opponentAvatar}
         onOpenLog={() => setLogOpen(true)}
         onOpenSettings={() => {
           setSettingsOpen(true)
@@ -529,7 +546,13 @@ export function GameScreen({
               if (spendCoin) handleAct(spendCoin)
             }}
           />
-          <HeldSlot side="you" token={yourHeld} arriving={arrivingIn(view.seat)} away={preview !== undefined} />
+          <HeldSlot
+            side="you"
+            token={yourHeld}
+            arriving={arrivingIn(view.seat)}
+            away={preview !== undefined}
+            onInfo={() => onUi?.({ kind: 'tokenInfo' })}
+          />
           {/* the crystal's choice, over the cushion the kept token will land on */}
           {crystalTokens ? (
             <CrystalArch tokens={crystalTokens} actions={actions} onAct={handleAct} arrival={crystalArrival} />
@@ -625,7 +648,8 @@ export function GameScreen({
         opponentTitle={opponentName ? `${opponentName.split(' ')[0]}'s Turn` : undefined}
       />
       <EndBanner banner={endBanner.banner} onDismiss={endBanner.dismiss} />
-      {ended && !viewingBoard ? (
+      {/* a lesson ends without a winner: Maple goes straight on, with no result to read */}
+      {ended && !viewingBoard && !coaching ? (
         // a tap outside the result puts it away, the same as its X
         <div
           className="modal-backdrop game-over-backdrop"
@@ -635,7 +659,9 @@ export function GameScreen({
         >
           <GameOver
             view={view}
-            opponentLabel={table.opponentLabel}
+            // whoever sits there by name and face, when it is someone: Professor Maple
+            opponentLabel={opponentName ?? table.opponentLabel}
+            opponentAvatar={opponentAvatar}
             restartLabel={restartLabel}
             onRestart={() => freshStart(onRestart)}
             playAgain={

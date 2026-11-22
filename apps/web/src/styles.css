@@ -846,17 +846,18 @@ body {
  * something you could do first.
  */
 .end-turn[data-state='ready'][data-done='true'] {
-  /* the green of the turn banner, and its gold letters */
-  background: linear-gradient(180deg, #5fae5a, #3d8a3e 55%, #2a6a2e);
+  /* the green of the "Your Turn" banner, and its gold letters */
+  background: linear-gradient(180deg, #3f7a4e, var(--forest-600) 55%, #1f3f2b);
   color: var(--brass-200);
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
-  border: 2px solid #dcffd2;
-  box-shadow: 0 0 0 2px #2f6a2b, 0 0 14px rgb(130 225 110 / 0.55);
+  /* the gold rim of the gold End turn; only the glow around it stays green */
+  border: 2px solid #fff0b8;
+  box-shadow: 0 0 0 2px #8a6a26, 0 0 14px rgb(130 225 110 / 0.55);
   animation: end-turn-done 1.6s ease-in-out infinite;
 }
 @keyframes end-turn-done {
-  0%, 100% { box-shadow: 0 0 0 2px #2f6a2b, 0 0 12px rgb(130 225 110 / 0.5); }
-  50% { box-shadow: 0 0 0 3px #dcffd2, 0 0 28px rgb(130 225 110 / 0.95); }
+  0%, 100% { box-shadow: 0 0 0 2px #8a6a26, 0 0 12px rgb(130 225 110 / 0.5); }
+  50% { box-shadow: 0 0 0 3px #fff0b8, 0 0 28px rgb(130 225 110 / 0.95); }
 }
 .end-turn[data-state='locked'] { background: linear-gradient(180deg, #7a6a46, #5e5034); color: #f1e6c8; border: 2px solid #9a8452; }
 .end-turn[data-state='waiting'] { background: #4a4f55; color: #c9cdd2; border: 2px solid #5f656c; }
@@ -1269,6 +1270,8 @@ body {
   background: var(--ember-500);
   box-shadow: 0 0 0 1px var(--ember-ink), 0 0 8px rgb(224 123 42 / 0.7);
   pointer-events: none;
+  /* both bars over the bag's art: ::before would otherwise sit under it */
+  z-index: 2;
 }
 .bag[data-spent]::before,
 .bag[data-spent]::after { height: 64px; top: 32px; }
@@ -1283,7 +1286,7 @@ body {
 
 /* reduced motion: nothing loops, nothing turns; the glow and banner stay, still */
 @media (prefers-reduced-motion: reduce) {
-  .end-turn[data-state='ready'][data-done='true'] { animation: none; box-shadow: 0 0 0 3px #dcffd2, 0 0 22px rgb(130 225 110 / 0.85); }
+  .end-turn[data-state='ready'][data-done='true'] { animation: none; box-shadow: 0 0 0 3px #fff0b8, 0 0 22px rgb(130 225 110 / 0.85); }
   .turn-banner-rays { animation: none; }
   .held-glyph, .held-glyph[data-arriving], .fire-up, .fire-slot, .token-info { animation: none; }
   .crystal-slot[data-waiting], .crystal-slot[data-arriving] { animation: none; opacity: 1; }
@@ -1552,6 +1555,41 @@ body {
 }
 .modal-close .icon { width: 16px; height: 16px; }
 
+/* ---------- the tutorial's debug panel (#debug): floats at the side, over the coach ---------- */
+.tutorial-debug,
+.tutorial-debug-tab {
+  position: fixed;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 60;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  color: #e8eef5;
+  background: rgb(10 20 15 / 0.92);
+  border: 1px solid #d9b45a;
+  border-radius: 10px;
+}
+.tutorial-debug-tab { padding: 6px 10px; }
+.tutorial-debug { width: 200px; max-height: 80vh; overflow-y: auto; padding: 8px; }
+.tutorial-debug-head { display: flex; justify-content: space-between; align-items: center; }
+.tutorial-debug-head button { background: none; border: 0; color: inherit; font-size: 16px; }
+.tutorial-debug-where { margin: 4px 0 8px; opacity: 0.8; }
+.tutorial-debug ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.tutorial-debug button { cursor: pointer; }
+.tutorial-debug li > button {
+  width: 100%;
+  text-align: left;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid rgb(217 180 90 / 0.4);
+  background: rgb(255 255 255 / 0.04);
+  color: inherit;
+}
+.tutorial-debug-lessons { display: flex; flex-wrap: wrap; gap: 3px; margin: 3px 0 0 10px; }
+.tutorial-debug-lessons button { padding: 1px 5px; border-radius: 4px; border: 1px solid rgb(217 180 90 / 0.3); background: none; color: inherit; font-size: 11px; }
+.tutorial-debug [data-current] { background: rgb(217 180 90 / 0.3); border-color: #d9b45a; }
+
 /* ---------- the tutorial: Professor Maple over the game ---------- */
 
 /* over everything, the menus included: the class opens the settings and lights what is inside */
@@ -1560,7 +1598,24 @@ body {
 @keyframes coach-in { from { opacity: 0; } to { opacity: 1; } }
 .coach-dim { position: absolute; inset: 0; }
 .coach-shade { fill: rgb(4 9 6 / 0.9); }
-.coach-ring { fill: none; stroke: var(--brass-200); stroke-width: 2; filter: drop-shadow(0 0 6px rgb(243 223 162 / 0.7)); }
+.coach-ring { fill: none; stroke: var(--brass-200); stroke-width: 2; stroke-linejoin: round; filter: drop-shadow(0 0 6px rgb(243 223 162 / 0.7)); }
+/*
+ * Where something is to be done, the lit spot breathes: the ring swells with
+ * its glow, and back (chosen on 2026-11-21 over a ripple, side by side). A line
+ * to read keeps it still, so the two never look alike. The hole and what it
+ * lets through never change, and it waits a beat, so the line is read first.
+ */
+.coach-ring { transform-box: fill-box; transform-origin: center; }
+.coach[data-kind='do'] .coach-ring { animation: ring-breathe 1.5s 300ms ease-in-out infinite; }
+/* shown beside what is to be done, not pointed at: it holds still */
+.coach[data-kind='do'] .coach-ring.coach-ring-still { animation: none; }
+@keyframes ring-breathe {
+  0%, 100% { transform: scale(1); stroke-width: 2; }
+  50% { transform: scale(1.07); stroke-width: 3; filter: drop-shadow(0 0 12px rgb(243 223 162 / 0.95)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coach[data-kind='do'] .coach-ring { animation: none; stroke-width: 4; }
+}
 .coach-catcher { position: absolute; inset: 0; pointer-events: auto; }
 .coach-catcher-holes { pointer-events: none; }
 .coach-catcher-holes rect { fill: transparent; pointer-events: fill; }
@@ -1580,15 +1635,37 @@ body {
   margin: 0 auto;
   transition: top 250ms ease-out;
 }
+/* Maple standing over the ribbon, in the pose for what he is saying; the ribbon covers his waist */
 .coach-portrait {
+  height: 180px;
+  width: auto;
+  margin-bottom: -28px;
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.6));
+  pointer-events: none;
+}
+/* leaving the class: the bust turns into his round seat portrait, which then flies to the plate */
+.coach-portrait.coach-seat {
   width: 132px;
   height: 132px;
+  margin-bottom: 8px;
   border-radius: 50%;
-  object-fit: cover;
   border: 3px solid var(--brass-400);
-  background: radial-gradient(circle at 35% 30%, #8e3346, var(--wine-700) 75%);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.6);
+  animation: coach-seat-in 300ms ease-out;
 }
+@keyframes coach-seat-in { from { transform: scale(0.8); opacity: 0.4; } to { transform: none; opacity: 1; } }
+/* in the lessons he sits at the top: the ribbon hangs under his plate, and he leans in from its left */
+/* held by the ribbon's top, which stays put under the plate: a longer line grows the ribbon down and leaves him still */
+.coach[data-act='2'] .coach-ribbon-wrap { grid-template-columns: auto 1fr; align-items: start; gap: 0; }
+.coach-bust {
+  height: 104px;
+  width: auto;
+  margin-right: -14px;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.6));
+  pointer-events: none;
+}
+.coach-portrait + .coach-ribbon { position: relative; }
 .coach-ribbon {
   position: relative;
   width: 100%;
@@ -1600,7 +1677,21 @@ body {
   border: 3px solid var(--brass-400);
   box-shadow: inset 0 0 0 2px rgb(243 223 162 / 0.35), 0 10px 30px rgb(0 0 0 / 0.6), 0 0 30px rgb(155 225 93 / 0.25);
 }
-.coach[data-kind='say'] .coach-ribbon { cursor: pointer; padding-right: 44px; }
+.coach[data-kind='say'] .coach-ribbon { cursor: pointer; }
+/* the chapter and the page: small, above the line */
+.coach-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.coach-head:empty { display: none; }
+.coach-page { font-variant-numeric: tabular-nums; }
 .coach-line {
   margin: 0;
   font-family: var(--font-display);
@@ -1609,24 +1700,54 @@ body {
   line-height: 1.3;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
 }
+/* Skip on the left; Back and Next together on the right */
+.coach-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; }
+.coach-steps { display: flex; gap: 8px; }
+.coach-back,
 .coach-next {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
-  border: 0;
-  background: none;
+  min-height: 36px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  border: 1.5px solid var(--brass-400);
+  background: rgb(6 14 10 / 0.45);
   color: var(--brass-200);
-  font-size: 22px;
-  animation: coach-nudge 1.2s ease-in-out infinite;
 }
-@keyframes coach-nudge { 50% { transform: translate(3px, -50%); } }
-.coach-skip { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }
+.coach-next:not(:disabled) { background: linear-gradient(180deg, var(--brass-200), var(--brass-400)); color: var(--parchment-ink); }
+.coach-back:disabled,
+.coach-next:disabled { opacity: 0.35; }
+.coach-skip { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .coach-skip button { padding: 2px 10px; border-radius: 999px; border: 1px solid rgb(243 223 162 / 0.5); background: rgb(6 14 10 / 0.4); color: var(--brass-200); font-size: 13px; }
 .coach-skip .coach-skip-link { border: 0; background: none; padding: 0; text-decoration: underline; opacity: 0.8; }
 .coach-offer { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+
+/* a chapter's title card: the ribbon's green and gold, the size of a turn banner */
+.coach-card-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background: rgb(4 9 6 / 0.6);
+}
+.coach-card {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 14px 40px 16px;
+  border-radius: 999px;
+  color: var(--brass-200);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 0.7);
+  background: linear-gradient(180deg, #3f7a4e, var(--forest-600) 55%, #1f3f2b);
+  border: 3px solid var(--brass-400);
+  box-shadow: inset 0 0 0 2px rgb(243 223 162 / 0.35), 0 10px 30px rgb(0 0 0 / 0.6), 0 0 40px rgb(155 225 93 / 0.35);
+  animation: coach-card-in 260ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+@keyframes coach-card-in { from { transform: scale(0.7); opacity: 0; } to { transform: none; opacity: 1; } }
+.coach-card-number { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
+.coach-card-title { font-family: var(--font-display); font-size: 32px; font-weight: 700; white-space: nowrap; }
 .coach-offer button {
   min-height: 44px;
   padding: 8px 18px;
@@ -1657,5 +1778,5 @@ body {
   to { transform: translate(var(--to-x), var(--to-y)); width: var(--to-size); height: var(--to-size); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .coach[data-shown], .coach-next { animation: none; }
+  .coach[data-shown], .coach-card { animation: none; }
 }

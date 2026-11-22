@@ -107,6 +107,7 @@ function Breakdown({ player }: { player: Scorable }) {
 export function GameOver({
   view,
   opponentLabel,
+  opponentAvatar,
   restartLabel,
   onRestart,
   playAgain,
@@ -114,6 +115,8 @@ export function GameOver({
 }: {
   view: PlayerView
   opponentLabel: string
+  /** Someone else's face in the other seat: Professor Maple, after the tutorial. */
+  opponentAvatar?: string
   restartLabel: string
   onRestart: () => void
   /**
@@ -213,7 +216,7 @@ export function GameOver({
           <FinalTotal player={view.you} delay={700} />
         </div>
         <div className="final-score" data-side="opponent">
-          <Avatar side="opponent" active={result !== 'win'} />
+          <Avatar side="opponent" active={result !== 'win'} src={opponentAvatar} />
           <dt>{opponentLabel}</dt>
           <FinalTotal player={view.opponent} delay={700} />
         </div>

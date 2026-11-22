@@ -63,7 +63,10 @@ export function TopBar({
   label = '',
   detail = '',
   opponentName = 'Opponent',
+  opponentAvatar,
 }: {
+  /** Their portrait, when it is not the opponent's own: Maple's. */
+  opponentAvatar?: string
   /** Who sits at the top: "Professor Maple" in the tutorial and its warm-up. */
   opponentName?: string
   view: PlayerView
@@ -91,7 +94,7 @@ export function TopBar({
       </p>
       <div className="top-row">
         <section className="plate" data-side="opponent" aria-label={opponentName}>
-          <Avatar side="opponent" active={theirTurn} />
+          <Avatar side="opponent" active={theirTurn} src={opponentAvatar} />
           <div className="plate-body">
             <span className="plate-name">{opponentName}</span>
             {/* who this is and which game: the second line of the plate */}

@@ -107,14 +107,28 @@ export function HeldSlot({
   token,
   arriving = 0,
   away = false,
+  onInfo,
 }: {
   side: 'you' | 'opponent'
   token: Token | null
   /** Milliseconds until the flying token lands here; 0 when nothing is flying. */
   arriving?: number
   away?: boolean
+  /**
+   * What the token does came up — by a tap (which focuses it, and the card
+   * stays while it is focused) or by a hold — and the finger is off the screen
+   * again: the tutorial waits for this. Said as the tap or the hold ends, never
+   * while the finger is down, so the screen does not change under it.
+   */
+  onInfo?: () => void
 }) {
   const press = useLongPress()
+  const wasShowing = useRef(false)
+  useEffect(() => {
+    if (!press.showing && wasShowing.current) onInfo?.()
+    wasShowing.current = press.showing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- said once per hold, as it ends
+  }, [press.showing])
   const [focused, setFocused] = useState(false)
   const plate = useArt().plate[side]
   const label = token
@@ -132,6 +146,10 @@ export function HeldSlot({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         {...(token ? press.handlers : {})}
+        // a tap: it focused the token, so the card is up — said once the finger lifts (a hold says so itself)
+        onClick={() => {
+          if (token && !press.wasHold()) onInfo?.()
+        }}
       >
         <span
           className="held-plinth"
