@@ -39,6 +39,11 @@ describe('useLocalTable', () => {
     expect(result.current.view?.current).toBe(1)
     expect(result.current.view?.seat).toBe(0)
     expect(result.current.status).toEqual({ kind: 'playing' })
-    expect(result.current.opponentLabel).toBe('Machine')
+    expect(result.current.opponentLabel).toBe('Easy AI')
+  })
+
+  it('names the machine by how hard it plays', () => {
+    const { result } = renderHook(() => useLocalTable({ seed: 1, level: 'hard' }))
+    expect(result.current.opponentLabel).toBe('Hard AI')
   })
 })

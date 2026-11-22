@@ -35,7 +35,7 @@ export type Table = {
   forfeit: () => void
   status: TableStatus
   opponentConnected: boolean
-  /** 'Machine' or 'Opponent': what the final screen calls the other seat. */
+  /** 'Easy AI', 'Medium AI', 'Hard AI' or 'Opponent': what the final screen calls the other seat. */
   opponentLabel: string
   /**
    * The screen is still showing something (a turn banner, moves landing). The

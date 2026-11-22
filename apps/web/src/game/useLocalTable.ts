@@ -49,7 +49,8 @@ export function useLocalTable({
     forfeit: () => game.forfeit(HUMAN_SEAT),
     status: { kind: 'playing' },
     opponentConnected: true,
-    opponentLabel: 'Machine',
+    // the difficulty is who you are playing: Easy AI, Medium AI, Hard AI
+    opponentLabel: level ? `${level[0].toUpperCase()}${level.slice(1)} AI` : 'AI',
     setScreenBusy,
     reset: game.reset,
     load: game.load,
