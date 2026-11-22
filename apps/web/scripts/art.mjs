@@ -282,7 +282,11 @@ const ASSETS = {
         console.log(`  (no designs/art/${name}.png yet)`)
         continue
       }
-      const img = cutOut(await raw(src(name)), { holes: 400, glow: true })
+      const source = await raw(src(name))
+      // painted on black (the win crest of 2026-11-21) or on light grey (the others):
+      // on black nothing light is background, so the light-grey rule is off
+      const dark = (source.data[0] + source.data[1] + source.data[2]) / 3 < 40
+      const img = cutOut(source, { holes: 400, glow: true, ...(dark ? { minLight: 256 } : {}) })
       await fromRaw(img).trim({ threshold: 1 }).resize({ width: 300, height: 300, fit: 'inside' }).webp({ quality: 84, alphaQuality: 90 }).toFile(out(name))
       report(name)
     }
@@ -346,6 +350,42 @@ const ASSETS = {
         .toFile(out(name))
       report(name)
     }
+  },
+
+  async maple() {
+    // Professor Maple, the tutorial's teacher (prompts, round 5): one bust per
+    // pose, in designs/art/maple/. Most come cut out already; `thinking` came on
+    // black, so the black is flooded out from the border — with the light-grey
+    // rule off, since nothing light around him is background. Shown up to about
+    // 180px tall, so 384 is 2x.
+    const POSES = ['explaining', 'thumbs-up', 'portrait', 'scroll', 'thinking', 'cards', 'feast', 'magnifier', 'coin', 'surprised', 'welcoming']
+    const pose = (name) => join(SRC, 'maple', `${name}.png`)
+    for (const name of POSES) {
+      const meta = await sharp(pose(name)).metadata()
+      const img = await raw(pose(name))
+      const cut = meta.hasAlpha ? img : cutOut(img, { tolerance: 34, minLight: 256 })
+      await fromRaw(cut)
+        .trim({ threshold: 1 })
+        .resize({ height: 384, fit: 'inside' })
+        .webp({ quality: 82, alphaQuality: 90 })
+        .toFile(out(`maple-${name}`))
+      report(`maple-${name}`)
+    }
+    // his seat at the top of the table: the portrait's head, cropped round like the other avatars
+    const SIZE = 256
+    const meta = await sharp(pose('portrait')).metadata()
+    const side = Math.round(meta.width * 0.74)
+    const head = await sharp(pose('portrait'))
+      .extract({ left: Math.round(meta.width * 0.1), top: 0, width: side, height: side })
+      .resize(SIZE, SIZE)
+      .png()
+      .toBuffer()
+    await sharp(head)
+      .ensureAlpha()
+      .composite([{ input: circleMask(SIZE), blend: 'dest-in' }])
+      .webp({ quality: 82, alphaQuality: 90 })
+      .toFile(out('maple-avatar'))
+    report('maple-avatar')
   },
 
   async textures() {

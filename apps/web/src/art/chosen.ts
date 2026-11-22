@@ -13,6 +13,8 @@ import puff from '../assets/art/dust-puff.webp'
 import parchment from '../assets/art/tex-parchment.webp'
 import stone from '../assets/art/tex-stone.webp'
 import type { ArtSet } from './ArtContext.js'
+import { MAPLE_POSES } from './poses.js'
+import type { MaplePose } from './poses.js'
 
 /**
  * Art that may not exist yet. A glob matches nothing rather than failing the
@@ -25,6 +27,15 @@ const optional = import.meta.glob(['../assets/art/crest-*.webp', '../assets/art/
 }) as Record<string, string>
 const maybe = (name: string) => optional[`../assets/art/${name}.webp`] ?? null
 
+/** Professor Maple: every pose `art.mjs` made, by name. */
+const mapleArt = import.meta.glob('../assets/art/maple-*.webp', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+const maplePose = (name: string) => mapleArt[`../assets/art/maple-${name}.webp`]
+const maple = Object.fromEntries(MAPLE_POSES.map((pose) => [pose, maplePose(pose)])) as Record<MaplePose, string>
+
 export const CHOSEN_ART: ArtSet = {
   bg,
   bgOverlay,
@@ -33,6 +44,8 @@ export const CHOSEN_ART: ArtSet = {
   plate: { you: maybe('plate-you'), opponent: maybe('plate-opponent') },
   avatarYou,
   avatarOpponent,
+  maple,
+  mapleAvatar: maplePose('avatar'),
   stone,
   parchment,
   coin,

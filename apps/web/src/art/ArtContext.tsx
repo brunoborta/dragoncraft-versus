@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 import { CHOSEN_ART } from './chosen.js'
+import type { MaplePose } from './poses.js'
 
 export type GameResult = 'win' | 'lose' | 'draw'
 
@@ -16,6 +17,9 @@ export type ArtSet = {
   plate: { you: string | null; opponent: string | null }
   avatarYou: string
   avatarOpponent: string
+  /** The tutorial's teacher: a bust per pose, and his round seat at the top of the table. */
+  maple: Record<MaplePose, string>
+  mapleAvatar: string
   stone: string
   parchment: string
   coin: string
