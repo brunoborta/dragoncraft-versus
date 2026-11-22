@@ -73,6 +73,8 @@ function ArchToken({
   return (
     <div
       className="crystal-slot-frame"
+      // a spotlight on it holds still: the token rising under a hover stays inside its padding
+      data-spot="own"
       style={{ '--arch-rise': `${rise}px`, '--arch-turn': `${turn}deg` } as CSSProperties}
     >
       <button

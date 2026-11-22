@@ -130,6 +130,8 @@ export function FireChoice({
       data-shape={dual ? 'Y' : 'I'}
       data-flipped={flipped || undefined}
       data-measured={where ? 'true' : undefined}
+      // until measured the answers sit in a row in the middle: not their place, so not yet to be lit
+      data-spot-pending={where ? undefined : ''}
     >
       {fires.map((action, index) => (
         <FireButton key={action.ability} action={action} at={firePositions[index]} infoBelow={flipped} onAct={onAct} />

@@ -57,6 +57,8 @@ export function HexCell({
       tabIndex={0}
       aria-label={label}
       data-hex={key(hex)}
+      // lit as its hexagon, not a box that takes in its neighbours' corners
+      data-spot="hex"
       data-highlight={highlight ?? 'none'}
       className="hex-cell"
       onClick={() => onSelect(hex)}

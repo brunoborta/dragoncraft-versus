@@ -56,6 +56,8 @@ export function CardView({
     <article
       className="card"
       data-card={card.id}
+      // lit along its own rounded border, turned with the fan
+      data-spot="card"
       data-scoreable={scoreable}
       data-ready={ready || undefined}
       data-completes={completes || undefined}
