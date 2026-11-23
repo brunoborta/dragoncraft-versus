@@ -74,7 +74,7 @@ export const CLASS: Lesson = {
     as('welcoming', say('Ah, a new apprentice! I’m Professor Maple, and this is my greenhouse.')),
     as(
       'feast',
-      say('Dragons are picky eaters. Our job is to serve each one its favourite dishes — in just the right arrangement.'),
+      say('Dragons are picky eaters. Our job is to serve each one its favourite dishes, in just the right arrangement.'),
     ),
     as('thumbs-up', say('Let’s get to the root of it. It’ll only take a few minutes.')),
 
@@ -82,17 +82,17 @@ export const CLASS: Lesson = {
     as(
       'cards',
       say(
-        'Make that shape on the board — any rotation will do — and the card is yours. That’s reputation.',
+        'Make that shape on the board (any rotation will do) and the card is yours. That’s reputation.',
         SPOT.card('tri-crystal'),
       ),
     ),
-    say('Reputation lives here. Most reputation at the end wins.', SPOT.yourStar),
+    as('pointing', say('Reputation lives here. Most reputation at the end wins.', SPOT.yourStar)),
     as('thumbs-up', say('That’s the whole game: draw a token, place it, make the shapes on your cards.')),
 
     say('Nineteen spaces. Every turn you draw one token and put it anywhere there’s room.', SPOT.board),
     as('magnifier', say('Tokens can stack up to three high. Only the top one counts.', SPOT.hex(ringStack))),
 
-    as('thumbs-up', say('This is you. You look good in this picture.', SPOT.yourPlate)),
+    as('pointing', say('This is you. You look good in this picture.', SPOT.yourPlate)),
     say('Your opponent sits up here, with the same three numbers: cards, coins, reputation.', ...both(SPOT.yourPlate, SPOT.opponentPlate)),
     as('cards', say('How many cards you’re holding. Always two at the start of your turn.', ...both(SPOT.yourCards, SPOT.theirCards))),
     as('coin', say('Coins. You start with three. I’ll show you what they buy later.', ...both(SPOT.yourCoins, SPOT.theirCoins))),
@@ -113,7 +113,7 @@ export const CLASS: Lesson = {
     as(
       'surprised',
       say(
-        'And if a game goes badly wrong, you can give up here. You have to hold it, so you never do it by accident. But don’t give up! Winners don’t use drugs. And you don’t use drugs, right? Right?',
+        'And if a game goes badly wrong, you can give up here. But hey! Don’t give up! Winners don’t use drugs. And you don’t use drugs, right? Right?',
         SPOT.forfeit,
       ),
     ),
@@ -126,7 +126,7 @@ export const CLASS: Lesson = {
 
     say('Changed your mind? Undo takes back your last move, as long as it’s still your turn.', SPOT.undo),
     say('End turn. It stays locked until your token is on the board.', SPOT.endTurn),
-    as('thumbs-up', say('It glows gold when you can end, and green when there’s nothing left worth doing.', SPOT.endTurn)),
+    as('thinking', say('It glows gold when you can end, and green when there’s nothing left worth doing.', SPOT.endTurn)),
 
     as('welcoming', say('Enough talk. I’ll take the other side of the table — let’s learn by playing.')),
   ],
@@ -144,7 +144,7 @@ const FIRST_TURN: Lesson = {
       opponentHand: ['line-bread', 'tri-plant'],
     }),
   steps: [
-    say('Every turn starts like this: You drew a token. Here, you drew a Bread.', SPOT.held),
+    as('pointing', say('Every turn starts like this: you draw a token. Here, you drew a Bread.', SPOT.held)),
     // what the token does is on it: a tap brings it up, lit while it is up
     as('magnifier', {
       kind: 'do',
@@ -162,7 +162,7 @@ const FIRST_TURN: Lesson = {
       ),
     ),
     putHere('1,1'),
-    say('Each token you place may fire up its ability, once. We’ll try that soon — for now, skip it.', SPOT.fire),
+    say('Each token you place may fire up its ability, once. We’ll try that soon. For now, skip it.', SPOT.fire),
     {
       kind: 'do',
       text: 'Tapping End turn skips it and ends your turn — and my turn starts!',
@@ -255,7 +255,7 @@ const MEAT_ALONE: Lesson = {
   build: () => scenario({ board: { '0,0': ['plant'] }, held: 'meat', hand: ON_THE_WAY_TO_4_7 }),
   steps: [
     as('magnifier', say('One lonely Plant. Let’s give it a ride.', SPOT.hex('0,0'))),
-    as('feast', plain(say('Meat: fire it up and you move one neighbour — anywhere on the board.', SPOT.held))),
+    as('feast', plain(say('Meat: fire it up and you move one neighbour anywhere on the board.', SPOT.held))),
     plain(putHere('0,1', 'Put the Meat right next to the Plant.')),
     plain(fire('meat')),
     doIt('Pick the Plant up… and drop it all the way over here.', [SPOT.hex('0,0'), SPOT.hex('-2,1')], {

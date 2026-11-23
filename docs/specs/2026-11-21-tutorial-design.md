@@ -144,15 +144,15 @@ interno), tudo escuro.
 1. [say] "Ah, a new apprentice! I'm Professor Maple, and this is my
    greenhouse."
 2. [say] "Dragons are picky eaters. Our job is to serve each one its
-   favourite dishes — in just the right arrangement."
+   favourite dishes, in just the right arrangement."
 3. [say] "Let's get to the root of it. It'll only take a few minutes."
 
 **Cena 1.2 — Como se ganha.**
 
 1. [say] 🔦 a sua mão (as duas cartas) — "These are your shop cards. Each
    one shows three tokens in a shape."
-2. [say] 🔦 uma carta — "Make that shape on the board — any rotation will
-   do — and the card is yours. That's reputation."
+2. [say] 🔦 uma carta — "Make that shape on the board (any rotation will
+   do) and the card is yours. That's reputation."
 3. [say] 🔦 a estrela na sua plaquinha — "Reputation lives here. Most
    reputation at the end wins."
 4. [say] "That's the whole game: draw a token, place it, make the shapes
@@ -199,8 +199,8 @@ interno), tudo escuro.
 4. [say] 🔦 as opções — "How the table looks: hints on your cards, the
    opponent's reputation, what's left in the bag."
 5. [say] 🔦 "Hold to give up" — "And if a game goes badly wrong, you can
-   give up here. You have to hold it, so you never do it by accident.
-   But don't give up! Winners don't use drugs. And you don't use drugs, right? Right?"
+   give up here. But hey! Don't give up! Winners don't use drugs. And you
+   don't use drugs, right? Right?"
 6. [do] 🔦 o X — "Close it, and let's play."
 
 **Cena 1.8 — Undo e End turn.**
@@ -228,10 +228,10 @@ Estado: tabuleiro inicial; sua mão sem nenhuma carta marcável; saco:
 Pão (seu), Ferro (do Maple).
 
 1. Banner "Your Turn". O Pão é sacado e aparece pra você.
-2. [say] 🔦 token na mão — "You drew a Bread. Every turn starts like this."
+2. [say] 🔦 token na mão — "Every turn starts like this: you draw a token. Here, you drew a Bread."
 3. [do] 🔦 casa `0,1` — "Put it here."
 4. [say] 🔦 "Fire up?" — "Each token you place may fire up its ability,
-   once. We'll try that soon — for now, skip it."
+   once. We'll try that soon. For now, skip it."
 5. [do] 🔦 End turn (dourado) — "Tapping End turn skips it and ends your
    turn and my turn will start!"
 6. Banner "Professor's turn". [play] o Maple saca o Ferro e põe em `-1,1`,
@@ -283,7 +283,7 @@ Dois tempos, cada um com o próprio estado.
 Planta em `0,0`; saco: Carne.
 
 1. [say] 🔦 a Planta sozinha — "One lonely Plant. Let's give it a ride."
-2. [say] 🔦 Carne na mão — "Meat: fire it up and you move one neighbour —
+2. [say] 🔦 Carne na mão — "Meat: fire it up and you move one neighbour
    anywhere on the board."
 3. [do] 🔦 casas vizinhas da Planta — "Put the Meat right next to the
    Plant."
