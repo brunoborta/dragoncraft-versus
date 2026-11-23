@@ -62,6 +62,8 @@ export type Step =
       draws?: TokenSpec[]
       /** Shown on screen beside what is expected (the flame next to Skip), but not accepted. */
       show?: Partial<Action>[]
+      /** The game already shows where: nothing darkened, no ring, and a tap still only meets the `spots`. */
+      clear?: boolean
     }
   | { kind: 'play'; action: Action; spots?: string[]; draws?: TokenSpec[] }
 

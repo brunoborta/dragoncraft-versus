@@ -89,6 +89,24 @@ describe('Coach', () => {
     expect(onNext).toHaveBeenCalledOnce()
   })
 
+  it('darkens nothing where the game already shows what to do, and still lets a tap through only there', () => {
+    const button = document.createElement('button')
+    button.className = 'ok'
+    button.getBoundingClientRect = () => ({ left: 100, top: 100, width: 40, height: 40 }) as DOMRect
+    document.body.append(button)
+    coach({ act: 2, step: { kind: 'do', text: 'End your turn.', spots: ['.ok'], clear: true, expect: [{ action: { type: 'endTurn' } }] } })
+    expect(document.querySelector('.coach-shade')).toBeNull()
+    expect(document.querySelector('.coach-ring')).toBeNull()
+    // the blocking cells are still there, around the one gap
+    expect(document.querySelectorAll('.coach-catcher-holes rect').length).toBeGreaterThan(0)
+    button.remove()
+  })
+
+  it('darkens nothing on a line of the lessons with nothing to point at', () => {
+    coach({ act: 2, step: { kind: 'say', text: 'Two tokens, one turn.' } })
+    expect(document.querySelector('.coach-shade')).toBeNull()
+  })
+
   it('heads the warm-up offer as Dessert', () => {
     coach({ act: 3, step: null })
     expect(screen.getByText('Dessert')).toBeTruthy()

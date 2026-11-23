@@ -50,6 +50,8 @@ export const SPOT = {
   held: '.held-slot[data-side="you"]',
   /** The card that comes up over your token while it is held: what it does. */
   heldInfo: '.held-slot[data-side="you"] .token-info',
+  /** Your token and the card over it, in one plain box. */
+  heldAndInfo: `${AROUND}.held-slot[data-side="you"]|.held-slot[data-side="you"] .token-info`,
   fire: '.fire-slot',
   /** Only the Skip beside the flames, when skipping is what is asked. */
   skip: '.fire-skip',

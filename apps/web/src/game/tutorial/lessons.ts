@@ -37,6 +37,12 @@ const scoreIt = (cardId: string, text: string): Step => doIt(text, [SPOT.card(ca
 const maple = (action: Action, ...spots: string[]): Step => ({ kind: 'play', action, spots })
 /** Maple's pose for a line: the cards when he talks about cards, the scroll for the log… */
 const as = (pose: MaplePose, step: Step): Step => ({ ...step, pose }) as Step
+/**
+ * Where the game itself already shows what to do (the one space ringed, the
+ * flame, the Score tab, End turn glowing) nothing is darkened and no ring is
+ * drawn. A tap still only meets what the step names.
+ */
+const plain = (step: Step): Step => ({ ...step, clear: true }) as Step
 
 /** The opening board: one of each type around the centre, as a real game starts. */
 const RING: DragonType[] = ['plant', 'iron', 'bread', 'potion', 'meat', 'crystal']
@@ -147,12 +153,12 @@ const FIRST_TURN: Lesson = {
       expect: [{ ui: { kind: 'tokenInfo' } }],
     }),
     // in the arch and on the flames a tap chooses: there, a hold tells instead
+    // the token and its card lit together, in one box
     as(
       'thumbs-up',
       say(
         'You can check your token like this any time. In a Crystal’s arch or on a flame, a tap chooses, so hold it instead.',
-        SPOT.held,
-        SPOT.heldInfo,
+        SPOT.heldAndInfo,
       ),
     ),
     putHere('1,1'),
@@ -183,7 +189,7 @@ const SCORING: Lesson = {
     }),
   steps: [
     as('cards', say('Three Plants in a row. Look at the board…', SPOT.card('line-plant'))),
-    putHere('1,1', 'Finish the row.'),
+    plain(putHere('1,1', 'Finish the row.')),
     skipFire('We will fire up later. Tap Skip this time.'),
     as(
       'cards',
@@ -192,10 +198,10 @@ const SCORING: Lesson = {
         'When a card’s shape is on the board, it can be scored. One of the settings makes it rise, too. Tap Score to claim it.',
       ),
     ),
-    as('thumbs-up', say('Three of a kind is worth 3. A mix of tokens is worth 2.', SPOT.yourStar)),
-    as('cards', say('When your turn ends, your hand fills back up to two cards.', SPOT.yourCards)),
-    doIt('End your turn.', [SPOT.endTurn], endTurn),
-    as('cards', say('Two cards again. Your turn, my turn, and so on, until the bag or the deck runs out.', SPOT.hand)),
+    as('thumbs-up', plain(say('Three of a kind is worth 3. A mix of tokens is worth 2.', SPOT.yourStar))),
+    as('cards', plain(say('When your turn ends, your hand fills back up to two cards.', SPOT.yourCards))),
+    plain(doIt('End your turn.', [SPOT.endTurn], endTurn)),
+    as('cards', plain(say('Two cards again. Your turn, my turn, and so on, until the bag or the deck runs out.', SPOT.hand))),
   ],
 }
 
@@ -205,18 +211,20 @@ const BREAD: Lesson = {
   build: () =>
     scenario({ board: { '-1,0': ['iron'], '1,-1': ['meat'] }, held: 'bread', bag: ['potion'], hand: ON_THE_WAY_TO_4_7 }),
   steps: [
-    as('feast', say('Bread: when you fire it up, you draw another token and place it.', SPOT.held)),
-    putHere('0,0'),
-    { ...(fire('bread') as Extract<Step, { kind: 'do' }>), draws: ['potion'] },
+    as('feast', plain(say('Bread: when you fire it up, you draw another token and place it.', SPOT.held))),
+    plain(putHere('0,0')),
+    plain({ ...(fire('bread') as Extract<Step, { kind: 'do' }>), draws: ['potion'] }),
     as(
       'thumbs-up',
-      say(
-        'A second token, same turn. Usually you only play one token a turn, but Bread lets you play another. And that one could fire up too!',
-        SPOT.held,
+      plain(
+        say(
+          'A second token, same turn. Usually you only play one token a turn, but Bread lets you play another. And that one could fire up too!',
+          SPOT.held,
+        ),
       ),
     ),
-    putHere('0,1'),
-    skipFire('Let’s keep it simple and skip this one too.'),
+    plain(putHere('0,1')),
+    plain(skipFire('Let’s keep it simple and skip this one too.')),
     as('feast', say('Two tokens, one turn. Not bad for a loaf.')),
   ],
 }
@@ -232,11 +240,11 @@ const CRYSTAL: Lesson = {
       hand: ON_THE_WAY_TO_4_7,
     }),
   steps: [
-    say('Crystal: draw three, keep the one you like best, place it.', SPOT.held),
-    putHere('-1,1'),
-    { ...(fire('crystal') as Extract<Step, { kind: 'do' }>), draws: ['meat', 'iron', 'plant'] },
+    plain(say('Crystal: draw three, keep the one you like best, place it.', SPOT.held)),
+    plain(putHere('-1,1')),
+    plain({ ...(fire('crystal') as Extract<Step, { kind: 'do' }>), draws: ['meat', 'iron', 'plant'] }),
     as('magnifier', doIt('Pick one. The other two go back in the bag. Take the Meat.', [SPOT.slot(0)], { type: 'crystalPick', index: 0 })),
-    putHere('0,1', 'And put it here.'),
+    plain(putHere('0,1', 'And put it here.')),
     as('thumbs-up', say('The token you keep doesn’t fire up. Crystals are generous, but not that generous.')),
   ],
 }
@@ -247,9 +255,9 @@ const MEAT_ALONE: Lesson = {
   build: () => scenario({ board: { '0,0': ['plant'] }, held: 'meat', hand: ON_THE_WAY_TO_4_7 }),
   steps: [
     as('magnifier', say('One lonely Plant. Let’s give it a ride.', SPOT.hex('0,0'))),
-    as('feast', say('Meat: fire it up and you move one neighbour — anywhere on the board.', SPOT.held)),
-    putHere('0,1', 'Put the Meat right next to the Plant.'),
-    fire('meat'),
+    as('feast', plain(say('Meat: fire it up and you move one neighbour — anywhere on the board.', SPOT.held))),
+    plain(putHere('0,1', 'Put the Meat right next to the Plant.')),
+    plain(fire('meat')),
     doIt('Pick the Plant up… and drop it all the way over here.', [SPOT.hex('0,0'), SPOT.hex('-2,1')], {
       type: 'meatMove',
       from: hex('0,0'),
@@ -273,10 +281,10 @@ const MEAT_CARD: Lesson = {
       'cards',
       say('Your card wants a Plant at the end of those two Irons.', SPOT.card('line-iron-iron-plant'), SPOT.hex('1,0'), SPOT.hex('2,0')),
     ),
-    putHere('0,2', 'Put the Meat next to the Plant.'),
-    fire('meat', 'Fire it up.'),
-    doIt('Now move the Plant.', [SPOT.hex('-1,2'), SPOT.hex('0,0')], { type: 'meatMove', from: hex('-1,2'), to: hex('0,0') }),
-    as('thumbs-up', scoreIt('line-iron-iron-plant', 'Moving a token can finish a card just as well as placing one. Score it!')),
+    plain(putHere('0,2', 'Put the Meat next to the Plant.')),
+    plain(fire('meat', 'Fire it up.')),
+    plain(doIt('Now move the Plant.', [SPOT.hex('-1,2'), SPOT.hex('0,0')], { type: 'meatMove', from: hex('-1,2'), to: hex('0,0') })),
+    as('thumbs-up', plain(scoreIt('line-iron-iron-plant', 'Moving a token can finish a card just as well as placing one. Score it!'))),
   ],
 }
 
@@ -291,13 +299,13 @@ const IRON: Lesson = {
       hand: ['tri-potion', 'line-bread'],
     }),
   steps: [
-    say('Iron: move up to two of its neighbours, one space each.', SPOT.held),
-    putHere('0,0'),
-    fire('iron'),
-    doIt('Move this Potion one space.', [SPOT.hex('-1,1'), SPOT.hex('0,1')], { type: 'ironMove', from: hex('-1,1'), to: hex('0,1') }),
-    doIt('And this one.', [SPOT.hex('1,-1'), SPOT.hex('1,0')], { type: 'ironMove', from: hex('1,-1'), to: hex('1,0') }),
-    as('thumbs-up', scoreIt('tri-potion', 'Two different tokens, one step each. Small moves, big difference. Score it!')),
-    as('welcoming', { ...doIt('Now end your turn, and watch me.', [SPOT.endTurn], endTurn), draws: ['meat'] } as Step),
+    plain(say('Iron: move up to two of its neighbours, one space each.', SPOT.held)),
+    plain(putHere('0,0')),
+    plain(fire('iron')),
+    plain(doIt('Move this Potion one space.', [SPOT.hex('-1,1'), SPOT.hex('0,1')], { type: 'ironMove', from: hex('-1,1'), to: hex('0,1') })),
+    plain(doIt('And this one.', [SPOT.hex('1,-1'), SPOT.hex('1,0')], { type: 'ironMove', from: hex('1,-1'), to: hex('1,0') })),
+    as('thumbs-up', plain(scoreIt('tri-potion', 'Two different tokens, one step each. Small moves, big difference. Score it!'))),
+    as('welcoming', plain({ ...doIt('Now end your turn, and watch me.', [SPOT.endTurn], endTurn), draws: ['meat'] } as Step)),
     maple({ type: 'place', at: hex('2,0') }),
     maple({ type: 'fireUp', ability: 'meat' }),
     maple({ type: 'meatMove', from: hex('1,1'), to: hex('-2,2') }),
@@ -315,11 +323,11 @@ const POTION: Lesson = {
       hand: ['line-bread', 'tri-meat'],
     }),
   steps: [
-    say('Potion: swap any two tokens on the board. Any two — they don’t have to be near it.', SPOT.held),
-    putHere('0,0'),
-    fire('potion'),
-    doIt('Swap these two.', [SPOT.hex('1,1'), SPOT.hex('-2,2')], { type: 'potionSwap', a: hex('1,1'), b: hex('-2,2') }),
-    as('cards', scoreIt('line-bread', 'Swapped! And look at your card…')),
+    plain(say('Potion: swap any two tokens on the board. Any two — they don’t have to be near it.', SPOT.held)),
+    plain(putHere('0,0')),
+    plain(fire('potion')),
+    plain(doIt('Swap these two.', [SPOT.hex('1,1'), SPOT.hex('-2,2')], { type: 'potionSwap', a: hex('1,1'), b: hex('-2,2') })),
+    as('cards', plain(scoreIt('line-bread', 'Swapped! And look at your card…'))),
   ],
 }
 
@@ -333,18 +341,20 @@ const PLANT: Lesson = {
       hand: ['line-crystal', 'tri-bread'],
     }),
   steps: [
-    say('Plant: it borrows the ability of a neighbour.', SPOT.held),
-    putHere('1,0', 'Put it next to the Meat.'),
-    fire('plant', 'Fire it up.'),
-    // two pages, one thing lit on each: the neighbour first, then the flame its tap opens beside it
-    { kind: 'do', text: 'Tap the Meat.', spots: [SPOT.hex('2,-1')], expect: [{ ui: { kind: 'select', hex: '2,-1' } }] },
-    doIt('Now tap its flame to borrow its ability.', [SPOT.fire], { type: 'plantTarget', at: hex('2,-1'), ability: 'meat' }),
-    doIt(
-      'The Meat moves one of its own neighbours: bring that Crystal down here.',
-      [SPOT.hex('2,-2'), SPOT.hex('1,1')],
-      { type: 'meatMove', from: hex('2,-2'), to: hex('1,1') },
+    plain(say('Plant: it borrows the ability of a neighbour.', SPOT.held)),
+    plain(putHere('1,0', 'Put it next to the Meat.')),
+    plain(fire('plant', 'Fire it up.')),
+    // two pages: the neighbour first, then the flame its tap opens beside it, each marked by the game alone
+    plain({ kind: 'do', text: 'Tap the Meat.', spots: [SPOT.hex('2,-1')], expect: [{ ui: { kind: 'select', hex: '2,-1' } }] }),
+    plain(doIt('Now tap its flame to borrow its ability.', [SPOT.fire], { type: 'plantTarget', at: hex('2,-1'), ability: 'meat' })),
+    plain(
+      doIt(
+        'The Meat moves one of its own neighbours: bring that Crystal down here.',
+        [SPOT.hex('2,-2'), SPOT.hex('1,1')],
+        { type: 'meatMove', from: hex('2,-2'), to: hex('1,1') },
+      ),
     ),
-    as('cards', scoreIt('line-crystal', 'And there’s your card.')),
+    as('cards', plain(scoreIt('line-crystal', 'And there’s your card.'))),
     as('thinking', say('A Plant next to a Plant can borrow another Plant… and the chain keeps going. One turn can run a long way.')),
   ],
 }
@@ -370,7 +380,7 @@ const STACKS: Lesson = {
     as('magnifier', say('Only the top token counts, for cards and for abilities.', SPOT.peek)),
     say('Three is the limit. Nothing more goes on here.', SPOT.hex('1,0'), SPOT.peek),
     // the token rises over a stack: a plain box takes in the space and the token, where a hexagon would cut it
-    doIt('But this one has room. Put your token on top.', [SPOT.spaceAndToken('0,0')], place('0,0')),
+    plain(doIt('But this one has room. Put your token on top.', [SPOT.spaceAndToken('0,0')], place('0,0'))),
     as('thinking', say('Burying a token is a way to get it out of the way: yours or mine.')),
   ],
 }
@@ -386,25 +396,23 @@ const DUAL: Lesson = {
     }),
   steps: [
     as('magnifier', say('A two-coloured token. It counts as either colour for your cards.', SPOT.held)),
-    putHere('1,1', 'Put it here. Your card wants a Plant at the end of the Meats.'),
+    plain(putHere('1,1', 'Put it here. Your card wants a Plant at the end of the Meats.')),
     as('cards', say('Here it’s the Plant your card wanted.', SPOT.card('line-meat-meat-plant'))),
     // nothing darkened: both flames are there to see, and either would do
-    as('magnifier', {
-      kind: 'say',
-      text: 'When you fire it up, you pick which of its two abilities to use. Either flame works.',
-      clear: true,
-    }),
-    // then only the Meat's is lit and answers
-    {
+    as('magnifier', say('When you fire it up, you pick which of its two abilities to use. Either flame works.')),
+    // then only the Meat's answers, named in the line
+    plain({
       ...doIt('This time, take the Meat.', [SPOT.flame('meat')], fireUp('meat')),
       show: [{ type: 'fireUp' }],
-    } as Step,
-    doIt('Move that Bread out of the way. Just because.', [SPOT.hex('2,0'), SPOT.hex('-2,2')], {
-      type: 'meatMove',
-      from: hex('2,0'),
-      to: hex('-2,2'),
-    }),
-    as('thumbs-up', scoreIt('line-meat-meat-plant', 'Score it!')),
+    } as Step),
+    plain(
+      doIt('Move that Bread out of the way. Just because.', [SPOT.hex('2,0'), SPOT.hex('-2,2')], {
+        type: 'meatMove',
+        from: hex('2,0'),
+        to: hex('-2,2'),
+      }),
+    ),
+    as('thumbs-up', plain(scoreIt('line-meat-meat-plant', 'Score it!'))),
   ],
 }
 
@@ -418,7 +426,7 @@ const UNDO: Lesson = {
       hand: UNDO_HAND,
     }),
   steps: [
-    as('thumbs-up', putHere('-2,0', 'Put it here. Trust me.')),
+    as('thumbs-up', plain(putHere('-2,0', 'Put it here. Trust me.'))),
     // the wrong spot he sent you to
     as('surprised', say('…Hm. That was a terrible spot. My fault.')),
     {
@@ -429,16 +437,13 @@ const UNDO: Lesson = {
       // the fire-up question stays on screen, so the turn still reads as yours
       show: [{ type: 'skipFireUp' }, { type: 'fireUp' }],
     },
-    putHere('1,1', 'Now put it here.'),
-    skipFire('No fire-up this time. We don’t need it.'),
-    as('cards', scoreIt('line-meat', 'Look at that! Two cards at once. Score the first…')),
-    as('thumbs-up', scoreIt('tri-meat', '…and the second.')),
+    plain(putHere('1,1', 'Now put it here.')),
+    plain(skipFire('No fire-up this time. We don’t need it.')),
+    as('cards', plain(scoreIt('line-meat', 'Look at that! Two cards at once. Score the first…'))),
+    as('thumbs-up', plain(scoreIt('tri-meat', '…and the second.'))),
     as(
       'scroll',
-      say(
-        'Undo works inside your own turn. It can’t take back a draw, or a card you’ve scored.',
-        SPOT.undo,
-      ),
+      plain(say('Undo works inside your own turn. It can’t take back a draw, or a card you’ve scored.', SPOT.undo)),
     ),
   ],
 }
@@ -463,7 +468,7 @@ const COINS: Lesson = {
   steps: [
     as('thinking', say('One of these fits the board. The other is never going to happen.', SPOT.hand)),
     as('coin', doIt('Spend a coin.', [SPOT.coin], { type: 'spendCoin' })),
-    as('cards', say('You draw two cards, then choose two to keep. The other two go back under the deck.', SPOT.hand)),
+    as('cards', plain(say('You draw two cards, then choose two to keep. The other two go back under the deck.', SPOT.hand))),
     as('surprised', say('For the Dragon of a Thousand Heads! What a lucky draw!', SPOT.card('tri-crystal'))),
     as(
       'cards',
@@ -491,13 +496,13 @@ const COINS: Lesson = {
       ),
     ),
     // the payoff: the Crystal goes where both cards wanted it
-    putHere('0,1', 'Now put your Crystal here.'),
-    skipFire('No fire-up this time.'),
-    as('feast', scoreIt('line-bread-bread-crystal', 'Both of them! Score the line…')),
-    as('thumbs-up', scoreIt('tri-crystal', '…and the triangle. One coin, two cards.')),
+    plain(putHere('0,1', 'Now put your Crystal here.')),
+    plain(skipFire('No fire-up this time.')),
+    as('feast', plain(scoreIt('line-bread-bread-crystal', 'Both of them! Score the line…'))),
+    as('thumbs-up', plain(scoreIt('tri-crystal', '…and the triangle. One coin, two cards.'))),
     as(
       'coin',
-      say('Once a turn, at most. And every coin you still hold at the end is worth 1 reputation, so don’t splash them around.', SPOT.coin),
+      plain(say('Once a turn, at most. And every coin you still hold at the end is worth 1 reputation, so don’t splash them around.', SPOT.coin)),
     ),
   ],
 }
@@ -517,15 +522,15 @@ const THE_END: Lesson = {
     }),
   steps: [
     as('magnifier', say('Only two tokens left in the bag. Watch closely.', SPOT.bag)),
-    putHere('-1,2', 'Put the Crystal here.'),
-    { ...(fire('crystal', 'And fire it up.') as Extract<Step, { kind: 'do' }>), draws: ['meat', 'plant'] },
+    plain(putHere('-1,2', 'Put the Crystal here.')),
+    plain({ ...(fire('crystal', 'And fire it up.') as Extract<Step, { kind: 'do' }>), draws: ['meat', 'plant'] }),
     as('surprised', say('That’s it! The bag ran out, so this is the final round. See the cross on it?', SPOT.bag)),
     say('My Crystal still needed one more, so six spare tokens were poured in, just to finish the draw. The end is still coming.', SPOT.bag),
     doIt('Keep the Meat.', [SPOT.slot(0)], { type: 'crystalPick', index: 0 }),
-    putHere('1,1'),
-    as('thumbs-up', scoreIt('line-meat', 'Score it.')),
+    plain(putHere('1,1')),
+    as('thumbs-up', plain(scoreIt('line-meat', 'Score it.'))),
     as('cards', say('The deck works the same way: the moment its last card is drawn, the end begins.', SPOT.deck)),
-    doIt('End your turn.', [SPOT.endTurn], endTurn),
+    plain(doIt('End your turn.', [SPOT.endTurn], endTurn)),
     as('thinking', say('Now I get one last chance: I can score and spend a coin, but I can’t place anything.')),
     maple({ type: 'scoreCard', cardId: 'tri-iron' }),
     maple({ type: 'endTurn' }),

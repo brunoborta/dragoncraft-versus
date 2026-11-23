@@ -1606,7 +1606,7 @@ body {
 
 /* over everything, the menus included: the class opens the settings and lights what is inside */
 .coach { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
-.coach[data-shown] { animation: coach-in 200ms ease-out; }
+.coach[data-speaking] { animation: coach-in 200ms ease-out; }
 @keyframes coach-in { from { opacity: 0; } to { opacity: 1; } }
 .coach-dim { position: absolute; inset: 0; }
 .coach-shade { fill: rgb(4 9 6 / 0.9); }
@@ -1790,5 +1790,5 @@ body {
   to { transform: translate(var(--to-x), var(--to-y)); width: var(--to-size); height: var(--to-size); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .coach[data-shown], .coach-card { animation: none; }
+  .coach[data-speaking], .coach-card { animation: none; }
 }

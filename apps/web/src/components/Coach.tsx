@@ -184,7 +184,11 @@ export function Coach({
   useEffect(() => setAsking(false), [step])
 
   const kind = act === 3 ? 'offer' : step?.kind ?? 'say'
-  const clear = step?.kind === 'say' && step.clear === true
+  /*
+   * Nothing darkened: on a step marked clear, where the game already shows
+   * what to do, and on any line of the lessons with nothing to point at.
+   */
+  const clear = step !== null && step.kind !== 'play' && (step.clear === true || (act === 2 && spots.length === 0))
   const pose: MaplePose = act === 3 ? 'welcoming' : step && step.kind !== 'play' ? (step.pose ?? 'explaining') : 'explaining'
   const line =
     act === 3
@@ -216,7 +220,9 @@ export function Coach({
   )
 
   return (
-    <div className="coach" data-act={act} data-kind={kind} data-shown={shown || undefined}>
+    // fades in as Maple starts speaking, not each time a page's spots are measured: from one page to the
+    // next he never stops, so the shade does not blink off and back
+    <div className="coach" data-act={act} data-kind={kind} data-shown={shown || undefined} data-speaking={speaking || undefined}>
       {shown ? (
         <>
           <svg className="coach-dim" aria-hidden="true" width="100%" height="100%">
