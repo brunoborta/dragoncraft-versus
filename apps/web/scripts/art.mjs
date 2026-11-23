@@ -358,7 +358,7 @@ const ASSETS = {
     // black, so the black is flooded out from the border — with the light-grey
     // rule off, since nothing light around him is background. Shown up to about
     // 180px tall, so 384 is 2x.
-    const POSES = ['explaining', 'thumbs-up', 'portrait', 'scroll', 'thinking', 'cards', 'feast', 'magnifier', 'coin', 'surprised', 'welcoming']
+    const POSES = ['explaining', 'thumbs-up', 'portrait', 'scroll', 'thinking', 'cards', 'feast', 'magnifier', 'coin', 'surprised', 'welcoming', 'pointing']
     const pose = (name) => join(SRC, 'maple', `${name}.png`)
     for (const name of POSES) {
       const meta = await sharp(pose(name)).metadata()

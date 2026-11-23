@@ -14,5 +14,6 @@ export const MAPLE_POSES = [
   'coin',
   'surprised',
   'welcoming',
+  'pointing',
 ] as const
 export type MaplePose = (typeof MAPLE_POSES)[number]
