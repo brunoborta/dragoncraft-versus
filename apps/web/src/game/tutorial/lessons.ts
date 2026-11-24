@@ -200,7 +200,7 @@ const SCORING: Lesson = {
     ),
     as('thumbs-up', plain(say('Three of a kind is worth 3. A mix of tokens is worth 2.', SPOT.yourStar))),
     as('cards', plain(say('When your turn ends, your hand fills back up to two cards.', SPOT.yourCards))),
-    doIt('End your turn.', [SPOT.endTurn], endTurn),
+    as('pointing', doIt('End your turn.', [SPOT.endTurn], endTurn)),
     as('cards', plain(say('Two cards again. Your turn, my turn, and so on, until the bag or the deck runs out.', SPOT.hand))),
   ],
 }
