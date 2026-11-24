@@ -102,6 +102,33 @@ describe('FireChoice', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
     expect(onAct).toHaveBeenLastCalledWith({ type: 'skipFireUp' })
   })
+
+  it('measures again until the board is laid out, rather than staying in the middle of the board', () => {
+    // a phone can mount the choice before its board has a place on screen: nothing to measure yet
+    const box = document.createElement('div')
+    box.innerHTML = '<svg class="board"></svg>'
+    box.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 400 }) as DOMRect
+    Object.defineProperty(box, 'clientWidth', { value: 400 })
+    let laidOut = false
+    ;(box.querySelector('svg.board') as unknown as { getScreenCTM: () => DOMMatrix | null }).getScreenCTM = () =>
+      laidOut ? ({ a: 1, b: 0, c: 0, d: 1, e: 200, f: 200 } as DOMMatrix) : null
+    document.body.append(box)
+    const ref = { current: box }
+    const actions: Action[] = [{ type: 'fireUp', ability: 'meat' }, { type: 'skipFireUp' }]
+    const { container } = render(<FireChoice at={at} token={single('meat')} actions={actions} onAct={() => {}} area={ref} />)
+    expect(container.querySelector('.fire-choice')?.hasAttribute('data-measured')).toBe(false)
+
+    laidOut = true
+    act(() => vi.advanceTimersByTime(100))
+    expect(container.querySelector('.fire-choice')?.getAttribute('data-measured')).toBe('true')
+    const [fire, skip] = [...container.querySelectorAll<HTMLElement>('.fire-slot')]
+    // the fire straight above the space at the board's middle, Skip straight below it
+    expect(fire.style.left).toBe('200px')
+    expect(skip.style.left).toBe('200px')
+    expect(parseFloat(fire.style.top)).toBeLessThan(200)
+    expect(parseFloat(skip.style.top)).toBeGreaterThan(200)
+    box.remove()
+  })
 })
 
 describe('PlayerBar', () => {

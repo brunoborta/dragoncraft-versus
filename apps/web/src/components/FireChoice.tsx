@@ -96,14 +96,28 @@ export function FireChoice({
 
   const [where, setWhere] = useState<{ x: number; y: number; r: number; width: number } | null>(null)
   useLayoutEffect(() => {
+    let frame = 0
     const measure = () => {
+      cancelAnimationFrame(frame)
       const box = area.current
-      const spot = hexOnScreen(box?.querySelector<SVGSVGElement>('svg.board'), box, at)
+      const found = hexOnScreen(box?.querySelector<SVGSVGElement>('svg.board'), box, at)
+      // a board drawn at no size has not been laid out yet
+      const spot = found && found.unit > 0 ? found : null
       setWhere(spot && box ? { x: spot.x, y: spot.y, r: TOKEN_RADIUS * spot.unit, width: box.clientWidth } : null)
+      // a phone can mount the choice before its board has a place on screen: try again next frame
+      if (!spot && box) frame = requestAnimationFrame(measure)
     }
     measure()
+    // and the board can still move once it is measured, with no resize of the window to say so
+    const box = area.current
+    const watch = box && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (box) watch?.observe(box)
     window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      watch?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
   }, [area, at])
 
   // nothing laid out to measure (under test): the stylesheet sets the answers in a row instead
