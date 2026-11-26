@@ -14,7 +14,7 @@ const FIRST_LINE = 'Ah, a new apprentice! I’m Professor Maple, and this is my 
 
 /** Opens the tutorial and taps the first chapter's card away, as a player would. */
 function openTutorial() {
-  fireEvent.click(screen.getByText('Tutorial'))
+  fireEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
   expect(screen.getByText('Chapter 1')).toBeDefined()
   fireEvent.click(screen.getByText('The Menu'))
   // Maple speaks once the screen has been still a moment
@@ -52,7 +52,7 @@ describe('the tutorial, from the front door', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Skip tutorial' }))
     fireEvent.click(screen.getByRole('button', { name: 'Yes' }))
-    expect(screen.getByText('Against the computer')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Play' })).toBeDefined()
 
     openTutorial()
     expect(screen.getByText(FIRST_LINE)).toBeDefined()

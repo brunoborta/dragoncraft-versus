@@ -3,6 +3,17 @@ import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App.js'
 
+/** At the front door: Play, then one of the ways to play it offers. */
+function choose(mode: 'Against the computer' | 'Against a player') {
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  fireEvent.click(screen.getByText(mode))
+}
+
+/** Back at the front door, with Play to press. */
+function atFrontDoor() {
+  return screen.getByRole('button', { name: 'Play' })
+}
+
 describe('App', () => {
   /**
    * The game opens on a difficulty modal and does not start until it is
@@ -10,7 +21,7 @@ describe('App', () => {
    */
   function startGame(level: 'Easy' | 'Medium' | 'Hard' = 'Easy') {
     const rendered = render(<App seed={2} />)
-    fireEvent.click(screen.getByText('Against the computer'))
+    choose('Against the computer')
     fireEvent.click(screen.getByText(level))
     fireEvent.click(screen.getByText('Start game'))
     return rendered
@@ -117,7 +128,7 @@ describe('App', () => {
 
   it('jumps to a finished game you won, one you lost, and one that ended level', () => {
     render(<App seed={2} debug />)
-    fireEvent.click(screen.getByText('Against the computer'))
+    choose('Against the computer')
     fireEvent.click(screen.getByText('Easy'))
     fireEvent.click(screen.getByText('Start game'))
 
@@ -133,7 +144,7 @@ describe('App', () => {
 
   it('plays again against the same opponent, on a fresh seed, without asking anything', () => {
     render(<App seed={2} debug />)
-    fireEvent.click(screen.getByText('Against the computer'))
+    choose('Against the computer')
     fireEvent.click(screen.getByText('Easy'))
     fireEvent.click(screen.getByText('Start game'))
     fireEvent.click(screen.getByText('Win now'))
@@ -144,9 +155,33 @@ describe('App', () => {
     random.mockRestore()
 
     // no opponent chooser, no result left standing: the same machine, a new game
-    expect(screen.queryByLabelText('Choose your opponent')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Play' })).toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
     expect(screen.getByText('Seed 500000')).toBeDefined()
+  })
+
+  it('opens the front door on the logo, Tutorial, Play and the settings', () => {
+    render(<App seed={2} />)
+    expect(screen.getByRole('img', { name: 'Dragoncraft Versus' })).toBeDefined()
+    const menu = screen.getByRole('navigation', { name: 'Main menu' })
+    expect(within(menu).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'Tutorial',
+      'Play',
+      'Settings',
+    ])
+    // the settings are the table's, kept for the next game
+    fireEvent.click(within(menu).getByRole('button', { name: 'Settings' }))
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Close settings' }))
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull()
+
+    // Play's window opens over them: they stay in sight, but out of reach until it closes
+    fireEvent.click(within(menu).getByRole('button', { name: 'Play' }))
+    expect(screen.getByRole('dialog', { name: 'Choose your opponent' })).toBeDefined()
+    expect(screen.getByRole('navigation', { name: 'Main menu' })).toBe(menu)
+    expect((menu as HTMLElement & { inert: boolean }).inert).toBe(true)
+    fireEvent.click(screen.getByLabelText('Back'))
+    expect((menu as HTMLElement & { inert: boolean }).inert).toBe(false)
   })
 
   it('shows the seed of the game being played', () => {
@@ -159,7 +194,7 @@ describe('App', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
     try {
       render(<App />)
-      fireEvent.click(screen.getByText('Against the computer'))
+      choose('Against the computer')
       fireEvent.click(screen.getByText('Easy'))
       fireEvent.click(screen.getByText('Start game'))
       expect(screen.getByText('Seed 500000')).toBeDefined()
@@ -170,7 +205,7 @@ describe('App', () => {
 
   it('does not start until an opponent is chosen', () => {
     render(<App seed={2} />)
-    expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
+    expect(atFrontDoor()).toBeDefined()
     const legal = screen
       .getAllByRole('button')
       .filter((el) => el.getAttribute('data-highlight') === 'legal')
@@ -179,7 +214,7 @@ describe('App', () => {
 
   it('shows the chosen opponent as a label, with nothing to change mid-game', () => {
     startGame('Medium')
-    expect(screen.queryByLabelText('Choose your opponent')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Play' })).toBeNull()
     expect(screen.getByLabelText('Opponent').textContent).toContain('Medium')
     expect(screen.queryByRole('combobox')).toBeNull()
   })
@@ -475,9 +510,9 @@ describe('App', () => {
       fireEvent.click(screen.getByText('New game'))
       random.mockRestore()
 
-      expect(screen.getByLabelText('Choose your opponent')).toBeDefined()
+      expect(atFrontDoor()).toBeDefined()
       // a new game is a new game: the seed it was pinned to does not come back
-      fireEvent.click(screen.getByText('Against the computer'))
+      choose('Against the computer')
       fireEvent.click(screen.getByText('Easy'))
       fireEvent.click(screen.getByText('Start game'))
       expect(screen.getByText('Seed 123456')).toBeDefined()
@@ -525,14 +560,18 @@ describe('App online', () => {
   it('asks for the mode first, then the difficulty, with a way back', () => {
     render(<App seed={2} server="ws://test" />)
     expect(screen.queryByText('Easy')).toBeNull()
-    fireEvent.click(screen.getByText('Against the computer'))
+    choose('Against the computer')
     expect(screen.getByText('Hard')).toBeDefined()
     fireEvent.click(screen.getByLabelText('Back'))
     expect(screen.getByText('Against a player')).toBeDefined()
+    // and one more Back is the front door
+    fireEvent.click(screen.getByLabelText('Back'))
+    expect(atFrontDoor()).toBeDefined()
   })
 
   it('cannot pick a player when the site was built without a server', () => {
     render(<App seed={2} server={null} />)
+    fireEvent.click(atFrontDoor())
     const button = screen.getByText('Against a player').closest('button') as HTMLButtonElement
     expect(button.disabled).toBe(true)
     expect(screen.getByText('Not available in this build')).toBeDefined()
@@ -541,7 +580,7 @@ describe('App online', () => {
   it('creates a game and shows its PIN while waiting', () => {
     const { connect, latest } = fakeConnect()
     render(<App seed={2} server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('Against a player'))
+    choose('Against a player')
     fireEvent.click(screen.getByText('Create'))
     fireEvent.click(screen.getByText('Create game'))
 
@@ -561,7 +600,7 @@ describe('App online', () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('Against a player'))
+    choose('Against a player')
     fireEvent.click(screen.getByText('Join'))
 
     const input = screen.getByLabelText('Game PIN') as HTMLInputElement
@@ -606,7 +645,7 @@ describe('App online', () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('Against a player'))
+    choose('Against a player')
     fireEvent.click(screen.getByText('Join'))
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
@@ -637,7 +676,7 @@ describe('App online', () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('Against a player'))
+    choose('Against a player')
     fireEvent.click(screen.getByText('Join'))
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
@@ -670,7 +709,7 @@ describe('App online', () => {
     const { createGame, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('Against a player'))
+    choose('Against a player')
     fireEvent.click(screen.getByText('Join'))
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
@@ -693,14 +732,14 @@ describe('App online', () => {
     const socket = latest()
     fireEvent.click(screen.getByRole('button', { name: 'New game' }))
     expect(socket.sent.at(-1)).toEqual({ type: 'leave' })
-    expect(screen.getByText('Against the computer')).toBeDefined()
+    expect(atFrontDoor()).toBeDefined()
   })
 
   it("plays a joined game with the host's options, shown but not changeable", async () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('Against a player'))
+    choose('Against a player')
     fireEvent.click(screen.getByText('Join'))
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
@@ -742,7 +781,7 @@ describe('App online', () => {
   it('says so when the PIN leads nowhere, and goes back to the start', () => {
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    fireEvent.click(screen.getByText('Against a player'))
+    choose('Against a player')
     fireEvent.click(screen.getByText('Join'))
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '999999' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
@@ -752,7 +791,7 @@ describe('App online', () => {
     expect(screen.getByText('No game is open with this PIN')).toBeDefined()
 
     fireEvent.click(screen.getByText('Back to menu'))
-    expect(screen.getByText('Against the computer')).toBeDefined()
+    expect(atFrontDoor()).toBeDefined()
     expect(window.location.hash).toBe('')
   })
 })
