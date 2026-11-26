@@ -11,7 +11,7 @@
  * A/B of each asset; the unchosen sources were deleted.)
  */
 import { existsSync, mkdirSync, statSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
@@ -22,6 +22,17 @@ mkdirSync(OUT, { recursive: true })
 
 const src = (name) => join(SRC, `${name}.png`)
 const out = (name) => join(OUT, `${name}.webp`)
+/**
+ * The front door's pictures, twice: AVIF, about 40% under WebP at the same
+ * look, and WebP for the browsers that cannot read it (iOS 14 and 15). A
+ * device fetches only the one it reads (components/Picture).
+ */
+const AVIF = { quality: 58, effort: 6 }
+async function twice(image, name) {
+  await image.clone().avif(AVIF).toFile(join(OUT, `${name}.avif`))
+  await image.clone().webp({ quality: 80, alphaQuality: 85 }).toFile(out(name))
+  for (const kind of ['avif', 'webp']) reportFile(join(OUT, `${name}.${kind}`))
+}
 
 // ---------------------------------------------------------------- helpers
 
@@ -237,7 +248,11 @@ function circleMask(size) {
 }
 
 function report(name) {
-  console.log(`  ${name}.webp  ${(statSync(out(name)).size / 1024).toFixed(0)} KB`)
+  reportFile(out(name))
+}
+
+function reportFile(file) {
+  console.log(`  ${basename(file)}  ${(statSync(file).size / 1024).toFixed(0)} KB`)
 }
 
 // ---------------------------------------------------------------- assets
@@ -386,6 +401,66 @@ const ASSETS = {
       .webp({ quality: 82, alphaQuality: 90 })
       .toFile(out('maple-avatar'))
     report('maple-avatar')
+  },
+
+  async menu() {
+    // the front door's scene, kept at its full 1024 wide: MenuScene moves its
+    // water, banners and the purple dragon by the pixel, so it is not resized
+    await twice(sharp(src('bg-no-logo')), 'bg-menu')
+    // the logo came on a white, noisy "transparent" checker: cut it out
+    const logo = cutOut(await raw(src('logo')), { tolerance: 60, minLight: 150, maxChroma: 30 })
+    // trimmed first, then sized: sharp would resize before trimming in one pipeline
+    const trimmed = await fromRaw(logo).trim({ threshold: 1 }).png().toBuffer()
+    await twice(sharp(trimmed).resize({ width: 900 }), 'logo')
+  },
+
+  async buttons() {
+    // the front door's buttons, drawn alone on transparency (designs/art/buttons/). Play is cut in
+    // layers on one canvas, its plate and each of its four claws, so the claws can close on it one
+    // by one; the plate is blank, for Play to be written on it in Cinzel. Places measured on the
+    // 1774 x 887 source.
+    const dir = (name) => join(SRC, 'buttons', `${name}.png`)
+    const play = await raw(dir('play'))
+    const { width, height, data } = play
+    const inside = (poly, x, y) => {
+      let hit = false
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i]
+        const [xj, yj] = poly[j]
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit
+      }
+      return hit
+    }
+    // the hexagon and its frame, the little peaks at the middle of its top and bottom included
+    const plate = [
+      [140, 465], [300, 225], [560, 195], [840, 165], [885, 140], [930, 165], [1210, 195], [1470, 225],
+      [1632, 465], [1470, 705], [1210, 735], [930, 770], [885, 805], [840, 770], [560, 735], [300, 705],
+    ]
+    const corner = (x, y) => (y < 465 ? (x < 887 ? 'tl' : 'tr') : x < 887 ? 'bl' : 'br')
+    const layers = Object.fromEntries(['plate', 'tl', 'tr', 'bl', 'br'].map((name) => [name, Buffer.alloc(data.length)]))
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = (y * width + x) * 4
+        if (data[p + 3] === 0) continue
+        const target = layers[inside(plate, x, y) ? 'plate' : corner(x, y)]
+        data.copy(target, p, p, p + 4)
+      }
+    }
+    // every layer cut to the same box, the button's own, so they lie on one another exactly
+    const { info } = await sharp(dir('play')).trim({ threshold: 1 }).toBuffer({ resolveWithObject: true })
+    const box = { left: -info.trimOffsetLeft, top: -info.trimOffsetTop, width: info.width, height: info.height }
+    console.log(`  play cut to ${box.width}x${box.height} at ${box.left},${box.top}: the plate's centre is at 886,465`)
+    for (const [name, pixels] of Object.entries(layers)) {
+      const file = name === 'plate' ? 'menu-play-plate' : `menu-play-claw-${name}`
+      // shown about 240px across on a phone: 720 is 3x
+      const cut = await fromRaw({ data: pixels, width, height }).extract(box).png().toBuffer()
+      await twice(sharp(cut).resize({ width: 720 }), file)
+    }
+    // Tutorial and the settings, whole: shown 76px across, so 228 is 3x
+    for (const name of ['tutorial', 'settings']) {
+      const trimmed = await sharp(dir(name)).trim({ threshold: 1 }).png().toBuffer()
+      await twice(sharp(trimmed).resize({ width: 228 }), `menu-${name}`)
+    }
   },
 
   async textures() {
