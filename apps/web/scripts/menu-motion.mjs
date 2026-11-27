@@ -33,10 +33,32 @@ const CROSSFADE = 1
 
 const work = mkdtempSync(join(tmpdir(), 'menu-motion-'))
 const ffmpeg = (args, cwd = work) => execFileSync('ffmpeg', ['-v', 'error', '-y', ...args], { cwd, stdio: ['ignore', 'inherit', 'inherit'] })
-/** A take's frames, put back where they belong in the scene: the part it shows, at the scene's scale. */
+/**
+ * The part of the scene a take covers once placed: its `view`, or, where it is `stretch`ed, from the
+ * scene's top down.
+ */
+const coverOf = (take) => {
+  const [vx, vy, vw, vh] = table.takes[take].view
+  return table.takes[take].stretch ? [vx, 0, vw, vh + vy] : [vx, vy, vw, vh]
+}
+
+/**
+ * A take's frames, put back where they belong in the scene: the part it shows, at the scene's scale.
+ * `stretch` (px): a take that stops short of the scene's top has its top that many rows drawn out to
+ * reach it, so what moves up there (the blue dragon's horns, to the painting's edge) moves to the top
+ * rather than being cut off by the still picture.
+ */
 const placed = (take) => {
   const [vx, vy, vw, vh] = table.takes[take].view
-  return `fps=24,scale=${vw}:${vh}:flags=lanczos,pad=${W}:${H}:${vx}:${vy}`
+  const stretch = table.takes[take].stretch
+  const scaled = `fps=24,scale=${vw}:${vh}:flags=lanczos`
+  if (!stretch || vy === 0) return `${scaled},pad=${W}:${H}:${vx}:${vy}`
+  return (
+    `${scaled},split[stretch_a][stretch_b];` +
+    `[stretch_a]crop=${vw}:${stretch}:0:0,scale=${vw}:${stretch + vy}:flags=lanczos[stretch_top];` +
+    `[stretch_b]crop=${vw}:${vh - stretch}:0:${stretch}[stretch_rest];` +
+    `[stretch_top][stretch_rest]vstack,pad=${W}:${H}:${vx}:0`
+  )
 }
 
 // the painting, cropped to the scene the takes were made from
@@ -73,7 +95,7 @@ async function waterIn([x, y, w, h]) {
 /** The piece's mask, 0 to 255 per pixel of its rectangle: its shape, faded out before the edge of what its take shows. */
 async function maskOf(piece) {
   const [x, y, w] = piece.rect
-  const [vx, vy, vw, vh] = table.takes[piece.take].view
+  const [vx, vy, vw, vh] = coverOf(piece.take)
   const shape = await shapeOf(piece)
   return Buffer.from(
     shape.map((v, i) => {

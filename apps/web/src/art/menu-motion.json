@@ -1,8 +1,8 @@
 {
-  "$comment": "The menu painting's moving pieces, cut from video takes made by apps/web/scripts/motion.mjs and turned into clips by apps/web/scripts/menu-motion.mjs. Places are pixels of designs/art/bg-no-logo.png (1024 wide). Listed bottom to top: a later piece is drawn over an earlier one. `loop` plays without end (closed with a `crossfade` of that many seconds, or none for a take that ends where it began); otherwise the piece plays through once every `every` seconds (give or take `jitter`), first at `first`. A take's `view` is the part of the scene its frames show (Seedance cut the middle square out of what it was sent). `mask`: rect (soft edges, hard at the painting's border), water (only the falling water), or a polygon to cut along.",
+  "$comment": "The menu painting's moving pieces, cut from video takes made by apps/web/scripts/motion.mjs and turned into clips by apps/web/scripts/menu-motion.mjs. Places are pixels of designs/art/bg-no-logo.png (1024 wide). Listed bottom to top: a later piece is drawn over an earlier one. `loop` plays without end (closed with a `crossfade` of that many seconds, or none for a take that ends where it began); otherwise the piece plays through once every `every` seconds (give or take `jitter`), first at `first`. A take's `view` is the part of the scene its frames show (Seedance cut the middle square out of what it was sent); `stretch` draws that many of its top rows out to the scene's top, where the view stops short of it. `mask`: rect (soft edges, hard at the painting's border), water (only the falling water), or a polygon to cut along.",
   "scene": { "width": 1024, "height": 1088 },
   "takes": {
-    "seedance": { "file": "scene-2026-11-26T14-31-43-seedance.mp4", "view": [0, 32, 1024, 1024] }
+    "seedance": { "file": "scene-2026-11-26T14-31-43-seedance.mp4", "view": [0, 32, 1024, 1024], "stretch": 160 }
   },
   "pieces": [
     { "name": "scene", "take": "seedance", "rect": [0, 0, 1024, 1088], "mask": "rect", "loop": true, "crossfade": 0 }
