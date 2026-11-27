@@ -1,7 +1,7 @@
 import { BOARD, hexEq, key } from '@dcv/engine'
 import type { Hex, Seat, ShopCard } from '@dcv/engine'
 import { motion } from 'motion/react'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useState } from 'react'
 import { useArt } from '../art/ArtContext.js'
 import { HEX_SIZE, hexCenter, hexOnScreen, hexPoints } from '../geometry.js'
 import type { PresentationEvent } from '../game/presentation.js'
@@ -360,30 +360,144 @@ function Traveller({
 
 /* ---------------------------------------------------------- M9: vine ----- */
 
-/** A vine growing from the plant to the neighbour whose ability it borrows (M9). */
-export function Vine({ from, to }: { from: Hex; to: Hex }) {
-  const a = hexCenter(from)
-  const b = hexCenter(to)
-  // a gentle curve: the control point sits off the straight line
+/** How long the vine takes to reach the neighbour and wrap it: its fire catches as it closes (TokenBlaze). */
+export const VINE_GROW_MS = 420
+
+type VinePoint = { x: number; y: number }
+
+/**
+ * The vine's course, in board units: from the plant's rim it bows out towards
+ * the neighbour, meandering a little, and on reaching it wraps most of the way
+ * round it, closing in to a curl. `side` (1 or -1) is which way it bows and
+ * wraps. Points closely spaced, with the distance along them.
+ */
+function vineCourse(a: VinePoint, b: VinePoint, side: number): { points: VinePoint[]; along: number[] } {
   const dx = b.x - a.x
   const dy = b.y - a.y
-  const cx = (a.x + b.x) / 2 - dy * 0.3
-  const cy = (a.y + b.y) / 2 + dx * 0.3
-  const d = `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`
+  const gap = Math.hypot(dx, dy) || 1
+  const ux = dx / gap
+  const uy = dy / gap
+  // across the line, on the side it bows to
+  const nx = -uy * side
+  const ny = ux * side
+  const rim = TOKEN_RADIUS * 1.14
+  // it leaves the plant on its side of the line, and reaches the neighbour on the same side
+  const start = { x: a.x + ux * rim * 0.85 + nx * rim * 0.5, y: a.y + uy * rim * 0.85 + ny * rim * 0.5 }
+  const end = { x: b.x - ux * rim * 0.85 + nx * rim * 0.5, y: b.y - uy * rim * 0.85 + ny * rim * 0.5 }
+  const bow = { x: (start.x + end.x) / 2 + nx * 4.5, y: (start.y + end.y) / 2 + ny * 4.5 }
+  const points: VinePoint[] = []
+  const STEM = 22
+  for (let i = 0; i <= STEM; i++) {
+    const t = i / STEM
+    const x = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * bow.x + t * t * end.x
+    const y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * bow.y + t * t * end.y
+    // a meander along it, fading at either end
+    const wave = Math.sin(t * Math.PI * 2.2) * Math.sin(t * Math.PI) * 0.7
+    points.push({ x: x + nx * wave, y: y + ny * wave })
+  }
+  // the wrap: round the neighbour, away from the plant, from where it arrived, closing in to a curl
+  const from = Math.atan2(end.y - b.y, end.x - b.x)
+  const WRAP = 34
+  const sweep = Math.PI * 1.45
+  for (let i = 1; i <= WRAP; i++) {
+    const t = i / WRAP
+    const curling = t > 0.82 ? (t - 0.82) / 0.18 : 0
+    const angle = from + side * sweep * t
+    const radius = rim * (1 - 0.1 * t) - curling * curling * 2.4
+    points.push({ x: b.x + radius * Math.cos(angle), y: b.y + radius * Math.sin(angle) })
+  }
+  const along = [0]
+  for (let i = 1; i < points.length; i++) along.push(along[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y))
+  return { points, along }
+}
+
+/** The stem as a shape: thick at the plant, thinning to a fine tip. */
+function stemShape(points: VinePoint[], along: number[]): string {
+  const total = along[along.length - 1] || 1
+  const left: string[] = []
+  const right: string[] = []
+  points.forEach((point, i) => {
+    const before = points[Math.max(0, i - 1)]
+    const after = points[Math.min(points.length - 1, i + 1)]
+    const tx = after.x - before.x
+    const ty = after.y - before.y
+    const length = Math.hypot(tx, ty) || 1
+    const half = (2.1 * (1 - along[i] / total) ** 0.8 + 0.4) / 2
+    const ox = (-ty / length) * half
+    const oy = (tx / length) * half
+    left.push(`${(point.x + ox).toFixed(2)},${(point.y + oy).toFixed(2)}`)
+    right.unshift(`${(point.x - ox).toFixed(2)},${(point.y - oy).toFixed(2)}`)
+  })
+  return `M${left.join(' L')} L${right.join(' L')} Z`
+}
+
+/** Where along the course a fraction of its length falls, and which way it runs there (degrees). */
+function pointAt(points: VinePoint[], along: number[], fraction: number): { x: number; y: number; angle: number } {
+  const target = fraction * along[along.length - 1]
+  let i = 1
+  while (i < along.length - 1 && along[i] < target) i++
+  const a = points[i - 1]
+  const b = points[i]
+  const t = (target - along[i - 1]) / (along[i] - along[i - 1] || 1)
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI }
+}
+
+/** A leaf: pointed, from its stalk at the origin out along x. */
+const LEAF = 'M0 0 C 1.2 -1.6 3.6 -1.9 5 0 C 3.6 1.9 1.2 1.6 0 0 Z'
+
+/**
+ * A vine growing from the plant to the neighbour whose ability it borrows
+ * (M9): it sprouts from the plant's rim, thick there and thinning, bows across
+ * to the neighbour and wraps round it, closing to a curl; its leaves unfold as
+ * it passes and a tendril or two coils off it. Once the neighbour has caught,
+ * it fades.
+ */
+export function Vine({ from, to }: { from: Hex; to: Hex }) {
+  const reveal = useId()
+  const a = hexCenter(from)
+  const b = hexCenter(to)
+  // which way it bows: fixed for a pair of spaces, so a redraw does not flip it
+  const side = Math.abs(from.q * 7 + from.r * 13 + to.q * 3 + to.r * 5) % 2 === 0 ? 1 : -1
+  const { points, along } = vineCourse(a, b, side)
+  const line = `M${points.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' L')}`
+  // leaves along the stem and on the wrap, alternating sides, smaller towards the tip
+  const leaves = [0.1, 0.22, 0.34, 0.48, 0.62, 0.76].map((fraction, index) => {
+    const at = pointAt(points, along, fraction)
+    const flip = index % 2 === 0 ? 1 : -1
+    return { ...at, fraction, turn: at.angle + flip * 55, size: 1.0 - fraction * 0.38 }
+  })
+  const tendrils = [0.28, 0.42].map((fraction, index) => {
+    const at = pointAt(points, along, fraction)
+    const flip = index % 2 === 0 ? -1 : 1
+    return { ...at, fraction, turn: at.angle + flip * 60, flip }
+  })
   return (
-    <g className="vine">
-      <path className="vine-stem vine-stem-shadow" d={d} />
-      <path className="vine-stem" d={d} />
-      {[0.35, 0.7].map((t) => {
-        // a leaf part way along the curve
-        const x = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * cx + t * t * b.x
-        const y = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * cy + t * t * b.y
-        return (
-          <g key={t} transform={`translate(${x} ${y}) rotate(${(Math.atan2(dy, dx) * 180) / Math.PI - 50})`}>
-            <path className="vine-leaf" style={{ '--t': t } as React.CSSProperties} d="M0 0 C 2 -3 5 -3 6 0 C 5 2.5 2 2.5 0 0 Z" />
+    <g className="vine" style={{ '--grow-ms': `${VINE_GROW_MS}ms` } as React.CSSProperties}>
+      <defs>
+        {/* the stem is shown as far as it has grown: a line along its course, drawn on */}
+        <mask id={reveal} maskUnits="userSpaceOnUse" x={-1000} y={-1000} width={2000} height={2000}>
+          <path className="vine-reveal" d={line} pathLength={1} />
+        </mask>
+      </defs>
+      <path className="vine-stem" d={stemShape(points, along)} mask={`url(#${reveal})`} />
+      {tendrils.map((tendril) => (
+        <g key={tendril.fraction} transform={`translate(${tendril.x.toFixed(2)} ${tendril.y.toFixed(2)}) rotate(${tendril.turn.toFixed(1)})`}>
+          <path
+            className="vine-tendril"
+            style={{ '--t': tendril.fraction } as React.CSSProperties}
+            d={`M0 0 C 1.2 0 2.2 ${0.4 * tendril.flip} 2.4 ${1.2 * tendril.flip} C 2.6 ${2 * tendril.flip} 1.6 ${2.4 * tendril.flip} 1.3 ${1.7 * tendril.flip} C 1.1 ${1.2 * tendril.flip} 1.7 ${1 * tendril.flip} 1.9 ${1.4 * tendril.flip}`}
+            pathLength={1}
+          />
+        </g>
+      ))}
+      {leaves.map((leaf) => (
+        <g key={leaf.fraction} transform={`translate(${leaf.x.toFixed(2)} ${leaf.y.toFixed(2)}) rotate(${leaf.turn.toFixed(1)}) scale(${leaf.size.toFixed(2)})`}>
+          <g className="vine-leaf" style={{ '--t': leaf.fraction } as React.CSSProperties}>
+            <path className="vine-leaf-blade" d={LEAF} />
+            <path className="vine-leaf-rib" d="M0.3 0 L 4.4 0" />
           </g>
-        )
-      })}
+        </g>
+      ))}
     </g>
   )
 }

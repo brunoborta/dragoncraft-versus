@@ -7,6 +7,7 @@ import { useReducedMotion } from '../motion.js'
 import { HEAT_COLOUR, NOISE, VERTEX, compile, drawSparks } from './FireFx.js'
 import type { Ember } from './FireFx.js'
 import { TOKEN_RADIUS } from './HexCell.js'
+import { VINE_GROW_MS } from './Moments.js'
 import { DRAGON_THEME } from '../theme.js'
 
 /*
@@ -21,8 +22,8 @@ const OUT = 1.15
 const EMBERS_OUT = OUT + 1.05
 /** How long a smouldering token takes to go out once its target is chosen. */
 const SMOULDER_OUT_MS = 600
-/** When the ability came through a plant, its vine reaches the token first. */
-const VINE_MS = 400
+/** When the ability came through a plant, its vine reaches the token and wraps it first. */
+const VINE_MS = VINE_GROW_MS
 
 /** The canvas round the token, in token radii: wide enough for the flames to sway, tall enough for them to rise. */
 const SPAN = { width: 6, height: 8.5, below: 2.5 }

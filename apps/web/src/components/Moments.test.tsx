@@ -328,9 +328,9 @@ describe('useBlaze', () => {
       expect(screen.getByText('none')).toBeDefined()
 
       rerender(<Probe event={{ ...vine, seq: 1 }} />)
-      expect(screen.getByText('1,0 after 400')).toBeDefined()
+      expect(screen.getByText('1,0 after 420')).toBeDefined()
       rerender(<Probe event={{ ...fire, at: null, seq: 2 }} />)
-      expect(screen.getByText('1,0 after 400')).toBeDefined()
+      expect(screen.getByText('1,0 after 420')).toBeDefined()
     } finally {
       vi.useRealTimers()
     }

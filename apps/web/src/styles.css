@@ -237,28 +237,43 @@ body {
 .token-blaze { position: absolute; z-index: 3; pointer-events: none; mix-blend-mode: screen; }
 .token-blaze canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-/* ---------- M9: the vine ---------- */
-.vine { pointer-events: none; }
-.vine-stem {
+/* ---------- M9: the vine (components/Moments, Vine): grown along its course in --grow-ms, then faded ---------- */
+.vine { pointer-events: none; animation: vine-fade 240ms ease-in 620ms both; }
+@keyframes vine-fade { from { opacity: 1; } to { opacity: 0; } }
+/* the stem shows as far as this line has been drawn along it */
+.vine-reveal {
   fill: none;
-  stroke: #6fbf4a;
-  stroke-width: 1.3;
+  stroke: #fff;
+  stroke-width: 6;
   stroke-linecap: round;
-  stroke-dasharray: 1 60;
-  animation: vine-grow 500ms ease-out both;
+  stroke-dasharray: 1 1;
+  animation: vine-grow var(--grow-ms) cubic-bezier(0.45, 0.1, 0.4, 1) both;
 }
-.vine-stem-shadow { stroke: #1d4a2a; stroke-width: 2.4; }
-@keyframes vine-grow { from { stroke-dasharray: 0 60; } to { stroke-dasharray: 60 60; } }
+@keyframes vine-grow { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.vine-stem { fill: #5fae3e; stroke: #1f4d24; stroke-width: 0.45; stroke-linejoin: round; filter: drop-shadow(0 0.5px 0.6px rgb(0 0 0 / 0.55)); }
+/* a leaf unfolds once the stem has passed it: out from its stalk, opening */
 .vine-leaf {
-  fill: #8fd45e;
-  stroke: #2f6a2a;
-  stroke-width: 0.3;
   transform-box: fill-box;
   transform-origin: left center;
-  animation: leaf-open 300ms ease-out both;
-  animation-delay: calc(var(--t) * 500ms);
+  animation: leaf-open 300ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+  animation-delay: calc(var(--t) * var(--grow-ms));
 }
-@keyframes leaf-open { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes leaf-open {
+  from { transform: scale(0) rotate(-40deg); }
+  to { transform: scale(1) rotate(0deg); }
+}
+.vine-leaf-blade { fill: #84cf55; stroke: #2a6a2a; stroke-width: 0.4; }
+.vine-leaf-rib { fill: none; stroke: #3d8a34; stroke-width: 0.3; stroke-linecap: round; }
+/* a tendril coils off as the stem passes */
+.vine-tendril {
+  fill: none;
+  stroke: #6fbf4a;
+  stroke-width: 0.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1 1;
+  animation: vine-grow 260ms ease-out both;
+  animation-delay: calc(var(--t) * var(--grow-ms) + 60ms);
+}
 
 /* ---------- M3: choosing a space ---------- */
 .hex-ring[data-highlight='legal'] { animation: legal-pulse 1.8s ease-in-out infinite; }
@@ -1283,7 +1298,7 @@ body {
   .token-glow { opacity: 0.9; }
   .token-arrive[data-arrival]:not([data-arrival='uncover']) .token-arrive-body { animation: token-fade var(--t-ui) ease-out; }
   .token-arrive-before { display: none; }
-  .vine-leaf { animation: none; opacity: 0; }
+  .vine-leaf, .vine-tendril, .vine-reveal, .vine { animation: none; }
   .vine-stem { animation: none; stroke-dasharray: none; }
   .stack-badge { animation: none; }
 }
