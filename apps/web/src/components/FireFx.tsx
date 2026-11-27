@@ -3,7 +3,8 @@ import { useEffect, useRef } from 'react'
 /**
  * The front door's fire, drawn by code rather than painted: the two springs of
  * flame that coil round Play when it is pressed, and the sparks the cards throw
- * as they are dealt. Each runs only while it is on screen, then stops drawing.
+ * as they are dealt (its noise, colours and embers serve the board's fire too:
+ * TokenBlaze). Each runs only while it is on screen, then stops drawing.
  */
 
 /*
@@ -24,26 +25,13 @@ export const COMETS_LEAVE_MS = WIND * 1000
 const TRAIL = 36
 const TRAIL_STEP = 0.013
 
-const VERTEX = `
+export const VERTEX = `
 attribute vec2 a;
 void main() { gl_Position = vec4(a, 0.0, 1.0); }
 `
 
-/*
- * Two trails of flame, each a line through TRAIL points: hot, white and thick
- * at its head, thinning and cooling to red down its tail. Flames lick upward:
- * each pixel looks for the trail some way below it, by a rising noise, so the
- * tongues are of every length and keep moving. Each point says how far in
- * front of the button it is (1 in front, 0 behind), and the layer drawn
- * (uFront) keeps only its own part.
- */
-const FRAGMENT = `
-precision mediump float;
-uniform vec4 uPoints[${TRAIL * 2}];
-uniform float uSize;
-uniform float uTime;
-uniform float uFront;
-
+/** Value noise and its fractal sum, which every flame here licks by. */
+export const NOISE = `
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
@@ -65,6 +53,35 @@ float fbm(vec2 p) {
   }
   return v;
 }
+`
+
+/** A flame's heat, 0 to about 1.4, as premultiplied colour: white at its hottest, through gold and orange to a dark red. */
+export const HEAT_COLOUR = `
+vec4 heatColour(float heat) {
+  float h = clamp(heat * 1.3, 0.0, 1.4);
+  vec3 col = vec3(1.6 * sqrt(h), 1.2 * h * h, 0.8 * h * h * h * h);
+  float alpha = clamp(h * 1.6, 0.0, 1.0);
+  return vec4(min(col, vec3(1.0)) * alpha, alpha);
+}
+`
+
+/*
+ * Two trails of flame, each a line through TRAIL points: hot, white and thick
+ * at its head, thinning and cooling to red down its tail. Flames lick upward:
+ * each pixel looks for the trail some way below it, by a rising noise, so the
+ * tongues are of every length and keep moving. Each point says how far in
+ * front of the button it is (1 in front, 0 behind), and the layer drawn
+ * (uFront) keeps only its own part.
+ */
+const FRAGMENT = `
+precision mediump float;
+uniform vec4 uPoints[${TRAIL * 2}];
+uniform float uSize;
+uniform float uTime;
+uniform float uFront;
+
+${NOISE}
+${HEAT_COLOUR}
 
 void main() {
   vec2 px = gl_FragCoord.xy;
@@ -99,14 +116,11 @@ void main() {
   heat *= 1.0 - smoothstep(0.0, s * 0.8, lift) * 0.55;
   heat *= 0.8 + 0.45 * lick;
 
-  float h = clamp(heat * 1.3, 0.0, 1.4);
-  vec3 col = vec3(1.6 * sqrt(h), 1.2 * h * h, 0.8 * h * h * h * h);
-  float alpha = clamp(h * 1.6, 0.0, 1.0);
-  gl_FragColor = vec4(min(col, vec3(1.0)) * alpha, alpha);
+  gl_FragColor = heatColour(heat);
 }
 `
 
-function compile(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
+export function compile(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
   const shader = gl.createShader(type)
   if (!shader) return null
   gl.shaderSource(shader, source)
@@ -118,7 +132,7 @@ function compile(gl: WebGLRenderingContext, type: number, source: string): WebGL
   return shader
 }
 
-interface Ember {
+export interface Ember {
   x: number
   y: number
   vx: number
@@ -126,17 +140,24 @@ interface Ember {
   life: number
   age: number
   size: number
+  /** Its colour once it has cooled from white, 0 to 1 per channel; gold to red without one. */
+  tint?: [number, number, number]
 }
 
-/** A spark's colour as it cools: white, gold, orange, a dark red, gone. */
-function sparkColour(t: number, alpha: number): string {
+/** A spark's colour as it cools: white, gold, orange, a dark red, gone; or white to its tint. */
+function sparkColour(t: number, alpha: number, tint?: [number, number, number]): string {
+  if (tint) {
+    const toward = Math.min(1, t * 2.2)
+    const [r, g, b] = tint.map((c) => Math.round(255 * (1 - toward) + 255 * c * toward))
+    return `rgba(${r},${g},${b},${alpha})`
+  }
   const r = 255
   const g = Math.round(245 - 170 * t)
   const b = Math.round(200 * Math.max(0, 1 - t * 2.5))
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-function drawSparks(ctx: CanvasRenderingContext2D, sparks: Ember[], dt: number, gravity: number): Ember[] {
+export function drawSparks(ctx: CanvasRenderingContext2D, sparks: Ember[], dt: number, gravity: number): Ember[] {
   ctx.globalCompositeOperation = 'lighter'
   const alive: Ember[] = []
   for (const spark of sparks) {
@@ -149,9 +170,9 @@ function drawSparks(ctx: CanvasRenderingContext2D, sparks: Ember[], dt: number, 
     const t = spark.age / spark.life
     const radius = spark.size * (1 - t * 0.6)
     const glow = ctx.createRadialGradient(spark.x, spark.y, 0, spark.x, spark.y, radius * 3)
-    glow.addColorStop(0, sparkColour(t, 1 - t))
-    glow.addColorStop(0.35, sparkColour(t, (1 - t) * 0.5))
-    glow.addColorStop(1, sparkColour(t, 0))
+    glow.addColorStop(0, sparkColour(t, 1 - t, spark.tint))
+    glow.addColorStop(0.35, sparkColour(t, (1 - t) * 0.5, spark.tint))
+    glow.addColorStop(1, sparkColour(t, 0, spark.tint))
     ctx.fillStyle = glow
     ctx.beginPath()
     ctx.arc(spark.x, spark.y, radius * 3, 0, Math.PI * 2)
