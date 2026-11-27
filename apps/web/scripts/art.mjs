@@ -463,6 +463,149 @@ const ASSETS = {
     }
   },
 
+  async choice() {
+    // Play's windows, dealt as cards over the darkened painting (designs/art/transition/), all
+    // drawn on transparency. Places measured on the sources.
+    const dir = (name) => join(SRC, 'transition', `${name}.png`)
+
+    // the stone floor the cards stand on, its barrels and crates at the ends; seen across a phone and
+    // more, so 1200 wide
+    const floor = await sharp(dir('bg')).trim({ threshold: 1 }).png().toBuffer()
+    await twice(sharp(floor).resize({ width: 1200 }), 'choice-floor')
+
+    // the banner the window's title is written on; seen about 360px across: 1080 is 3x
+    const banner = await sharp(dir('Aged Parchment Scroll Banner-3')).trim({ threshold: 1 }).png().toBuffer()
+    await twice(sharp(banner).resize({ width: 1080 }), 'choice-banner')
+
+    // the two arrows are drawn side by side, each lit from its own side: cut apart rather than one turned
+    const arrows = dir('Emerald Fantasy Navigation Arrows-4')
+    for (const [name, left] of [['left', 0], ['right', 887]]) {
+      const half = await sharp(arrows).extract({ left, top: 0, width: 887, height: 887 }).png().toBuffer()
+      const trimmed = await sharp(half).trim({ threshold: 1 }).png().toBuffer()
+      await twice(sharp(trimmed).resize({ height: 150 }), `choice-arrow-${name}`)
+    }
+
+    // the two dragons, painted side by side, each already cut out on its own base: cut apart. Shown
+    // about 180px across: 560 is 3x
+    const dragons = dir('Dual Dragon Portraits_ Fire and Steam-1')
+    for (const [name, left] of [['player', 0], ['computer', 768]]) {
+      const half = await sharp(dragons).extract({ left, top: 0, width: 768, height: 1024 }).png().toBuffer()
+      const trimmed = await sharp(half).trim({ threshold: 1 }).png().toBuffer()
+      await twice(sharp(trimmed).resize({ width: 560 }), `choice-dragon-${name}`)
+    }
+
+    // the machine's three dragons, one per difficulty, painted side by side and growing from Easy to
+    // Hard, on one base line: each cut out on a canvas as large as the largest (its columns, measured
+    // on the source, centred; the rows the three share), so the same place on the card keeps them in
+    // proportion, the little one little
+    const robots = dir('Steampunk Dragon Trio in Bronze Metal')
+    const rows = await sharp(robots).trim({ threshold: 1 }).png().toBuffer({ resolveWithObject: true })
+    const top = -(rows.info.trimOffsetTop ?? 0)
+    const tall = rows.info.height
+    const wide = 640
+    for (const [name, left, right] of [['easy', 184, 569], ['medium', 767, 1276], ['hard', 1397, 2036]]) {
+      const width = right - left
+      const one = await sharp(robots).extract({ left, top, width, height: tall }).png().toBuffer()
+      const pad = Math.floor((wide - width) / 2)
+      const placed = await sharp(one)
+        .extend({ left: pad, right: wide - width - pad, top: 0, bottom: 0, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer()
+      await twice(sharp(placed).resize({ width: 560 }), `choice-robot-${name}`)
+    }
+
+    // The card's frame. The blank frame (its window and all round it transparent) has crossed swords on
+    // its plate; the two finished cards are the same frame, pixel for pixel, with an arena in the window
+    // and their own mark on the plate (the swords, a monitor). From them: the frame with the swords
+    // (Vs. Player), the frame with the monitor (Vs. Computer), the frame with no mark (every other
+    // card), and each arena alone, to be shown in the window behind its dragon.
+    const blank = await raw(dir('Ornate Emerald Fantasy Card Frame'))
+    const night = await raw(dir('Nocturnal Dragon Arena Monitor-2'))
+    const sunset = await raw(dir('Sunset Arena Goldswords Card-1'))
+    const { width, height } = blank
+    const at = (x, y) => (y * width + x) * 4
+    // the finished cards are a pixel shorter; they are read as if padded at the foot
+    const pixel = (image, x, y) => (y < image.height ? at(x, y) : -1)
+
+    const monitor = Buffer.from(blank.data)
+    const arenas = { player: Buffer.alloc(blank.data.length), computer: Buffer.alloc(blank.data.length) }
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = at(x, y)
+        const q = pixel(night, x, y)
+        if (q < 0) continue
+        // the frame with the monitor: the night card's colours, the blank frame's shape (its window open)
+        for (let c = 0; c < 3; c++) monitor[p + c] = night.data[q + c]
+        // each arena: the finished card where the blank frame is open, inside the card
+        const open = 255 - blank.data[p + 3]
+        for (const [name, card] of [['player', sunset], ['computer', night]]) {
+          const r = pixel(card, x, y)
+          card.data.copy(arenas[name], p, r, r + 3)
+          arenas[name][p + 3] = Math.min(open, card.data[r + 3])
+        }
+      }
+    }
+
+    // the swords off the blank frame: the plate's own cloth laid over them, taken from further down it,
+    // feathered in. Each sword runs tip to pommel across the other.
+    const plain = Buffer.from(blank.data)
+    const swords = [
+      [433, 877, 600, 1036],
+      [600, 877, 437, 1036],
+    ]
+    const toSegment = (x, y, [ax, ay, bx, by]) => {
+      const dx = bx - ax
+      const dy = by - ay
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+      return Math.hypot(x - ax - dx * t, y - ay - dy * t)
+    }
+    const BELOW = 185
+    // the gold rim over the plate is left whole: in each column, the cloth starts where the gold ends
+    const cloth = (x) => {
+      for (let y = 800; y < 1000; y++) {
+        const p = at(x, y)
+        if (blank.data[p + 1] > blank.data[p] + 5) return y
+      }
+      return 1000
+    }
+    // where a sword's tip touches the rim there is no cloth between them: the columns either side say where it starts
+    const starts = Array.from({ length: 300 }, (_, i) => cloth(370 + i))
+    for (let x = 380; x < 660; x++) {
+      const top = Math.min(...starts.slice(x - 370 - 8, x - 370 + 9)) + 3
+      for (let y = top; y < 1080; y++) {
+        const reach = Math.min(...swords.map((sword) => toSegment(x, y, sword)))
+        const cover = Math.max(0, Math.min(1, (46 - reach) / 12)) * Math.min(1, (y - top) / 4)
+        if (!cover) continue
+        const p = at(x, y)
+        const q = at(x, y + BELOW)
+        for (let c = 0; c < 3; c++) plain[p + c] = Math.round(plain[p + c] * (1 - cover) + blank.data[q + c] * cover)
+      }
+    }
+
+    // every layer of the card cut to the frame's own box, so they lie on one another exactly
+    const { info } = await sharp(dir('Ornate Emerald Fantasy Card Frame')).trim({ threshold: 1 }).toBuffer({ resolveWithObject: true })
+    const box = { left: -info.trimOffsetLeft, top: -info.trimOffsetTop, width: info.width, height: info.height }
+    console.log(`  card cut to ${box.width}x${box.height} at ${box.left},${box.top}: its window is 126,176 to 896,931`)
+    const card = async (pixels, name) => {
+      const cut = await fromRaw({ data: pixels, width, height }).extract(box).png().toBuffer()
+      // shown about 190px across: 600 is 3x
+      await twice(sharp(cut).resize({ width: 600 }), name)
+    }
+    await card(blank.data, 'choice-frame-player')
+    await card(monitor, 'choice-frame-computer')
+    await card(plain, 'choice-frame')
+    await card(arenas.player, 'choice-arena-player')
+    await card(arenas.computer, 'choice-arena-computer')
+
+    // Create and Join, each painted whole (frame, scene and mark in one, no dragon to stand apart): cut
+    // to their frame and brought to the others' size (they are within a pixel or two of its shape)
+    const size = { width: 600, height: Math.round((600 * box.height) / box.width) }
+    for (const name of ['create', 'join']) {
+      const trimmed = await sharp(dir(name)).trim({ threshold: 1 }).png().toBuffer()
+      await twice(sharp(trimmed).resize({ ...size, fit: 'fill' }), `choice-card-${name}`)
+    }
+  },
+
   async textures() {
     for (const kind of ['stone', 'parchment']) {
       const small = await raw(await sharp(src(`tex-${kind}`)).resize(512, 512).png().toBuffer())
