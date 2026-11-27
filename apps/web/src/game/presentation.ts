@@ -171,7 +171,7 @@ export function newEntries(previous: readonly LogEntry[], next: readonly LogEntr
  * The run is the draws since the last other entry, with one exception the
  * engine forces: a plant logs its activation *after* the effects it caused, so
  * a crystal fired through a plant reads draw, draw, draw, plantTarget, pick —
- * the plantTarget must not end the run.
+ * the plantTarget must not end the run. (Its event is shown before those draws.)
  */
 export type ScriptMemory = {
   held: Token | null
@@ -268,13 +268,18 @@ export function script(
         if (action.ability === 'plant') plantAt = placedAt
         events.push({ ...base, kind: 'fireUp', ability: action.ability, at: placedAt, board })
         break
-      case 'plantTarget':
+      case 'plantTarget': {
         // logged after its effects: the draws it caused are the run, so keep it
         if (action.ability === 'crystal') markCrystal()
-        events.push({ ...base, kind: 'fireUp', ability: action.ability, at: action.at, from: plantAt ?? undefined, board })
+        // but shown before them, as it happened: the vine reaches the token and it catches, then it draws
+        const fire: PresentationEvent = { ...base, kind: 'fireUp', ability: action.ability, at: action.at, from: plantAt ?? undefined, board }
+        const first = runDraws.length > 0 ? events.indexOf(runDraws[0]) : -1
+        if (first >= 0) events.splice(first, 0, fire)
+        else events.push(fire)
         // a plant borrowed through a plant: the chain goes on from the new one
         plantAt = action.ability === 'plant' ? action.at : plantAt
         break
+      }
       case 'crystalPick': {
         const kept = draws[action.index]
         if (!kept) throw new Error('presentation: a crystal pick with no draws to pick from')

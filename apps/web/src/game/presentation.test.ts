@@ -494,6 +494,23 @@ describe('what the script tells the choreography', () => {
     expect(events.filter((e) => e.kind === 'draw').every((e) => e.kind === 'draw' && e.crystal)).toBe(true)
   })
 
+  it('shows a fire-up through a plant before the draws it caused, though it is logged after them', () => {
+    const { events } = script(
+      {},
+      [
+        entry({ type: 'draw', token: single('bread') }),
+        entry({ type: 'draw', token: single('iron') }),
+        entry({ type: 'draw', token: single('meat') }),
+        entry({ type: 'plantTarget', at: at(1, 0), ability: 'crystal' }),
+      ],
+      { ...EMPTY_MEMORY, plantAt: at(0, 0) },
+      counter(),
+    )
+    // the vine reaches the crystal and it catches, and only then are its three drawn
+    expect(events.map((e) => e.kind)).toEqual(['fireUp', 'draw', 'draw', 'draw'])
+    expect(events[0]).toMatchObject({ ability: 'crystal', at: at(1, 0), from: at(0, 0) })
+  })
+
   it('leaves an ordinary draw to the bag', () => {
     const { events } = script({}, [entry({ type: 'draw', token: single('bread') })], EMPTY_MEMORY, counter())
     expect(events[0]).toMatchObject({ kind: 'draw', crystal: false })
