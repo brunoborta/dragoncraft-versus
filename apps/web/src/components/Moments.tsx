@@ -356,26 +356,7 @@ function Traveller({
 
 /* --------------------------------------------------------- M5: fire up ----- */
 
-/** A burst of flame around a token (M5), drawn with CSS keyframes on each tongue. */
-export function FlameBurst({ at, ability }: { at: Hex; ability: string }) {
-  const c = hexCenter(at)
-  const tongues = Array.from({ length: 8 }, (_, i) => i)
-  return (
-    <g className="flame-burst" transform={`translate(${c.x} ${c.y})`} data-ability={ability}>
-      <circle className="flame-ring" r={TOKEN_RADIUS} />
-      {/* the position is on a group of its own: a CSS transform animation would override a transform attribute */}
-      {tongues.map((i) => (
-        <g key={i} transform={`rotate(${i * 45}) translate(0 ${-TOKEN_RADIUS * 0.9})`}>
-          <path
-            className="flame-tongue"
-            style={{ '--i': i } as React.CSSProperties}
-            d="M0 0 C 2.2 -2 2.4 -5 0 -8 C -2.4 -5 -2.2 -2 0 0 Z"
-          />
-        </g>
-      ))}
-    </g>
-  )
-}
+// the token catching fire is drawn over the board in HTML, where WebGL can burn: TokenBlaze
 
 /* ---------------------------------------------------------- M9: vine ----- */
 
@@ -481,7 +462,8 @@ export function Landing({ at, mine }: { at: Hex; mine: boolean }) {
 
 /**
  * Whatever the current event needs drawn on the board, in board units:
- * travellers for moves and swaps, the flame of a fire-up, the vine of a plant.
+ * travellers for moves and swaps, the vine of a plant (its fire, and any
+ * fire-up's, is TokenBlaze).
  * (A placement's landing outlives its event: `useLanding`. The flights to and
  * from a hand are HTML: `DrawFlight`, `PlaceFlight`.)
  */
@@ -528,13 +510,7 @@ export function BoardMoment({ event }: { event: PresentationEvent | null }) {
         </g>
       )
     case 'fireUp':
-      if (!event.at) return null
-      return (
-        <>
-          {event.from ? <Vine from={event.from} to={event.at} /> : null}
-          <FlameBurst at={event.at} ability={event.ability} />
-        </>
-      )
+      return event.at && event.from ? <Vine from={event.from} to={event.at} /> : null
     default:
       return null
   }

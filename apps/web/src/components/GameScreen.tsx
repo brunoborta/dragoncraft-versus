@@ -1,5 +1,5 @@
 import { bankedReputation, hexEq, key, parseKey, wouldComplete } from '@dcv/engine'
-import type { Action, Hex, PlayerView } from '@dcv/engine'
+import type { Action, DragonType, Hex, PlayerView } from '@dcv/engine'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { boardTargets, resolveTap } from '../game/selection.js'
@@ -30,6 +30,7 @@ import {
   landingDelay,
 } from './Moments.js'
 import { FireChoice } from './FireChoice.js'
+import { TokenBlaze, useBlaze, useLastFire, useSmoulder } from './TokenBlaze.js'
 import { HeldSlot } from './HeldToken.js'
 import { PlayerBar } from './PlayerBar.js'
 import { OpponentThinking, Prompt } from './Prompt.js'
@@ -255,20 +256,32 @@ export function GameScreen({
 
   /*
    * The token the open decision is about glows (M4, M5): gold with sparks while
-   * "Fire up this token?" is open, embers while its ability is resolving. The
-   * potion's pending names no space, so it gets none.
+   * "Fire up this token?" is open; while its ability is resolving it keeps
+   * burning, low, in its colour, until its target is chosen (or, the crystal's,
+   * its token picked). The crystal's and the potion's pendings name no space:
+   * theirs is the token that fired last.
    */
-  const glows: Record<string, 'gold' | 'ember'> = {}
+  const lastFire = useLastFire(presentation.event)
+  const glows: Record<string, 'gold'> = {}
+  let smoulder: { at: Hex; ability: DragonType } | null = null
   if (myTurn && pending && 'at' in pending) {
     if (pending.kind === 'mayFireUp') glows[key(pending.at)] = 'gold'
-    if (pending.kind === 'meat' || pending.kind === 'iron' || pending.kind === 'plant') glows[key(pending.at)] = 'ember'
+    if (pending.kind === 'meat' || pending.kind === 'iron' || pending.kind === 'plant') smoulder = { at: pending.at, ability: pending.kind }
   }
+  // the crystal's from its first draw: the three are still flying in, and nothing offered yet, while it burns
+  if (view.current === view.seat && lastFire && pending && (pending.kind === 'crystalPick' || pending.kind === 'potion')) {
+    if (lastFire.ability === (pending.kind === 'crystalPick' ? 'crystal' : 'potion')) smoulder = lastFire
+  }
+  // and once it is no longer wanted it dies down rather than vanishing
+  const smouldering = useSmoulder(smoulder)
 
   // the board trembles when a token lands (M4): a one-off, driven from the event
   const boardArea = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLElement>(null)
   const reduced = useReducedMotion()
   const event = presentation.event
+  // a fire-up's flames, kept until they have burnt out
+  const blaze = useBlaze(event)
   useEffect(() => {
     if (reduced || event?.kind !== 'place') return
     // as the token hits: after its flight from the slot, when it is the opponent's
@@ -521,6 +534,20 @@ export function GameScreen({
         ) : null}
         {/* under their portrait, in the corner the hexagon leaves empty */}
         <HeldSlot side="opponent" token={theirHeld} arriving={arrivingIn(opponentSeat)} />
+        {/* a token firing up, set alight */}
+        {blaze ? <TokenBlaze key={blaze.seq} at={blaze.at} ability={blaze.ability} delay={blaze.delay} area={boardArea} /> : null}
+        {/* and it keeps burning, low, while its ability waits on a target */}
+        {smouldering ? (
+          <TokenBlaze
+            key={`smoulder-${key(smouldering.at)}`}
+            at={smouldering.at}
+            ability={smouldering.ability}
+            delay={0}
+            area={boardArea}
+            smoulder
+            out={smouldering.out}
+          />
+        ) : null}
         {firing && firedToken ? (
           <FireChoice key={key(firing.at)} at={firing.at} token={firedToken} actions={actions} onAct={handleAct} area={boardArea} />
         ) : null}

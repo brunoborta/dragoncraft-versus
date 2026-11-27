@@ -64,9 +64,10 @@ export function Board({
   event?: PresentationEvent | null
   /**
    * Tokens with a glow of their own: `gold` for the one just placed while the
-   * fire-up decision is open, `ember` for the one whose ability is resolving.
+   * fire-up decision is open. (The one whose ability is resolving burns:
+   * TokenBlaze, over the board.)
    */
-  glows?: Record<string, 'gold' | 'ember'>
+  glows?: Record<string, 'gold'>
   highlights: Record<string, Highlight>
   /** What the spec calls the preview: the held token, shown on the space it would land on. */
   preview?: { hex: Hex; token: Token }

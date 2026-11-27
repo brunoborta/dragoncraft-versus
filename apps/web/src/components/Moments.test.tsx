@@ -10,6 +10,7 @@ import { Board } from './Board.js'
 import { hexCenter } from '../geometry.js'
 import { TOKEN_RADIUS } from './HexCell.js'
 import { BoardMoment, UndoMoment, UnplaceFlight, arrivals, landingLife } from './Moments.js'
+import { useBlaze, useSmoulder } from './TokenBlaze.js'
 
 const at = (q: number, r: number) => ({ q, r })
 const entry: LogEntry = { seat: 1, action: { type: 'endTurn' } }
@@ -57,21 +58,10 @@ describe('BoardMoment', () => {
     expect(c.querySelectorAll('.traveller')).toHaveLength(2)
   })
 
-  it('bursts into flame where a token fires up', () => {
-    const c = inSvg(<BoardMoment event={fire} />)
-    expect(c.querySelector('.flame-burst')?.getAttribute('data-ability')).toBe('meat')
-    expect(c.querySelector('.vine')).toBeNull()
-  })
-
-  it('grows a vine first when the ability came through a plant', () => {
-    const c = inSvg(<BoardMoment event={vine} />)
-    expect(c.querySelector('.vine')).not.toBeNull()
-    expect(c.querySelector('.flame-burst')).not.toBeNull()
-  })
-
-  it('draws nothing for a fire-up whose token it does not know', () => {
-    const c = inSvg(<BoardMoment event={{ ...fire, at: null }} />)
-    expect(c.querySelector('.flame-burst')).toBeNull()
+  it('leaves a fire-up to the fire over the board, and grows the vine when it came through a plant', () => {
+    // the flames themselves are TokenBlaze's, in HTML over the board
+    expect(inSvg(<BoardMoment event={fire} />).querySelector('.vine')).toBeNull()
+    expect(inSvg(<BoardMoment event={vine} />).querySelector('.vine')).not.toBeNull()
   })
 })
 
@@ -314,5 +304,56 @@ describe('a takeback', () => {
     it('shows itself on the board as a space with what was under it, from the first frame', () => {
       expect(arrivals(unplace(0))).toEqual({ '1,0': 'uncover' })
     })
+  })
+})
+
+describe('useBlaze', () => {
+  function Probe({ event }: { event: PresentationEvent | null }) {
+    const blaze = useBlaze(event)
+    return <p>{blaze ? `${blaze.at.q},${blaze.at.r} after ${blaze.delay}` : 'none'}</p>
+  }
+
+  it('sets the fired token alight, after its vine when it came through a plant, and lets it burn out after the event', () => {
+    vi.useFakeTimers()
+    try {
+      const { rerender } = render(<Probe event={fire} />)
+      expect(screen.getByText('0,0 after 0')).toBeDefined()
+      // the event is over before the fire is
+      rerender(<Probe event={null} />)
+      expect(screen.getByText('0,0 after 0')).toBeDefined()
+      // its last embers cool for a while after the flames are out
+      act(() => vi.advanceTimersByTime(2000))
+      expect(screen.getByText('0,0 after 0')).toBeDefined()
+      act(() => vi.advanceTimersByTime(300))
+      expect(screen.getByText('none')).toBeDefined()
+
+      rerender(<Probe event={{ ...vine, seq: 1 }} />)
+      expect(screen.getByText('1,0 after 400')).toBeDefined()
+      rerender(<Probe event={{ ...fire, at: null, seq: 2 }} />)
+      expect(screen.getByText('1,0 after 400')).toBeDefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('useSmoulder', () => {
+  function Probe({ spot }: { spot: { at: { q: number; r: number }; ability: 'meat' } | null }) {
+    const shown = useSmoulder(spot)
+    return <p>{shown ? `${shown.ability} ${shown.out ? 'going out' : 'burning'}` : 'none'}</p>
+  }
+
+  it('keeps a smouldering token a moment once it is no longer wanted, going out', () => {
+    vi.useFakeTimers()
+    try {
+      const { rerender } = render(<Probe spot={{ at: at(0, 0), ability: 'meat' }} />)
+      expect(screen.getByText('meat burning')).toBeDefined()
+      rerender(<Probe spot={null} />)
+      expect(screen.getByText('meat going out')).toBeDefined()
+      act(() => vi.advanceTimersByTime(800))
+      expect(screen.getByText('none')).toBeDefined()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
