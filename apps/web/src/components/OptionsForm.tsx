@@ -25,8 +25,8 @@ const OPTIONS: { name: keyof GameOptions; label: string; note: string; machine?:
 ]
 
 /**
- * The table's options as checkboxes. Used on the screen before a game and in
- * the settings dialog during one. Without `onChange` it is read-only: online,
+ * The table's options as checkboxes, in the settings dialog: at the front
+ * door's cog, where they are set for every game after, and during one. Without `onChange` it is read-only: online,
  * the host chose for both players, and nobody changes them mid-game.
  */
 export function OptionsForm<T extends TableOptions & Partial<GameOptions>>({

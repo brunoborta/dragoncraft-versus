@@ -2,7 +2,7 @@
  * The front door's pictures, each made twice by scripts/art.mjs: AVIF, the
  * lighter, and WebP for the browsers that cannot read it (iOS 14 and 15).
  */
-const FILES = import.meta.glob<string>('../assets/art/{bg-menu,logo,menu-*}.{avif,webp}', {
+const FILES = import.meta.glob<string>('../assets/art/{bg-menu,logo,menu-*,choice-*}.{avif,webp}', {
   eager: true,
   query: '?url',
   import: 'default',

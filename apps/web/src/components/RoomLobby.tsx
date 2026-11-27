@@ -31,7 +31,7 @@ export function RoomLobby({ pin, onLeave }: { pin: string | null; onLeave: () =>
             <p className="pin" aria-label="Game PIN">
               {pin.slice(0, 3)} {pin.slice(3)}
             </p>
-            <p className="modal-note">Your friend picks Against a player, then Join, and types this PIN.</p>
+            <p className="modal-note">Your friend picks Vs. Player, then Join, and types this PIN.</p>
             <button type="button" onClick={copy}>
               {copied ? 'Copied' : 'Copy PIN'}
             </button>

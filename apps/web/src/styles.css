@@ -1798,6 +1798,10 @@ body {
   /* the painting as a cover: as wide as the screen or as tall, whichever fills it */
   --scene-w: max(100vw, 100dvh * 1024 / 1535);
   --scene-h: calc(var(--scene-w) * 1535 / 1024);
+  --logo-w: min(92vw, var(--scene-w) * 0.86);
+  /* where the logo goes while Play's windows are open: to the top of the screen, and smaller, so the cards fit under it without scrolling */
+  --logo-away-top: calc(env(safe-area-inset-top) + 10px);
+  --logo-away-scale: 0.7;
   position: fixed;
   inset: 0;
   z-index: 10;
@@ -1822,10 +1826,12 @@ body {
   position: absolute;
   left: 50%;
   top: calc(50% - var(--scene-h) * 0.275);
-  width: min(92vw, var(--scene-w) * 0.86);
+  width: var(--logo-w);
   aspect-ratio: 900 / 402;
   transform: translateX(-50%);
+  transform-origin: 50% 0;
   pointer-events: none;
+  transition: top 600ms cubic-bezier(0.3, 0.7, 0.2, 1), transform 600ms cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 /* dropped like a token on the board: in from above the glass, a squash as it lands, a settle */
 .menu-logo-art {
@@ -1880,6 +1886,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: clamp(10px, 3vw, 20px);
+  transition: opacity 380ms ease, transform 420ms cubic-bezier(0.4, 0, 0.6, 1), visibility 0s;
 }
 .menu-actions > button {
   position: relative;
@@ -1989,12 +1996,15 @@ body {
   animation-play-state: paused;
 }
 
-/* Play's questions, in a window over the painting, which goes on moving behind */
-.menu-scene-backdrop { background: rgb(6 14 10 / 0.55); }
+/* Play's forms (the table, the PIN), in a window over the darkened painting: it is already dark enough */
+.menu-scene-backdrop { background: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .menu-logo-art, .menu-scene-frame, .menu-actions > button, .play-plate, .play-claw, .play-shine { animation: none; }
   .menu-logo-dust { animation: none; opacity: 0; }
+  .menu-logo, .menu-actions, .menu-scene-frame::after { transition: none; }
+  .choice-card, .choice-banner, .choice-note, .choice-floor, .menu-choice[data-closing] .choice-floor { animation: none; }
+  .choice-slot { transition: none; }
 }
 
 /* AVIF or WebP (components/Picture): the wrapper takes no box, so the image is laid out as if alone */
@@ -2014,3 +2024,295 @@ body {
   pointer-events: none;
 }
 .menu-piece[data-playing] { opacity: 1; }
+
+/* ---------------------------------------------------------------- Play's windows, dealt as cards */
+/*
+ * Pressed, Play catches: a flame runs round it and the gold flares. Then the
+ * painting darkens (it goes on moving under the dark), the logo rises and
+ * shrinks, the front door's buttons draw away, and the window's cards are
+ * dealt in under a banner. Choosing a card sends the cards off and deals the
+ * next window's; Back does the same the other way.
+ */
+/*
+ * The fire and its embers (components/FireFx): canvases far larger than the
+ * button, for the comets to wind round it and leave by. One is behind the
+ * button, for the part of their course that passes behind it.
+ */
+.play-fire {
+  position: absolute;
+  left: -60%;
+  top: -90%;
+  width: 220%;
+  height: 280%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: 2;
+}
+.play-fire[data-layer='behind'] { z-index: -1; }
+.menu-play[data-lit] .play-plate { filter: brightness(1.3) drop-shadow(0 0 18px rgb(255 180 60 / 0.9)); transition: filter 200ms ease; }
+.menu-play[data-lit] .play-art { animation: play-flare 650ms cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+@keyframes play-flare { 0% { transform: scale(0.96); } 30% { transform: scale(1.07); } 100% { transform: scale(1.03); } }
+
+/* the painting darkens behind the windows, most at its edges, and goes on moving under the dark */
+.menu-scene-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 55% at 50% 60%, rgb(4 10 7 / 0.55), rgb(2 6 4 / 0.9));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 600ms ease;
+}
+.menu-scene[data-away] .menu-scene-frame::after { opacity: 1; }
+.menu-scene[data-away] .menu-logo {
+  /* it shrinks from its top (transform-origin), which stays at --logo-away-top */
+  top: var(--logo-away-top);
+  transform: translateX(-50%) scale(var(--logo-away-scale));
+}
+.menu-scene[data-away] .menu-actions {
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -50%) translateY(40px) scale(0.85);
+  transition: opacity 380ms ease, transform 420ms cubic-bezier(0.4, 0, 0.6, 1), visibility 0s 420ms;
+}
+
+/* on a wide screen the logo is drawn far larger: it shrinks further, to leave room for the cards */
+@media (min-aspect-ratio: 3 / 4) {
+  .menu-scene { --logo-away-scale: 0.4; }
+}
+
+/* the window itself: under the logo, its banner, then its cards */
+.menu-choice {
+  position: absolute;
+  inset: 0;
+  overflow: hidden auto;
+  /* it scrolls only on a screen too short for it: no bar beside the cards */
+  scrollbar-width: none;
+  padding: calc(var(--logo-away-top) + var(--logo-w) * 402 / 900 * var(--logo-away-scale)) 12px max(20px, env(safe-area-inset-bottom));
+}
+.choice-back {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--brass-400);
+  background: rgb(19 38 29 / 0.85);
+  color: var(--brass-200);
+  font: inherit;
+  font-size: 20px;
+  cursor: pointer;
+}
+/* one column, as wide as the window (not the screen: the scene may be narrower than it) */
+.choice-stage { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 10px; }
+/* the banner, unrolled: the painted scroll, the title on its band (centred 30% down the picture) */
+.choice-banner {
+  position: relative;
+  margin: 0;
+  width: min(100%, 400px);
+  aspect-ratio: 1080 / 274;
+  container-type: inline-size;
+  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.5));
+  animation: banner-unroll 420ms cubic-bezier(0.3, 0.8, 0.3, 1) 250ms both;
+}
+.choice-banner-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.choice-banner-text {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 54px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  fill: var(--parchment-ink);
+  paint-order: stroke;
+  stroke: rgb(255 240 200 / 0.35);
+  stroke-width: 2px;
+}
+@keyframes banner-unroll {
+  from { opacity: 0; transform: scaleX(0.2); }
+  to { opacity: 1; transform: none; }
+}
+.choice-note { margin: 0; color: #d6dfd8; font-size: 14px; text-shadow: 0 1px 3px #000; animation: banner-unroll 420ms ease 350ms both; }
+
+/*
+ * The carousel: the card in front in the middle, its neighbours behind it to
+ * either side (offset `--o` cards, `--d` away), smaller and in shadow; the
+ * green arrows at the row's ends.
+ */
+.choice-carousel { container-type: inline-size; display: grid; justify-items: center; gap: 12px; width: min(100%, 560px); margin-top: 6px; }
+.choice-row {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  /* a sideways slide turns the cards; up and down still scrolls the window */
+  touch-action: pan-y;
+}
+/* as tall as the screen leaves under the logo and the banner, so the window never has to scroll */
+.choice-track { position: relative; width: min(58%, 230px, (100dvh - 310px) * 876 / 1431); aspect-ratio: 876 / 1431; }
+.choice-slot {
+  position: absolute;
+  inset: 0;
+  z-index: calc(10 - var(--d));
+  transform: translateX(calc(var(--o) * 60%)) scale(calc(1 - min(var(--d), 1) * 0.18));
+  filter: brightness(0.55) saturate(0.8);
+  transition: transform 420ms cubic-bezier(0.3, 0.8, 0.3, 1), filter 420ms ease, opacity 420ms ease;
+}
+.choice-slot[data-active] { filter: none; }
+.choice-slot:not([data-active]):hover { filter: brightness(0.72) saturate(0.9); }
+.choice-slot[data-far] { opacity: 0; visibility: hidden; }
+.choice-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 20;
+  padding: 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: opacity var(--t-ui) ease, filter var(--t-ui) ease, transform var(--t-tap) ease;
+}
+.choice-arrow[data-side='left'] { left: 0; }
+.choice-arrow[data-side='right'] { right: 0; }
+.choice-arrow img { display: block; height: clamp(40px, 13cqw, 56px); width: auto; filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.6)); }
+.choice-arrow:is(:hover, :focus-visible):not(:disabled) { outline: none; filter: drop-shadow(0 0 8px rgb(120 255 150 / 0.7)); }
+.choice-arrow:active:not(:disabled) { transform: translateY(-50%) scale(0.92); }
+/* at either end, the way there is none: greyed like a card that cannot be chosen */
+.choice-arrow:disabled { filter: grayscale(0.85) brightness(0.6); cursor: default; }
+/*
+ * A card: the painted frame (876 x 1431) over its arena and its dragon, its
+ * name and what it does on the frame's plate. Places are fractions of the
+ * frame: its window is 5.9% to 93.9% across and 10.1% to 62.9% down.
+ */
+.choice-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brass-200);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  container-type: inline-size;
+  filter: drop-shadow(0 10px 14px rgb(0 0 0 / 0.6));
+  /* dealt: up from below, turning straight, bright as it comes; once down, its own look (lit, or greyed) is its own again */
+  animation: card-deal 560ms cubic-bezier(0.2, 0.8, 0.3, 1.15) backwards;
+  animation-delay: calc(300ms + var(--i) * 120ms);
+  transition: filter var(--t-ui) ease, transform var(--t-tap) ease;
+}
+.choice-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* the dragon stands in the window, its foot behind the plate; above, it may rise past the frame */
+.choice-window {
+  position: absolute;
+  left: 5.9%;
+  right: 6.1%;
+  top: -12%;
+  bottom: 37.1%;
+  overflow: hidden;
+  pointer-events: none;
+}
+.choice-dragon { position: absolute; left: 50%; bottom: -3%; width: 80%; transform: translateX(-50%); }
+/* a card with no painting yet: its colour in the window */
+.choice-blank {
+  position: absolute;
+  left: 5.9%;
+  right: 6.1%;
+  top: 10.1%;
+  bottom: 37.1%;
+  border-radius: 22% 22% 0 0 / 16% 16% 0 0;
+  background: radial-gradient(circle at 50% 45%, var(--art-a, #3c6), var(--art-b, #123) 80%);
+}
+@keyframes card-deal {
+  0% { opacity: 0; transform: translateY(45%) rotate(-9deg) scale(0.6); filter: brightness(2.4); }
+  55% { opacity: 1; filter: brightness(1.5); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+/* the card in front burns gold, brighter under the finger */
+[data-active] > .choice-card:not(:disabled) {
+  filter: drop-shadow(0 0 5px rgb(255 214 110 / 0.85)) drop-shadow(0 0 16px rgb(255 170 40 / 0.55));
+}
+[data-active] > .choice-card:is(:hover, :focus-visible):not(:disabled) {
+  outline: none;
+  filter: drop-shadow(0 0 7px rgb(255 224 130 / 1)) drop-shadow(0 0 24px rgb(255 170 40 / 0.85));
+}
+.choice-card:focus-visible { outline: none; }
+.choice-card:active:not(:disabled) { transform: scale(0.97); }
+.choice-card:disabled { cursor: default; }
+.choice-card:disabled:not([data-leaving] *) { filter: grayscale(0.85) brightness(0.6) drop-shadow(0 10px 14px rgb(0 0 0 / 0.6)); }
+.choice-card[data-art='computer'] { --art-a: #6fb3b8; --art-b: #1c2f33; }
+.choice-card[data-art='player'] { --art-a: #e0573a; --art-b: #3a120c; }
+.choice-card[data-art='easy'] { --art-a: #7ccf6a; --art-b: #173318; }
+.choice-card[data-art='medium'] { --art-a: #e8b53a; --art-b: #3a2a0c; }
+.choice-card[data-art='hard'] { --art-a: #c83a5a; --art-b: #2f0c16; }
+.choice-card[data-art='create'] { --art-a: #e8c46a; --art-b: #33270c; }
+.choice-card[data-art='join'] { --art-a: #5a9be0; --art-b: #0f2238; }
+/* written on the plate, its name and under it what it does: under its mark, when it has one */
+.choice-text {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 66%;
+  bottom: 9%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3cqw;
+}
+.choice-card[data-marked] .choice-text { top: 72%; }
+.choice-name {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 9cqw;
+  text-transform: uppercase;
+  line-height: 1.05;
+  color: var(--brass-200);
+  text-shadow: 0 2px 3px #000;
+}
+.choice-effect {
+  font-size: max(9px, 6.4cqw);
+  line-height: 1.25;
+  color: #c9d4cc;
+}
+
+/* the floor the cards stand on, at the foot of the screen */
+.choice-floor {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  width: max(100%, 620px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: floor-in 600ms ease-out both;
+}
+@keyframes floor-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12%); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+.choice-stage { position: relative; }
+
+/* leaving: the cards drop away and the banner rolls up, before the next window's are dealt */
+.menu-choice[data-leaving] .choice-card { animation: card-leave 280ms ease-in both; animation-delay: calc(var(--i) * 40ms); }
+.menu-choice[data-leaving] :is(.choice-banner, .choice-note) { animation: card-leave 240ms ease-in both; }
+/* back to the front door: the floor sinks away as it came, its rise played backwards, and the back button goes with it */
+.menu-choice[data-closing] .choice-floor { animation: floor-out 450ms ease-in both; }
+/* floor-in backwards (a keyframes of its own: the same name would not start again) */
+@keyframes floor-out {
+  from { opacity: 1; transform: translateX(-50%); }
+  to { opacity: 0; transform: translateX(-50%) translateY(12%); }
+}
+.menu-choice[data-closing] .choice-back { opacity: 0; transition: opacity 200ms ease; }
+@keyframes card-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(18%) scale(0.88); }
+}
+
+/* the cards' sparks, over the whole window, falling past its foot */
+.choice-sparks { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }

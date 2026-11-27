@@ -107,11 +107,11 @@ function MovingPiece({ piece }: { piece: Piece }) {
  * (the logo) is placed by the --scene-w and --scene-h it is drawn at. Where the
  * player asked for less motion, it is just the picture.
  */
-export function MenuScene({ children, waiting = false }: { children?: ReactNode; waiting?: boolean }) {
+export function MenuScene({ children, waiting = false, away = false }: { children?: ReactNode; waiting?: boolean; away?: boolean }) {
   const still = useReducedMotion()
   return (
-    // `waiting`: what is laid over it holds its entrance until its pictures are in
-    <div className="menu-scene" data-waiting={waiting || undefined}>
+    // `waiting`: what is laid over it holds its entrance until its pictures are in; `away`: Play's windows are open, and it darkens behind them
+    <div className="menu-scene" data-waiting={waiting || undefined} data-away={away || undefined}>
       <div className="menu-scene-frame">
         <Picture art={SCENE} className="menu-scene-art" />
         {still ? null : table.pieces.map((piece) => <MovingPiece key={piece.name} piece={piece} />)}

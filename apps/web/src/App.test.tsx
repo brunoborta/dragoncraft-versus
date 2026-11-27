@@ -3,10 +3,17 @@ import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App.js'
 
+/** A card from the carousel: a tap brings one from behind to the front, and a tap on the one in front picks it. */
+function pick(name: string) {
+  const card = screen.getByText(name).closest('button') as HTMLButtonElement
+  if (card.getAttribute('aria-current') !== 'true') fireEvent.click(card)
+  fireEvent.click(card)
+}
+
 /** At the front door: Play, then one of the ways to play it offers. */
-function choose(mode: 'Against the computer' | 'Against a player') {
+function choose(mode: 'Vs. Computer' | 'Vs. Player') {
   fireEvent.click(screen.getByRole('button', { name: 'Play' }))
-  fireEvent.click(screen.getByText(mode))
+  pick(mode)
 }
 
 /** Back at the front door, with Play to press. */
@@ -21,9 +28,8 @@ describe('App', () => {
    */
   function startGame(level: 'Easy' | 'Medium' | 'Hard' = 'Easy') {
     const rendered = render(<App seed={2} />)
-    choose('Against the computer')
-    fireEvent.click(screen.getByText(level))
-    fireEvent.click(screen.getByText('Start game'))
+    choose('Vs. Computer')
+    pick(level)
     return rendered
   }
 
@@ -128,9 +134,8 @@ describe('App', () => {
 
   it('jumps to a finished game you won, one you lost, and one that ended level', () => {
     render(<App seed={2} debug />)
-    choose('Against the computer')
-    fireEvent.click(screen.getByText('Easy'))
-    fireEvent.click(screen.getByText('Start game'))
+    choose('Vs. Computer')
+    pick('Easy')
 
     fireEvent.click(screen.getByText('Win now'))
     expect(screen.getByText('You win')).toBeDefined()
@@ -144,9 +149,8 @@ describe('App', () => {
 
   it('plays again against the same opponent, on a fresh seed, without asking anything', () => {
     render(<App seed={2} debug />)
-    choose('Against the computer')
-    fireEvent.click(screen.getByText('Easy'))
-    fireEvent.click(screen.getByText('Start game'))
+    choose('Vs. Computer')
+    pick('Easy')
     fireEvent.click(screen.getByText('Win now'))
     expect(screen.getByText('You win')).toBeDefined()
 
@@ -194,9 +198,8 @@ describe('App', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
     try {
       render(<App />)
-      choose('Against the computer')
-      fireEvent.click(screen.getByText('Easy'))
-      fireEvent.click(screen.getByText('Start game'))
+      choose('Vs. Computer')
+      pick('Easy')
       expect(screen.getByText('Seed 500000')).toBeDefined()
     } finally {
       random.mockRestore()
@@ -512,9 +515,8 @@ describe('App', () => {
 
       expect(atFrontDoor()).toBeDefined()
       // a new game is a new game: the seed it was pinned to does not come back
-      choose('Against the computer')
-      fireEvent.click(screen.getByText('Easy'))
-      fireEvent.click(screen.getByText('Start game'))
+      choose('Vs. Computer')
+      pick('Easy')
       expect(screen.getByText('Seed 123456')).toBeDefined()
       expect(screen.queryByRole('dialog', { name: 'Final score' })).toBeNull()
     } finally {
@@ -560,10 +562,10 @@ describe('App online', () => {
   it('asks for the mode first, then the difficulty, with a way back', () => {
     render(<App seed={2} server="ws://test" />)
     expect(screen.queryByText('Easy')).toBeNull()
-    choose('Against the computer')
+    choose('Vs. Computer')
     expect(screen.getByText('Hard')).toBeDefined()
     fireEvent.click(screen.getByLabelText('Back'))
-    expect(screen.getByText('Against a player')).toBeDefined()
+    expect(screen.getByText('Vs. Player')).toBeDefined()
     // and one more Back is the front door
     fireEvent.click(screen.getByLabelText('Back'))
     expect(atFrontDoor()).toBeDefined()
@@ -572,7 +574,7 @@ describe('App online', () => {
   it('cannot pick a player when the site was built without a server', () => {
     render(<App seed={2} server={null} />)
     fireEvent.click(atFrontDoor())
-    const button = screen.getByText('Against a player').closest('button') as HTMLButtonElement
+    const button = screen.getByText('Vs. Player').closest('button') as HTMLButtonElement
     expect(button.disabled).toBe(true)
     expect(screen.getByText('Not available in this build')).toBeDefined()
   })
@@ -580,9 +582,8 @@ describe('App online', () => {
   it('creates a game and shows its PIN while waiting', () => {
     const { connect, latest } = fakeConnect()
     render(<App seed={2} server="ws://test" connect={connect} />)
-    choose('Against a player')
-    fireEvent.click(screen.getByText('Create'))
-    fireEvent.click(screen.getByText('Create game'))
+    choose('Vs. Player')
+    pick('Create')
 
     act(() => latest().onopen?.())
     expect(latest().sent).toEqual([{ type: 'create', options: DEFAULT_TABLE_OPTIONS }])
@@ -596,12 +597,26 @@ describe('App online', () => {
     expect(window.location.hash).toBe('#/room/042137')
   })
 
+  it('creates the game with the options set under the cog, asking none before it', () => {
+    const { connect, latest } = fakeConnect()
+    render(<App seed={2} server="ws://test" connect={connect} />)
+    const menu = screen.getByRole('navigation', { name: 'Main menu' })
+    fireEvent.click(within(menu).getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByLabelText(/Show what is left in the bag/))
+    fireEvent.click(screen.getByRole('button', { name: 'Close settings' }))
+    choose('Vs. Player')
+    pick('Create')
+
+    act(() => latest().onopen?.())
+    expect(latest().sent).toEqual([{ type: 'create', options: { ...DEFAULT_TABLE_OPTIONS, bagComposition: true } }])
+  })
+
   it('joins by PIN, taking digits only, and plays from the view the server sends', async () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    choose('Against a player')
-    fireEvent.click(screen.getByText('Join'))
+    choose('Vs. Player')
+    pick('Join')
 
     const input = screen.getByLabelText('Game PIN') as HTMLInputElement
     const join = screen.getByRole('button', { name: 'Join' }) as HTMLButtonElement
@@ -645,8 +660,8 @@ describe('App online', () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    choose('Against a player')
-    fireEvent.click(screen.getByText('Join'))
+    choose('Vs. Player')
+    pick('Join')
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
     act(() => latest().onopen?.())
@@ -676,8 +691,8 @@ describe('App online', () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    choose('Against a player')
-    fireEvent.click(screen.getByText('Join'))
+    choose('Vs. Player')
+    pick('Join')
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
     act(() => latest().onopen?.())
@@ -709,8 +724,8 @@ describe('App online', () => {
     const { createGame, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    choose('Against a player')
-    fireEvent.click(screen.getByText('Join'))
+    choose('Vs. Player')
+    pick('Join')
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
     act(() => latest().onopen?.())
@@ -739,8 +754,8 @@ describe('App online', () => {
     const { createGame, legalActions, toPlayerView } = await import('@dcv/engine')
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    choose('Against a player')
-    fireEvent.click(screen.getByText('Join'))
+    choose('Vs. Player')
+    pick('Join')
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '042137' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
     act(() => latest().onopen?.())
@@ -781,8 +796,8 @@ describe('App online', () => {
   it('says so when the PIN leads nowhere, and goes back to the start', () => {
     const { connect, latest } = fakeConnect()
     render(<App server="ws://test" connect={connect} />)
-    choose('Against a player')
-    fireEvent.click(screen.getByText('Join'))
+    choose('Vs. Player')
+    pick('Join')
     fireEvent.change(screen.getByLabelText('Game PIN'), { target: { value: '999999' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join' }))
     act(() => latest().onopen?.())
