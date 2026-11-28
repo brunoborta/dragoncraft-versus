@@ -130,15 +130,14 @@ const isCardStep = (step: Step): step is CardStep => step === 'mode' || step ===
 /** The cards' pictures (scripts/art.mjs, `choice`). */
 const CARD = {
   frame: frontArt('choice-frame'),
-  player: { frame: frontArt('choice-frame-player'), arena: frontArt('choice-arena-player'), dragon: frontArt('choice-dragon-player') },
   computer: { frame: frontArt('choice-frame-computer'), arena: frontArt('choice-arena-computer'), dragon: frontArt('choice-dragon-computer') },
 }
 /** The machine's dragons, one per difficulty, little to large: on the plain frame, in the machine's arena. */
 const ROBOT: Record<Difficulty, { frame: Art; arena: Art; dragon: Art }> = Object.fromEntries(
   LEVELS.map((entry) => [entry.value, { frame: CARD.frame, arena: CARD.computer.arena, dragon: frontArt(`choice-robot-${entry.value}`) }]),
 ) as Record<Difficulty, { frame: Art; arena: Art; dragon: Art }>
-/** Create and Join, painted whole. */
-const WHOLE = { create: frontArt('choice-card-create'), join: frontArt('choice-card-join') }
+/** Vs. Player (two dragons arm wrestling), Create and Join, painted whole. */
+const WHOLE = { player: frontArt('choice-card-player'), create: frontArt('choice-card-create'), join: frontArt('choice-card-join') }
 const BANNER = frontArt('choice-banner')
 const FLOOR = frontArt('choice-floor')
 
@@ -416,7 +415,7 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
           name: 'Vs. Player',
           effect: online ? '' : 'Not available in this build',
           art: 'player',
-          painted: CARD.player,
+          whole: WHOLE.player,
           disabled: !online,
           pick: () => go('friend'),
         },
@@ -529,7 +528,7 @@ export function ModeSetup({ online, onStart }: { online: boolean; onStart: (star
       {/* the cards' pictures, fetched once the front door is in, to be there when Play is pressed */}
       {loaded && step === 'front' ? (
         <div hidden>
-          {[BANNER, FLOOR, CARD.frame, ARROW.left, ARROW.right, ...Object.values(CARD.player), ...Object.values(CARD.computer), ...Object.values(ROBOT).map((robot) => robot.dragon), WHOLE.create, WHOLE.join].map((art) => (
+          {[BANNER, FLOOR, CARD.frame, ARROW.left, ARROW.right, ...Object.values(CARD.computer), ...Object.values(ROBOT).map((robot) => robot.dragon), WHOLE.player, WHOLE.create, WHOLE.join].map((art) => (
             <Picture key={art.webp} art={art} />
           ))}
         </div>

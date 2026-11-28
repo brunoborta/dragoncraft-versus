@@ -485,10 +485,10 @@ const ASSETS = {
       await twice(sharp(trimmed).resize({ height: 150 }), `choice-arrow-${name}`)
     }
 
-    // the two dragons, painted side by side, each already cut out on its own base: cut apart. Shown
-    // about 180px across: 560 is 3x
+    // the two dragons, painted side by side, each already cut out on its own base: the machine's, the
+    // right one, cut off (Vs. Player is painted whole now). Shown about 180px across: 560 is 3x
     const dragons = dir('Dual Dragon Portraits_ Fire and Steam-1')
-    for (const [name, left] of [['player', 0], ['computer', 768]]) {
+    for (const [name, left] of [['computer', 768]]) {
       const half = await sharp(dragons).extract({ left, top: 0, width: 768, height: 1024 }).png().toBuffer()
       const trimmed = await sharp(half).trim({ threshold: 1 }).png().toBuffer()
       await twice(sharp(trimmed).resize({ width: 560 }), `choice-dragon-${name}`)
@@ -591,17 +591,20 @@ const ASSETS = {
       // shown about 190px across: 600 is 3x
       await twice(sharp(cut).resize({ width: 600 }), name)
     }
-    await card(blank.data, 'choice-frame-player')
     await card(monitor, 'choice-frame-computer')
     await card(plain, 'choice-frame')
-    await card(arenas.player, 'choice-arena-player')
     await card(arenas.computer, 'choice-arena-computer')
 
-    // Create and Join, each painted whole (frame, scene and mark in one, no dragon to stand apart): cut
-    // to their frame and brought to the others' size (they are within a pixel or two of its shape)
+    // Vs. Player (two dragons arm wrestling), Create and Join, each painted whole (frame, scene and
+    // mark in one, no dragon to stand apart): cut to their frame and brought to the others' size (they
+    // are within a pixel or two of its shape). Round them lies a haze of all but clear specks (alpha
+    // under 8): cleared first, or the cut would take it for the card.
     const size = { width: 600, height: Math.round((600 * box.height) / box.width) }
-    for (const name of ['create', 'join']) {
-      const trimmed = await sharp(dir(name)).trim({ threshold: 1 }).png().toBuffer()
+    for (const [name, file] of [['player', 'arm-wrestling'], ['create', 'create'], ['join', 'join']]) {
+      const image = await raw(dir(file))
+      for (let p = 3; p < image.data.length; p += 4) if (image.data[p] < 8) image.data[p] = 0
+      const cleared = await fromRaw(image).png().toBuffer()
+      const trimmed = await sharp(cleared).trim({ threshold: 1 }).png().toBuffer()
       await twice(sharp(trimmed).resize({ ...size, fit: 'fill' }), `choice-card-${name}`)
     }
   },
