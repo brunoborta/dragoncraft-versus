@@ -237,6 +237,14 @@ body {
 .token-blaze { position: absolute; z-index: 3; pointer-events: none; mix-blend-mode: screen; }
 .token-blaze canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
+/* ---------- the turn's fuse (components/TurnFuse), online: round the board, over it ---------- */
+.turn-fuse { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.turn-fuse-rope, .turn-fuse-sparks { position: absolute; inset: 0; width: 100%; height: 100%; }
+.turn-fuse-rope g { transition: opacity 400ms ease; }
+.turn-fuse-edge { fill: none; stroke: #2b1a0d; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.turn-fuse-cord { fill: none; stroke: url(#turn-fuse-twist); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.turn-fuse-ash { fill: none; stroke: #1c140e; stroke-opacity: 0.55; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+
 /* ---------- M9: the vine (components/Moments, Vine): grown along its course in --grow-ms, then faded ---------- */
 .vine { pointer-events: none; animation: vine-fade 240ms ease-in 620ms both; }
 @keyframes vine-fade { from { opacity: 1; } to { opacity: 0; } }

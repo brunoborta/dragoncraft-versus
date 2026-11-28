@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD_OUTLINE, hexPoints } from './geometry.js'
+import { BOARD_LOOP, BOARD_OUTLINE, hexPoints } from './geometry.js'
 
 describe('BOARD_OUTLINE', () => {
   it('traces the 30 outer edges of the 3-4-5-4-3 board as one closed path', () => {
@@ -13,5 +13,18 @@ describe('BOARD_OUTLINE', () => {
 describe('hexPoints', () => {
   it('insets a space around its own centre', () => {
     expect(hexPoints({ q: 0, r: 0 }, 0.5).split(' ')[0]).toBe('5.00,0.00')
+  })
+})
+
+describe('BOARD_LOOP', () => {
+  it('runs round the outline from the middle of its right side, going down first', () => {
+    expect(BOARD_LOOP).toHaveLength(30)
+    const rightmost = Math.max(...BOARD_LOOP.map((point) => point.x))
+    expect(BOARD_LOOP[0].x).toBeCloseTo(rightmost)
+    expect(BOARD_LOOP[0].y).toBeCloseTo(0)
+    expect(BOARD_LOOP[1].y).toBeGreaterThan(BOARD_LOOP[0].y)
+    // halfway round it is at the left, and the last half crosses the top
+    expect(BOARD_LOOP[15].x).toBeCloseTo(-rightmost)
+    expect(BOARD_LOOP[22].y).toBeLessThan(0)
   })
 })

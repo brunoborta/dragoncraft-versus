@@ -31,6 +31,7 @@ import {
 } from './Moments.js'
 import { FireChoice } from './FireChoice.js'
 import { TokenBlaze, useBlaze, useLastFire, useSmoulder } from './TokenBlaze.js'
+import { TurnFuse } from './TurnFuse.js'
 import { HeldSlot } from './HeldToken.js'
 import { PlayerBar } from './PlayerBar.js'
 import { OpponentThinking, Prompt } from './Prompt.js'
@@ -534,6 +535,8 @@ export function GameScreen({
         ) : null}
         {/* under their portrait, in the corner the hexagon leaves empty */}
         <HeldSlot side="opponent" token={theirHeld} arriving={arrivingIn(opponentSeat)} />
+        {/* online, the turn's clock: its fuse, lit for the last stretch, round the board */}
+        {table.clock ? <TurnFuse clock={table.clock} area={boardArea} /> : null}
         {/* a token firing up, set alight */}
         {blaze ? <TokenBlaze key={blaze.seq} at={blaze.at} ability={blaze.ability} delay={blaze.delay} area={boardArea} /> : null}
         {/* and it keeps burning, low, while its ability waits on a target */}

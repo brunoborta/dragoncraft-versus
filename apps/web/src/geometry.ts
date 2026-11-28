@@ -44,7 +44,7 @@ export const BOARD_VIEWBOX = (() => {
  * shared with a neighbour, chained corner to corner. The gold frame is drawn
  * along it, so its gradient spans the board instead of restarting on each hex.
  */
-export const BOARD_OUTLINE = (() => {
+const OUTLINE_POINTS = (() => {
   const corner = (hex: Hex, i: number) => {
     const center = hexCenter(hex)
     const angle = (Math.PI / 180) * 60 * i
@@ -59,7 +59,30 @@ export const BOARD_OUTLINE = (() => {
   const start = next.keys().next().value as string
   const points = [start]
   for (let at = next.get(start); at && at !== start; at = next.get(at)) points.push(at)
-  return `M ${points.join(' L ')} Z`
+  return points
+})()
+
+export const BOARD_OUTLINE = `M ${OUTLINE_POINTS.join(' L ')} Z`
+
+/**
+ * The same outline as points, from the middle of the board's right side and
+ * down round it (clockwise on screen), not back to the start: the turn's fuse
+ * runs along it, so its last half runs left to right across the top.
+ */
+export const BOARD_LOOP: readonly { x: number; y: number }[] = (() => {
+  const points = OUTLINE_POINTS.map((text) => {
+    const [x, y] = text.split(',').map(Number)
+    return { x, y }
+  })
+  // the rightmost, and of those the nearest the middle
+  let start = 0
+  points.forEach((point, i) => {
+    const best = points[start]
+    if (point.x > best.x + 0.01 || (Math.abs(point.x - best.x) <= 0.01 && Math.abs(point.y) < Math.abs(best.y))) start = i
+  })
+  const ordered = [...points.slice(start), ...points.slice(0, start)]
+  // down first: y runs down the screen
+  return ordered[1].y > ordered[0].y ? ordered : [ordered[0], ...ordered.slice(1).reverse()]
 })()
 
 /**
