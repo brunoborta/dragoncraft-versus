@@ -1,4 +1,5 @@
 import { abilityActions, fireUpAbility, reduceAbility } from './abilities.js'
+import { pick } from './rng.js'
 import { drawToken } from './bag.js'
 import { canReceive, pushToken, topOf } from './board.js'
 import { BOARD } from './hex.js'
@@ -269,6 +270,53 @@ function settle(state: GameState): GameState {
     current = { ...current, pending: current.pending.slice(0, -1) }
   }
   if (current.phase === 'play' && current.pending.length === 0) return { ...current, phase: 'score' }
+  return current
+}
+
+/**
+ * The current player's time is up: the turn is played out for them by the
+ * rules a slow player loses to, and handed on. Logged first (`timeOut`), so
+ * every view can tell a turn played out from one played.
+ *
+ * - a token in hand goes on a space drawn at random, and is not fired up;
+ * - a crystal's pick is drawn at random, and placed the same way;
+ * - a coin's discard keeps a pair drawn at random;
+ * - an ability waiting on a target (meat, iron, potion, plant) is cancelled;
+ * - nothing is scored.
+ *
+ * Every random choice comes from the game's own generator, so a replay of the
+ * log gives the same game.
+ */
+export function timeOut(state: GameState): GameState {
+  if (state.phase === 'ended') throw new Error('the game is already over')
+  const seat = state.current
+  let current: GameState = { ...state, log: [...state.log, { seat, action: { type: 'timeOut' } }] }
+  const random = (actions: Action[]): Action => {
+    const drawn = pick(actions, current.rng)
+    current = { ...current, rng: drawn.rng }
+    return drawn.item
+  }
+  // a guard against a rule that never lets go: a turn is a handful of steps
+  for (let step = 0; step < 100 && current.phase !== 'ended' && current.current === seat; step++) {
+    const pending = topPending(current)
+    if (!pending) {
+      current = endTurn(current)
+      continue
+    }
+    switch (pending.kind) {
+      case 'place':
+      case 'crystalPick':
+      case 'coinDiscard':
+        current = applyAction(current, random(pendingActions(current, pending)))
+        break
+      case 'mayFireUp':
+        current = applyAction(current, { type: 'skipFireUp' })
+        break
+      default:
+        // meat, iron, potion, plant: what they would have done is not done
+        current = settle({ ...current, pending: current.pending.slice(0, -1) })
+    }
+  }
   return current
 }
 
