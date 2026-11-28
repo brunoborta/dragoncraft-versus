@@ -1,8 +1,8 @@
-import { actionKey, applyAction, createGame, forfeit, legalActions, undoTarget } from '@dcv/engine'
+import { actionKey, applyAction, createGame, forfeit, legalActions, timeOut, undoTarget } from '@dcv/engine'
 import { toPlayerView } from '@dcv/engine'
 import type { Action, GameState, Seat } from '@dcv/engine'
-import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
-import type { ErrorCode, ServerMessage, TableOptions } from '@dcv/protocol'
+import { AWAY_TURNS, DEFAULT_TABLE_OPTIONS, TURN_MS, turnMs } from '@dcv/protocol'
+import type { ErrorCode, ServerMessage, TableOptions, TurnClock } from '@dcv/protocol'
 
 export type ClientId = string
 
@@ -10,6 +10,16 @@ export type ClientId = string
 export type Outbound = { to: ClientId; message: ServerMessage }
 
 type SeatRecord = { token: string; client: ClientId | null }
+
+/**
+ * The turn being played, against the clock. `touched`: whether its player
+ * has touched the screen or moved since it began. A turn run out without
+ * either is a turn they were away from the table.
+ */
+type Clock = { seat: Seat; startedAt: number; deadline: number; touched: boolean }
+
+/** What running out the clock came to, for the transport's log. */
+export type TimeOut = { room: string; seat: Seat; away: boolean; forfeited: boolean }
 
 const MESSAGES: Record<ErrorCode, string> = {
   'bad-message': 'That is not a message this server understands',
@@ -52,6 +62,10 @@ export class Room {
   private gameNumber = 0
   /** When the room last had nobody connected; sweeping reads it. */
   idleSince: number
+  /** The turn's clock, once the game is on and until it ends. */
+  private clock: Clock | null = null
+  /** Turns in a row each seat let run out while away from the table. */
+  private away: [number, number] = [0, 0]
 
   constructor(
     readonly id: string,
@@ -62,6 +76,8 @@ export class Room {
     readonly options: TableOptions = DEFAULT_TABLE_OPTIONS,
     /** Where a rematch's seed comes from; the first game got its own in `seed`. */
     private readonly newSeed: () => number = () => Math.floor(Math.random() * 0x7fffffff),
+    /** The time, for the turn's clock. */
+    private readonly now: () => number = Date.now,
   ) {
     this.history = [createGame(seed)]
     this.idleSince = createdAt
@@ -101,6 +117,7 @@ export class Room {
 
   private viewFor(seat: Seat): ServerMessage {
     const mine = this.state.current === seat && this.state.phase !== 'ended'
+    const clock = this.clockNow()
     return {
       type: 'view',
       view: toPlayerView(this.state, seat),
@@ -108,7 +125,83 @@ export class Room {
       opponentConnected: this.clientAt((1 - seat) as Seat) !== null,
       canUndo: mine && this.undoable,
       game: this.gameNumber,
+      ...(clock ? { clock } : {}),
     }
+  }
+
+  /** The clock as it stands now, said the way a client reads it. */
+  private clockNow(): TurnClock | null {
+    if (!this.clock) return null
+    return {
+      seat: this.clock.seat,
+      remainingMs: Math.max(0, this.clock.deadline - this.now()),
+      totalMs: this.clock.deadline - this.clock.startedAt,
+    }
+  }
+
+  /**
+   * After anything that may have moved the game: a new turn gets a fresh
+   * clock (the full turn, or only a fuse for a player who was away the last
+   * time) and an ended game none. The same turn keeps its clock.
+   */
+  private keepTime(): void {
+    if (!this.started || this.state.phase === 'ended') {
+      this.clock = null
+      return
+    }
+    const seat = this.state.current
+    if (this.clock?.seat === seat) return
+    const startedAt = this.now()
+    this.clock = { seat, startedAt, deadline: startedAt + turnMs(this.away[seat]), touched: false }
+  }
+
+  /**
+   * Someone is at `seat`: if it is their turn, it is not one they are away
+   * from, and a fuse they began it with is put out. They get the whole
+   * turn, counted from its start. Whether the clock changed.
+   */
+  private touch(seat: Seat): boolean {
+    const clock = this.clock
+    if (!clock || clock.seat !== seat) return false
+    clock.touched = true
+    this.away[seat] = 0
+    const whole = clock.startedAt + TURN_MS
+    if (clock.deadline >= whole) return false
+    clock.deadline = whole
+    return true
+  }
+
+  /** The clock to everyone connected, when it changed with no move. */
+  private broadcastClock(): Outbound[] {
+    const clock = this.clockNow()
+    if (!clock) return []
+    return this.clients().map((to) => ({ to, message: { type: 'clock', clock } }))
+  }
+
+  /** A seat touched its screen. Says so to the room only when that put a fuse out. */
+  awake(client: ClientId): Outbound[] {
+    const seat = this.seatOf(client)
+    if (seat === null) return []
+    return this.touch(seat) ? this.broadcastClock() : []
+  }
+
+  /**
+   * The clock, checked: a turn past its deadline is played out for its player
+   * (`timeOut`) and handed on. Run out while away from the table (not a
+   * touch, not a move all turn) it counts towards giving the game up, and
+   * the AWAY_TURNS-th in a row does. A slow player, however slow, never does.
+   */
+  tick(): { out: Outbound[]; timedOut: TimeOut | null } {
+    const clock = this.clock
+    if (!clock || this.now() < clock.deadline || this.state.phase === 'ended') return { out: [], timedOut: null }
+    const seat = clock.seat
+    const away = !clock.touched
+    this.away[seat] = away ? this.away[seat] + 1 : 0
+    const forfeited = this.away[seat] >= AWAY_TURNS
+    this.history = [...this.history, forfeited ? forfeit(this.state, seat) : timeOut(this.state)]
+    this.clock = null
+    this.keepTime()
+    return { out: this.broadcastViews(), timedOut: { room: this.id, seat, away, forfeited } }
   }
 
   private rematchFor(seat: Seat): ServerMessage {
@@ -161,7 +254,10 @@ export class Room {
     this.seats[seat] = { token, client }
     const seated: Outbound = { to: client, message: { type: 'seated', room: this.id, seat, token, role: 'player', options: this.options } }
 
-    if (this.started) return [seated, ...this.broadcastViews()]
+    if (this.started) {
+      this.keepTime()
+      return [seated, ...this.broadcastViews()]
+    }
     return [seated, ...this.arrival(client, seat)]
   }
 
@@ -216,6 +312,9 @@ export class Room {
 
     // apply the engine's own object, not the client's: same key, no stray fields
     this.history = [...this.history, applyAction(this.state, legal)]
+    // a move is the surest sign someone is there
+    this.touch(seat)
+    this.keepTime()
     return this.broadcastViews()
   }
 
@@ -259,6 +358,7 @@ export class Room {
     }
 
     this.history = [...this.history, forfeit(this.state, seat)]
+    this.keepTime()
     return this.broadcastViews()
   }
 
@@ -281,6 +381,9 @@ export class Room {
       this.wantsRematch = [false, false]
       this.gameNumber += 1
       this.history = [createGame(this.newSeed())]
+      this.away = [0, 0]
+      this.clock = null
+      this.keepTime()
       return this.broadcastViews()
     }
 

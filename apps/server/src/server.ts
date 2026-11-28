@@ -17,6 +17,8 @@ export type ServerOptions = {
   now?: () => number
   pingMs?: number
   sweepMs?: number
+  /** How often the turn clocks are checked. */
+  clockMs?: number
   log?: (line: string) => void
 }
 
@@ -48,8 +50,8 @@ function closeReason(code: number, timedOut: boolean): string {
  * "I dropped" can be traced in the host's logs to when and why.
  */
 export function startServer(options: ServerOptions): Promise<RunningServer> {
-  const rooms = options.rooms ?? new Rooms()
   const now = options.now ?? Date.now
+  const rooms = options.rooms ?? new Rooms({ now })
   const log = options.log ?? (() => {})
   const connections = new Map<ClientId, Connection>()
   let nextClient = 1
@@ -220,6 +222,10 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
         deliver(out)
         return
       }
+      case 'awake': {
+        if (connection.room) deliver(connection.room.awake(client))
+        return
+      }
       case 'rematch': {
         if (!connection.room) {
           send(client, errorMessage('not-seated'))
@@ -281,6 +287,15 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
     }
   }, options.sweepMs ?? 60_000)
 
+  const clocks = setInterval(() => {
+    const { out, timedOut } = rooms.tick()
+    for (const each of timedOut) {
+      const how = each.forfeited ? 'gave the game up, away too long' : each.away ? 'ran out of time, away from the table' : 'ran out of time'
+      log(`room ${each.room} seat ${each.seat} ${how}`)
+    }
+    deliver(out)
+  }, options.clockMs ?? 500)
+
   return new Promise((resolve) => {
     http.listen(options.port, () => {
       const address = http.address()
@@ -293,6 +308,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
           new Promise<void>((done) => {
             clearInterval(pinger)
             clearInterval(sweeper)
+            clearInterval(clocks)
             for (const connection of connections.values()) connection.socket.terminate()
             wss.close(() => http.close(() => done()))
           }),

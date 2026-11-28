@@ -63,6 +63,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
       return { type: 'forfeit' }
     case 'leave':
       return { type: 'leave' }
+    case 'awake':
+      return { type: 'awake' }
     default:
       return null
   }

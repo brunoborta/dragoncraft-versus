@@ -18,6 +18,7 @@ describe('parseClientMessage', () => {
     expect(parseClientMessage('{"type":"rematch"}')).toEqual({ type: 'rematch' })
     expect(parseClientMessage('{"type":"forfeit"}')).toEqual({ type: 'forfeit' })
     expect(parseClientMessage('{"type":"leave"}')).toEqual({ type: 'leave' })
+    expect(parseClientMessage('{"type":"awake"}')).toEqual({ type: 'awake' })
   })
 
   it('rejects what is not a message', () => {

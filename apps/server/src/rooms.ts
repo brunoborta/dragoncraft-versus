@@ -1,6 +1,7 @@
 import { roomId, seatToken } from './ids.js'
 import type { TableOptions } from '@dcv/protocol'
 import { Room } from './room.js'
+import type { Outbound, TimeOut } from './room.js'
 
 /** A room nobody is connected to for this long is gone. Phones sleep; half an hour is not a dropped wifi. */
 export const IDLE_MS = 30 * 60 * 1000
@@ -13,6 +14,8 @@ type Options = {
   newToken?: () => string
   newSeed?: () => number
   maxRooms?: number
+  /** The time, for the rooms' turn clocks. */
+  now?: () => number
 }
 
 /**
@@ -26,12 +29,14 @@ export class Rooms {
   private readonly newToken: () => string
   private readonly newSeed: () => number
   private readonly maxRooms: number
+  private readonly now: () => number
 
   constructor(options: Options = {}) {
     this.newId = options.newId ?? roomId
     this.newToken = options.newToken ?? seatToken
     this.newSeed = options.newSeed ?? (() => Math.floor(Math.random() * 0x7fffffff))
     this.maxRooms = options.maxRooms ?? MAX_ROOMS
+    this.now = options.now ?? Date.now
   }
 
   get size(): number {
@@ -43,13 +48,25 @@ export class Rooms {
     if (this.rooms.size >= this.maxRooms) return null
     let id = this.newId()
     while (this.rooms.has(id)) id = this.newId()
-    const room = new Room(id, this.newSeed(), this.newToken, now, options)
+    const room = new Room(id, this.newSeed(), this.newToken, now, options, this.newSeed, this.now)
     this.rooms.set(id, room)
     return room
   }
 
   get(id: string): Room | undefined {
     return this.rooms.get(id)
+  }
+
+  /** Every room's clock, checked: what the turns that ran out came to. */
+  tick(): { out: Outbound[]; timedOut: TimeOut[] } {
+    const out: Outbound[] = []
+    const timedOut: TimeOut[] = []
+    for (const room of this.rooms.values()) {
+      const result = room.tick()
+      out.push(...result.out)
+      if (result.timedOut) timedOut.push(result.timedOut)
+    }
+    return { out, timedOut }
   }
 
   /** Removes what nobody will come back to, and hands them over so anyone still in one can be told. */

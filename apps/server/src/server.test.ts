@@ -1,4 +1,5 @@
 import { nextInt } from '@dcv/engine'
+import { TURN_MS } from '@dcv/protocol'
 import type { ServerMessage } from '@dcv/protocol'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
@@ -99,6 +100,30 @@ describe('the server over real sockets', () => {
     client.send({ type: 'action', action: { type: 'endTurn' } })
     expect(await client.next()).toMatchObject({ type: 'error', code: 'not-seated' })
     client.close()
+  })
+
+  it('checks the turn clocks by itself: a turn run out is played out, and both seats are told', async () => {
+    const time = { now: 0 }
+    server = await startServer({ port: 0, allowedOrigins: [], rooms: new Rooms({ newSeed: () => 11, now: () => time.now }), now: () => time.now, clockMs: 10 })
+    const a = new Client(server.port)
+    await a.open()
+    a.send({ type: 'create' })
+    const seated = await a.nextOf('seated')
+    const b = new Client(server.port)
+    await b.open()
+    b.send({ type: 'join', room: seated.room })
+    const first = await a.nextOf('view')
+    await b.nextOf('view')
+    expect(first.clock).toEqual({ seat: first.view.current, remainingMs: TURN_MS, totalMs: TURN_MS })
+
+    time.now += TURN_MS
+    for (const client of [a, b]) {
+      const view = await client.nextOf('view')
+      expect(view.view.current).toBe(1 - first.view.current)
+      expect(view.view.log.some((entry) => entry.action.type === 'timeOut')).toBe(true)
+    }
+    a.close()
+    b.close()
   })
 
   it('plays a whole game between two sockets, and a reconnection in the middle keeps the seat', async () => {
