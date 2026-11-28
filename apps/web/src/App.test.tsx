@@ -147,6 +147,19 @@ describe('App', () => {
     expect(screen.getByText('Shared victory')).toBeDefined()
   })
 
+  it("puts the token asked for in your hand from the debug panel, and only while one is there to swap", () => {
+    render(<App seed={2} debug />)
+    choose('Vs. Computer')
+    pick('Easy')
+    for (const label of ['Iron', 'Plant']) {
+      fireEvent.click(screen.getByRole('button', { name: `Hold ${label}` }))
+      expect(screen.getByRole('img', { name: new RegExp(`^Your token: ${label}`) })).toBeDefined()
+    }
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    fireEvent.click(screen.getByLabelText(/^1,0: /))
+    expect((screen.getByRole('button', { name: 'Hold Bread' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('plays again against the same opponent, on a fresh seed, without asking anything', () => {
     render(<App seed={2} debug />)
     choose('Vs. Computer')

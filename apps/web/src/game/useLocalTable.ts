@@ -12,6 +12,11 @@ export type LocalTable = Table & {
   reset: (seed: number) => void
   /** Jumps to a state from elsewhere; the debug hatch uses it. */
   load: (state: GameState) => void
+  /** The debug panel's: reshape the state as it stands, or step on from it (see useGame). */
+  rig: (change: (state: GameState) => GameState) => void
+  push: (change: (state: GameState) => GameState) => void
+  /** The whole state, not just this seat's view of it: the debug panel reads it. */
+  state: GameState
 }
 
 /**
@@ -23,17 +28,20 @@ export function useLocalTable({
   seed,
   level,
   pace = 'thinking',
+  hold = false,
 }: {
   seed: number
   level: Difficulty | null
   pace?: Pace
+  /** The machine sits still (the debug panel's), to look at something without it moving on. */
+  hold?: boolean
 }): LocalTable {
   const game = useGame(seed)
   // the machine never moves while the screen is still showing something
   const [busy, setScreenBusy] = useState(false)
 
   // `level ?? 'easy'` is never read: the hook returns on `enabled` first
-  useOpponent({ session: game, seat: MACHINE_SEAT, level: level ?? 'easy', enabled: level !== null && !busy, pace })
+  useOpponent({ session: game, seat: MACHINE_SEAT, level: level ?? 'easy', enabled: level !== null && !busy && !hold, pace })
 
   const { state } = game
   const view = useMemo(() => toPlayerView(state, HUMAN_SEAT), [state])
@@ -54,5 +62,8 @@ export function useLocalTable({
     setScreenBusy,
     reset: game.reset,
     load: game.load,
+    rig: game.rig,
+    push: game.push,
+    state,
   }
 }

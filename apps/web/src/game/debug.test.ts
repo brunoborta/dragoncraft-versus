@@ -1,6 +1,6 @@
-import { winner } from '@dcv/engine'
+import { applyAction, canScore, createGame, legalActions, winner } from '@dcv/engine'
 import { describe, expect, it } from 'vitest'
-import { findGame, findNearEnd, isDebugEnabled, playOut } from './debug.js'
+import { findGame, findNearEnd, isDebugEnabled, playOut, withCoin, withHeld, withLastToken, withScorable } from './debug.js'
 
 describe('isDebugEnabled', () => {
   it('is off unless the fragment asks for it', () => {
@@ -55,5 +55,61 @@ describe('findGame', () => {
     // the state handed over is one the game really produces, not a built one
     const found = findGame('win', 0, 1)
     expect(JSON.stringify(playOut(found?.seed ?? 0))).toBe(JSON.stringify(found?.state))
+  })
+})
+
+describe('withHeld', () => {
+  it('puts the token asked for in hand, and it plays as one', () => {
+    const state = withHeld(createGame(3), 'plant')
+    expect(state.pending[state.pending.length - 1]).toMatchObject({ kind: 'place', token: { kind: 'single', type: 'plant' } })
+    const placed = applyAction(state, legalActions(state)[0])
+    expect(Object.values(placed.board).flat()).toContainEqual({ kind: 'single', type: 'plant' })
+  })
+
+  it('leaves the state alone when nothing is in hand', () => {
+    const state = createGame(3)
+    const placed = applyAction(state, legalActions(state)[0])
+    expect(withHeld(placed, 'iron')).toBe(placed)
+  })
+})
+
+describe('withCoin', () => {
+  it('gives the seat a coin it may spend this turn', () => {
+    const state = createGame(3)
+    const more = withCoin(state, 1)
+    expect(more.players[1].coins).toBe(state.players[1].coins + 1)
+    expect(more.players[0]).toBe(state.players[0])
+  })
+})
+
+describe('withLastToken', () => {
+  it('leaves the bag one draw from empty, and that draw sets off the end', () => {
+    const state = withLastToken(createGame(3))
+    expect(state.bag).toHaveLength(1)
+    expect(state.endTriggered).toBe(false)
+    let played = applyAction(state, legalActions(state)[0])
+    while (played.current === state.current) played = applyAction(played, legalActions(played).find((a) => a.type === 'endTurn' || a.type === 'skipFireUp') ?? legalActions(played)[0])
+    expect(played.endTriggered).toBe(true)
+  })
+})
+
+describe('withScorable', () => {
+  /** A game some way in: a board with tokens enough to fit a card, at the start of seat 0's turn. */
+  const midGame = () => playOut(3, (state) => Object.keys(state.board).length >= 10 && state.current === 0 && state.pending.length === 1)
+
+  it('hands the seat a card the board fits, the one it replaces going under the deck', () => {
+    const state = midGame()
+    const rigged = withScorable(state, 0)
+    const hand = rigged.players[0].hand
+    expect(hand.some((card) => canScore(rigged.board, card))).toBe(true)
+    expect(rigged.deck[rigged.deck.length - 1]).toBe(state.players[0].hand[state.players[0].hand.length - 1])
+  })
+
+  it('makes one up when the deck has none, and does nothing on the opening ring, where none can fit', () => {
+    const state = midGame()
+    const rigged = withScorable({ ...state, deck: [] }, 0)
+    expect(rigged.players[0].hand.some((card) => canScore(rigged.board, card))).toBe(true)
+    const opening = createGame(3)
+    expect(withScorable(opening, 0)).toBe(opening)
   })
 })

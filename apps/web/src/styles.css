@@ -1141,20 +1141,6 @@ body {
 .game-over button.btn-secondary { background: #fbf5e4; color: var(--parchment-ink); border-color: #b8913f; font-size: 16px; }
 .prompt-head .btn-secondary { min-height: 44px; padding: 0 14px; border-radius: var(--radius-pill); font: inherit; font-weight: 700; }
 
-/* Only reachable with #debug in the URL: a way to look at the final screen
-   without playing a hundred moves. */
-.debug { display: flex; gap: 8px; }
-.debug button {
-  flex: 1 1 0;
-  min-height: 36px;
-  background: rgb(8 18 13 / 0.7);
-  color: #c9d4cc;
-  border: 1px dashed rgb(217 180 90 / 0.6);
-  border-radius: 8px;
-  font: inherit;
-  font-size: 12px;
-}
-
 /* ----- online: lobby, PIN, reconnecting ----- */
 .modal > button {
   min-height: 48px;
@@ -1600,6 +1586,25 @@ body {
 .tutorial-debug-lessons { display: flex; flex-wrap: wrap; gap: 3px; margin: 3px 0 0 10px; }
 .tutorial-debug-lessons button { padding: 1px 5px; border-radius: 4px; border: 1px solid rgb(217 180 90 / 0.3); background: none; color: inherit; font-size: 11px; }
 .tutorial-debug [data-current] { background: rgb(217 180 90 / 0.3); border-color: #d9b45a; }
+/* the game's (components/GameDebug): the tutorial's panel, in sections of buttons */
+.game-debug { width: 210px; }
+.game-debug-section { display: grid; gap: 4px; margin-top: 8px; }
+.game-debug-section h3 { margin: 0; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; }
+.game-debug-section button {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid rgb(217 180 90 / 0.4);
+  background: rgb(255 255 255 / 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.game-debug-section button:disabled { opacity: 0.35; cursor: default; }
+.game-debug-tokens { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+.game-debug-tokens button { min-width: 0; padding: 2px 0; text-align: center; }
+.game-debug-tokens svg { display: block; width: 20px; height: 20px; margin: 0 auto; }
+.game-debug-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+.game-debug-row button { text-align: center; }
 
 /* ---------- the tutorial: Professor Maple over the game ---------- */
 

@@ -5,7 +5,9 @@ import { GameScreen } from './components/GameScreen.js'
 import { LEVEL_LABEL, ModeSetup } from './components/ModeSetup.js'
 import type { Start } from './components/ModeSetup.js'
 import { RoomLobby } from './components/RoomLobby.js'
-import { findGame, findNearEnd, isDebugEnabled, type Outcome } from './game/debug.js'
+import { findGame, findNearEnd, isDebugEnabled, withCoin, withHeld, withLastToken, withScorable, type Outcome } from './game/debug.js'
+import { useDebugFuse } from './game/useDebugFuse.js'
+import { GameDebug } from './components/GameDebug.js'
 import { parseRoute, roomHash } from './game/route.js'
 import { HUMAN_SEAT } from './game/seats.js'
 import { randomSeed } from './game/seed.js'
@@ -140,7 +142,11 @@ function LocalApp({
   useEffect(() => {
     if (chosenOptions) setOptions(chosenOptions)
   }, [chosenOptions])
-  const table = useLocalTable({ seed, level, pace: options.opponentThinks ? 'thinking' : 'instant' })
+  // the debug panel's: the machine held still
+  const [machineHeld, setMachineHeld] = useState(false)
+  const table = useLocalTable({ seed, level, pace: options.opponentThinks ? 'thinking' : 'instant', hold: machineHeld })
+  // the debug panel's: the turn's clock, as online
+  const fuse = useDebugFuse(table.state, table.push)
   const art = useArt()
 
   /**
@@ -179,35 +185,44 @@ function LocalApp({
     table.reset(next)
   }
 
-  const debugHatch = debugging ? (
-    <div className="debug">
-      <button type="button" onClick={() => jumpTo('win')}>
-        Win now
-      </button>
-      <button type="button" onClick={() => jumpTo('lose')}>
-        Lose now
-      </button>
-      <button type="button" onClick={() => jumpTo('draw')}>
-        Draw now
-      </button>
-      <button type="button" onClick={jumpToLastTokens}>
-        Last tokens
-      </button>
-    </div>
-  ) : null
+  const top = table.state.pending[table.state.pending.length - 1]
+  const yours = table.state.current === HUMAN_SEAT
+  const debugPanel =
+    debugging && level !== null ? (
+      <GameDebug
+        where={
+          table.state.phase === 'ended'
+            ? 'Game over'
+            : `${yours ? 'Your' : "Machine's"} turn · ${top ? top.kind : table.state.phase} · bag ${table.state.bag.length}`
+        }
+        canHold={yours && top?.kind === 'place'}
+        onHeld={(type) => table.rig((state) => withHeld(state, type))}
+        onFuse={fuse.light}
+        fuseLit={fuse.clock !== null}
+        onFuseOut={fuse.putOut}
+        machineHeld={machineHeld}
+        onMachineHeld={setMachineHeld}
+        onCoin={() => table.rig((state) => withCoin(state, HUMAN_SEAT))}
+        canScorable={withScorable(table.state, HUMAN_SEAT) !== table.state}
+        onScorable={() => table.rig((state) => withScorable(state, HUMAN_SEAT))}
+        canFinalRound={withLastToken(table.state) !== table.state}
+        onFinalRound={() => table.rig(withLastToken)}
+        onOutcome={jumpTo}
+        onLastTokens={jumpToLastTokens}
+      />
+    ) : null
 
   return (
     <>
       {table.view ? (
         <GameScreen
-          table={table}
+          table={fuse.clock ? { ...table, clock: fuse.clock } : table}
           view={table.view}
           label={level ? LEVEL_LABEL[level] : ''}
           detail={`Seed ${seed}`}
           restartLabel="New game"
           onRestart={restart}
           playAgain={{ act: playAgain }}
-          extras={debugHatch}
           paused={level === null}
           options={options}
           onOptionsChange={setOptions}
@@ -217,6 +232,7 @@ function LocalApp({
         />
       ) : null}
       {level === null ? <ModeSetup online={online} onStart={onStart} /> : null}
+      {debugPanel}
     </>
   )
 }

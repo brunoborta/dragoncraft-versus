@@ -22,6 +22,10 @@ export type LocalGame = {
   reset: (seed: number) => void
   /** Replaces the history with a state from elsewhere, losing what came before. */
   load: (state: GameState) => void
+  /** Reshapes the state as it stands, in place, history kept: the debug panel's hand of tricks. */
+  rig: (change: (state: GameState) => GameState) => void
+  /** A step that is not a seat's action (the clock running out), on top of the history like one. */
+  push: (change: (state: GameState) => GameState) => void
   /** Every state so far, oldest first: the tutorial keeps a copy at each page to go back to. */
   history: readonly GameState[]
   /** Puts back a whole history kept earlier, undo and all. */
@@ -69,9 +73,21 @@ export function useGame(seed: number, start?: () => GameState): LocalGame {
     setHistory([state])
   }, [])
 
+  const rig = useCallback((change: (state: GameState) => GameState) => {
+    setHistory((past) => [...past.slice(0, -1), change(past[past.length - 1])])
+  }, [])
+
+  const push = useCallback((change: (state: GameState) => GameState) => {
+    setHistory((past) => {
+      const last = past[past.length - 1]
+      const next = change(last)
+      return next === last ? past : [...past, next]
+    })
+  }, [])
+
   const restore = useCallback((kept: readonly GameState[]) => {
     setHistory([...kept])
   }, [])
 
-  return { state, actions, perform, undo, canUndo: target !== null, undos, forfeit, reset, load, history, restore }
+  return { state, actions, perform, undo, canUndo: target !== null, undos, forfeit, reset, load, rig, push, history, restore }
 }
