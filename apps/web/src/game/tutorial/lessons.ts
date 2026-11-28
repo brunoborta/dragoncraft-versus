@@ -161,7 +161,8 @@ const FIRST_TURN: Lesson = {
         SPOT.heldAndInfo,
       ),
     ),
-    putHere('1,1'),
+    // the token in hand is not on screen to drag: the space is tapped
+    putHere('1,1', 'Tap here to put your token.'),
     say('Each token you place may fire up its ability, once. We’ll try that soon. For now, skip it.', SPOT.fire),
     {
       kind: 'do',
@@ -195,7 +196,7 @@ const SCORING: Lesson = {
       'cards',
       scoreIt(
         'line-plant',
-        'When a card’s shape is on the board, it can be scored. One of the settings makes it rise, too. Tap Score to claim it.',
+        'When a card’s shape is on the board, it can be scored at the end of the turn. One of the settings makes it rise, too. Tap Score to claim it.',
       ),
     ),
     as('thumbs-up', plain(say('Three of a kind is worth 3. A mix of tokens is worth 2.', SPOT.yourStar))),
@@ -224,7 +225,7 @@ const BREAD: Lesson = {
       ),
     ),
     plain(putHere('0,1')),
-    plain(skipFire('Let’s keep it simple and skip this one too.')),
+    plain(skipFire('Let’s keep it simple and skip this one.')),
     as('feast', say('Two tokens, one turn. Not bad for a loaf.')),
   ],
 }
