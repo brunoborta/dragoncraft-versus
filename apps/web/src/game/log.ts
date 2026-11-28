@@ -7,6 +7,7 @@ export function describeLogLine(entry: LogEntry): string {
   if (entry.action.type === 'draw') return `Drew ${tokenLabel(entry.action.token)}`
   if (entry.action.type === 'gameOver') return 'Game over'
   if (entry.action.type === 'forfeit') return 'Gave up'
+  if (entry.action.type === 'timeOut') return 'Ran out of time'
   return describeAction(entry.action)
 }
 

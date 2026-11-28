@@ -1,10 +1,10 @@
 import type { Action, PlayerView, Seat } from '@dcv/engine'
 import { DEFAULT_TABLE_OPTIONS } from '@dcv/protocol'
-import type { ClientMessage, ServerMessage, TableOptions } from '@dcv/protocol'
+import type { ClientMessage, ServerMessage, TableOptions, TurnClock } from '@dcv/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { roomStorage } from './roomStorage.js'
 import type { RoomStorage } from './roomStorage.js'
-import type { Table, TableStatus } from './table.js'
+import type { Table, TableClock, TableStatus } from './table.js'
 
 /** The slice of `WebSocket` this hook touches, so a test can hand in a fake. */
 export type SocketLike = {
@@ -36,6 +36,9 @@ export type RemoteTable = Table & {
 
 /** These mean the seat is not ours to come back to. Everything else is a hiccup. */
 const FATAL = new Set(['room-not-found', 'room-full', 'bad-token', 'replaced', 'busy', 'left'])
+
+/** How often, at most, a touch of the screen is told to the server: it only needs to know someone is there. */
+export const AWAKE_EVERY_MS = 4000
 
 const FIRST_RETRY_MS = 1000
 const MAX_RETRY_MS = 30_000
@@ -78,6 +81,7 @@ export function useRemoteTable({
   const [roomId, setRoomId] = useState<string | null>(room)
   const [seat, setSeat] = useState<Seat | null>(null)
   const [options, setOptions] = useState<TableOptions>(chosen ?? DEFAULT_TABLE_OPTIONS)
+  const [clock, setClock] = useState<TableClock | null>(null)
   const chosenRef = useRef(chosen)
 
   const socketRef = useRef<SocketLike | null>(null)
@@ -134,8 +138,13 @@ export function useRemoteTable({
           }
           setOpponentConnected(message.opponentConnected)
           setStatus({ kind: 'playing' })
+          // the time left as the server said it, counted from now on this device's own clock
+          setClock(message.clock ? clockFrom(message.clock) : null)
           return
         }
+        case 'clock':
+          setClock(clockFrom(message.clock))
+          return
         case 'rematch':
           setWants({ youWant: message.youWant, opponentWants: message.opponentWants })
           return
@@ -244,6 +253,29 @@ export function useRemoteTable({
     setWants((current) => ({ ...current, youWant: true }))
   }, [])
 
+  /*
+   * Someone is here: on our turn, a touch or a key tells the server so (at
+   * most every AWAKE_EVERY_MS), and a turn begun with only a fuse, after one
+   * we were away for, gets its full time.
+   */
+  const ourTurn = view !== null && seat !== null && view.phase !== 'ended' && view.current === seat
+  useEffect(() => {
+    if (!ourTurn) return
+    let last = -Infinity
+    const awake = () => {
+      const now = Date.now()
+      if (now - last < AWAKE_EVERY_MS) return
+      last = now
+      socketRef.current?.send(JSON.stringify({ type: 'awake' } satisfies ClientMessage))
+    }
+    window.addEventListener('pointerdown', awake, true)
+    window.addEventListener('keydown', awake, true)
+    return () => {
+      window.removeEventListener('pointerdown', awake, true)
+      window.removeEventListener('keydown', awake, true)
+    }
+  }, [ourTurn])
+
   const leave = useCallback(() => {
     socketRef.current?.send(JSON.stringify({ type: 'leave' } satisfies ClientMessage))
   }, [])
@@ -259,10 +291,16 @@ export function useRemoteTable({
     status,
     opponentConnected,
     opponentLabel: 'Opponent',
+    clock,
     roomId,
     seat,
     options,
     game,
     rematch: { ...wants, opponentLeft, request: requestRematch, leave },
   }
+}
+
+/** The server's clock, as a deadline on this device's: the time it took to arrive is not counted against anyone. */
+function clockFrom(clock: TurnClock): TableClock {
+  return { seat: clock.seat, deadline: performance.now() + clock.remainingMs, totalMs: clock.totalMs }
 }

@@ -1,4 +1,11 @@
-import type { Action, PlayerView } from '@dcv/engine'
+import type { Action, PlayerView, Seat } from '@dcv/engine'
+
+/**
+ * The turn's clock, online: `seat` has until `deadline` (on `performance.now`'s
+ * clock, this device's) out of `totalMs`. Past it, the server plays the turn
+ * out. Against the machine there is none.
+ */
+export type TableClock = { seat: Seat; deadline: number; totalMs: number }
 
 export type TableStatus =
   /** A game is on (or over: `view.phase` says which). */
@@ -42,4 +49,6 @@ export type Table = {
    * machine waits for it before it moves; online there is nothing to wait.
    */
   setScreenBusy?: (busy: boolean) => void
+  /** The turn's clock, where there is one: online. */
+  clock?: TableClock | null
 }

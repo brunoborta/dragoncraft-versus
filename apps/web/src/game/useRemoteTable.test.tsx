@@ -4,7 +4,7 @@ import type { ClientMessage, ServerMessage } from '@dcv/protocol'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RoomStorage, SeatMemory } from './roomStorage.js'
-import { useRemoteTable } from './useRemoteTable.js'
+import { AWAKE_EVERY_MS, useRemoteTable } from './useRemoteTable.js'
 import type { SocketLike } from './useRemoteTable.js'
 
 class FakeSocket implements SocketLike {
@@ -277,5 +277,51 @@ describe('useRemoteTable: takebacks and giving up', () => {
     act(() => h.result.current.forfeit())
     expect(h.latest().sent.at(-1)).toEqual({ type: 'forfeit' })
     expect(h.result.current.actions).toEqual([])
+  })
+
+  describe('the turn clock', () => {
+    function mine() {
+      const h = harness('ROOM01')
+      act(() => h.latest().onopen?.())
+      act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: state.current, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
+      return h
+    }
+    const clock = (remainingMs: number, totalMs = 180_000) => ({ seat: state.current, remainingMs, totalMs })
+    const left = (h: ReturnType<typeof mine>) => h.result.current.clock!.deadline - performance.now()
+
+    it('reads the clock off each view as a deadline on this device, and takes a new one when the server sends it', () => {
+      const h = mine()
+      act(() => h.latest().receive({ ...viewMessage(state.current), clock: clock(30_000, 30_000) } as ServerMessage))
+      expect(h.result.current.clock).toMatchObject({ seat: state.current, totalMs: 30_000 })
+      expect(left(h)).toBeCloseTo(30_000, -2)
+      act(() => h.latest().receive({ type: 'clock', clock: clock(170_000) }))
+      expect(h.result.current.clock?.totalMs).toBe(180_000)
+      expect(left(h)).toBeCloseTo(170_000, -2)
+      // a view with none (the game is over) takes it away
+      act(() => h.latest().receive(viewMessage(state.current)))
+      expect(h.result.current.clock).toBeNull()
+    })
+
+    it('tells the server someone is here when the screen is touched on our turn, at most every few seconds', () => {
+      const h = mine()
+      act(() => h.latest().receive({ ...viewMessage(state.current), clock: clock(180_000) } as ServerMessage))
+      const awake = () => h.latest().sent.filter((message) => message.type === 'awake').length
+      act(() => void window.dispatchEvent(new Event('pointerdown')))
+      act(() => void window.dispatchEvent(new Event('pointerdown')))
+      expect(awake()).toBe(1)
+      act(() => vi.advanceTimersByTime(AWAKE_EVERY_MS))
+      act(() => void window.dispatchEvent(new Event('keydown')))
+      expect(awake()).toBe(2)
+    })
+
+    it("says nothing on the opponent's turn", () => {
+      const h = harness('ROOM01')
+      act(() => h.latest().onopen?.())
+      const other = (1 - state.current) as 0 | 1
+      act(() => h.latest().receive({ type: 'seated', room: 'ROOM01', seat: other, token: 't', role: 'player', options: DEFAULT_TABLE_OPTIONS }))
+      act(() => h.latest().receive(viewMessage(other)))
+      act(() => void window.dispatchEvent(new Event('pointerdown')))
+      expect(h.latest().sent.some((message) => message.type === 'awake')).toBe(false)
+    })
   })
 })
