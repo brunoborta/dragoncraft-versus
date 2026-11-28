@@ -537,6 +537,14 @@ describe('the token in hand', () => {
     expect(heldFromView({ ...view, pending: [] })).toBeNull()
   })
 
+  it('is still in hand while a coin’s cards are chosen over it', () => {
+    const view = toPlayerView(createGame(3), 0)
+    const top = view.pending[view.pending.length - 1]
+    const held = heldFromView(view)
+    expect(heldFromView({ ...view, pending: [...view.pending, { kind: 'coinDiscard' }] })).toEqual(held)
+    expect(top?.kind).toBe('place')
+  })
+
   it('is carried by every event: drawn into the hand, out of it on the placement', () => {
     const entries: LogEntry[] = [
       { seat: 1, action: { type: 'draw', token: single('meat') } },

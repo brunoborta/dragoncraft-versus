@@ -499,7 +499,9 @@ export function markCrystalDraws(events: PresentationEvent[], count: number): vo
 export type Held = { seat: Seat; token: Token }
 
 export function heldFromView(view: Pick<PlayerView, 'pending' | 'current'>): Held | null {
-  const top = view.pending[view.pending.length - 1]
+  // a coin spent before placing opens its cards over the placement: the token is still in hand under them
+  const open = view.pending.filter((pending) => pending.kind !== 'coinDiscard')
+  const top = open[open.length - 1]
   return top?.kind === 'place' ? { seat: view.current, token: top.token } : null
 }
 
